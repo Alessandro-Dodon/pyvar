@@ -352,7 +352,7 @@ def interactive_plot_es(data, subset=None):
     )
 
     fig.update_layout(
-        title="Expected Shortfall Visualization",
+        title="Backtesting Expected Shortfall",
         yaxis_title="Returns (%)",
         hovermode="x unified",
         height=500,
