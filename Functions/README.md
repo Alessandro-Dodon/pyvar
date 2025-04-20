@@ -11,3 +11,5 @@
 - In the functions, add the possibility to use wealth (W) as input, so it is even more customizable.
 
 - Continue with portfolio methods/ EVT (when Plazzi explains it)
+
+- Maybe add a function and visualization on the VCV 
