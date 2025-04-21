@@ -342,3 +342,88 @@ def plot_risk_contribution_lines(component_df):
     )
 
     fig.show()
+
+
+
+# Correlation Matrix Heatmap
+def interactive_plot_correlation_matrix(position_data):
+    """
+    Interactive heatmap of the lower-triangle correlation matrix of returns from monetary positions,
+    styled like seaborn heatmap with red-high / blue-low, white cell borders, no axis lines or labels.
+
+    Uses log returns if all positions are positive, otherwise falls back to percentage returns
+    to support short positions.
+    """
+    position_data = pd.DataFrame(position_data).dropna()
+
+    # Use log returns if all values are positive
+    if (position_data <= 0).any().any():
+        returns = position_data.pct_change().dropna()
+    else:
+        returns = np.log(position_data / position_data.shift(1)).dropna()
+
+    corr_matrix = returns.corr()
+    asset_names = corr_matrix.columns.tolist()
+
+    # Mask upper triangle
+    mask = np.tril(np.ones(corr_matrix.shape, dtype=bool))
+    masked_corr = np.where(mask, corr_matrix.values, np.nan)
+
+    hover_text = [
+        [f"{asset_i} & {asset_j}<br>Correlation = {corr_matrix.iloc[i, j]:.2f}" if mask[i, j] else ""
+         for j, asset_j in enumerate(asset_names)]
+        for i, asset_i in enumerate(asset_names)
+    ]
+
+    fig = go.Figure(data=go.Heatmap(
+        z=masked_corr,
+        x=asset_names,
+        y=asset_names,
+        text=hover_text,
+        hoverinfo='text',
+        colorscale='RdBu_r',
+        zmin=-1,
+        zmax=1,
+        showscale=True,
+        colorbar=dict(title='Correlation', thickness=15, len=0.75)
+    ))
+
+    fig.update_layout(
+        title="Correlation Matrix (Returns)",
+        width=900,
+        height=800,
+        template="simple_white",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        margin=dict(l=80, r=80, t=80, b=80),  # extra margin to avoid axis bleeding
+        xaxis=dict(
+            visible=False,
+            showgrid=False,
+            showline=False,
+            showticklabels=False,
+            zeroline=False
+        ),
+        yaxis=dict(
+            visible=False,
+            showgrid=False,
+            showline=False,
+            showticklabels=False,
+            zeroline=False,
+            autorange="reversed"
+        )
+    )
+
+    # White gridlines between cells
+    for i in range(len(asset_names)):
+        fig.add_shape(type="line",
+                      x0=-0.5, x1=len(asset_names) - 0.5,
+                      y0=i - 0.5, y1=i - 0.5,
+                      line=dict(color="white", width=1),
+                      xref="x", yref="y")
+        fig.add_shape(type="line",
+                      x0=i - 0.5, x1=i - 0.5,
+                      y0=-0.5, y1=len(asset_names) - 0.5,
+                      line=dict(color="white", width=1),
+                      xref="x", yref="y")
+
+    return fig
