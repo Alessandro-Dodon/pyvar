@@ -5,26 +5,70 @@ from arch import arch_model
 
 
 # Garch VaR
-def var_garch(returns, confidence_level, p=1, q=1):
+def var_garch(returns, confidence_level, p=1, q=1, vol_model="GARCH", distribution="normal"):
     """
-    Fit a GARCH(p,q) model and compute empirical daily VaR.
+    Fit a GARCH-type model and compute empirical daily VaR using standardized residuals.
 
     Parameters:
-    - returns: pd.Series (unscaled)
-    - confidence_level: float
-    - p, q: GARCH orders (default 1,1)
+    - returns: pd.Series (unscaled daily returns, e.g., in decimal format)
+    - confidence_level: float (e.g., 0.99 for 99% VaR)
+    - p: int, GARCH lag order (default = 1)
+    - q: int, ARCH lag order (default = 1)
+    - vol_model: str (default = "GARCH")
+        One of:
+        - "GARCH": standard symmetric GARCH
+        - "EGARCH": exponential GARCH (models log-volatility and asymmetry)
+        - "GJR": threshold GARCH (captures leverage effect with a dummy term)
+        - "APARCH": asymmetric power ARCH (generalized model with asymmetry + power)
+    - distribution: str (default = "normal")
+        One of:
+        - "normal": standard Gaussian distribution
+        - "t": Student's t distribution (fat tails)
+        - "ged": Generalized Error Distribution
+        - "skewt": Skewed Student's t (fat tails + skewness)
 
     Returns:
-    - result_data: pd.DataFrame (unscaled)
-    - next_day_var: float (unscaled)
+    - result_data: pd.DataFrame with:
+        - 'Returns': original returns
+        - 'Volatility': estimated conditional volatility
+        - 'Innovations': standardized residuals
+        - 'VaR': empirical VaR estimate at each time t
+        - 'VaR Violation': boolean flag for return < -VaR
+    - next_day_var: float, 1-day ahead VaR forecast (absolute % value)
     """
-    returns_scaled = returns * 100  # scale for stability
 
-    garch_model = arch_model(returns_scaled, vol="Garch", p=p, q=q)
-    garch_fit = garch_model.fit(disp="off")
+    # Validate model and distribution
+    vol_model = vol_model.upper()
+    distribution = distribution.lower()
+    valid_models = ["GARCH", "EGARCH", "GJR", "APARCH"]
+    valid_dists = ["normal", "t", "ged", "skewt"]
 
-    volatility = garch_fit.conditional_volatility / 100  # rescale
-    innovations = returns / volatility  # use original returns for innovations
+    if vol_model not in valid_models:
+        raise ValueError(f"vol_model must be one of {valid_models}")
+    if distribution not in valid_dists:
+        raise ValueError(f"distribution must be one of {valid_dists}")
+
+    # Scale returns
+    returns_scaled = returns * 100
+
+    # Model-specific settings
+    if vol_model == "GARCH":
+        model = arch_model(returns_scaled, vol="Garch", p=p, q=q, dist=distribution)
+    elif vol_model == "EGARCH":
+        model = arch_model(returns_scaled, vol="EGARCH", p=p, q=q, dist=distribution)
+    elif vol_model == "GJR":
+        model = arch_model(returns_scaled, vol="GARCH", p=p, o=1, q=q, dist=distribution)
+    elif vol_model == "APARCH":
+        model = arch_model(returns_scaled, vol="APARCH", p=p, o=1, q=q, dist=distribution)
+
+    # Fit model
+    fit = model.fit(disp="off")
+
+    # Extract conditional volatility
+    volatility = fit.conditional_volatility / 100
+
+    # Compute standardized residuals
+    innovations = returns / volatility
     quantile = np.percentile(innovations.dropna(), 100 * (1 - confidence_level))
     var_series = -volatility * quantile
 
@@ -36,7 +80,9 @@ def var_garch(returns, confidence_level, p=1, q=1):
     })
     result_data["VaR Violation"] = returns < -var_series
 
-    next_day_vol = (garch_fit.forecast(horizon=1).variance.values[-1][0] ** 0.5) / 100
+    # Forecast next-day variance and compute 1-day ahead VaR
+    forecast_var = fit.forecast(horizon=1).variance.values[-1][0]
+    next_day_vol = np.sqrt(forecast_var) / 100
     next_day_var = 100 * abs(quantile * next_day_vol)
 
     return result_data.dropna(), next_day_var

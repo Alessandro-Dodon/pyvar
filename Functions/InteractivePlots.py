@@ -209,7 +209,7 @@ def get_asset_color_map(assets):
 
 
 # VaR and UVaR Plot (for portfolio visualization)
-def plot_var_series(var_series, uvar_series):
+def interactive_plot_var_series(var_series, uvar_series):
     """
     Plot Asset-Normal VaR and Undiversified VaR over time.
 
@@ -253,7 +253,7 @@ def plot_var_series(var_series, uvar_series):
 
 
 # Risk Contribution Pie Chart (for portfolio visualization)
-def plot_risk_contribution_pie(component_df):
+def interactive_plot_risk_contribution_pie(component_df):
     """
     Plot an interactive pie chart of average absolute Component VaR per asset.
 
@@ -301,7 +301,7 @@ def plot_risk_contribution_pie(component_df):
 
 
 # Risk Contribution Over Time (for portfolio visualization)
-def plot_risk_contribution_lines(component_df):
+def interactive_plot_risk_contribution_lines(component_df):
     """
     Plot Component VaR over time for each asset using consistent colors.
 

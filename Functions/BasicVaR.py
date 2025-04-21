@@ -49,23 +49,25 @@ def var_parametric_iid(returns, confidence_level, holding_period=1, distribution
     - var_estimate: float (in %)
     """
     returns_clean = returns.dropna()
-    std_dev = returns_clean.std()
 
     if distribution == "normal":
+        std_dev = returns_clean.std()
         quantile = norm.ppf(1 - confidence_level)
+        scaled_std = std_dev * np.sqrt(holding_period)
 
     elif distribution == "t":
         df, loc, scale = t.fit(returns_clean)
         quantile = t.ppf(1 - confidence_level, df)
+        scaled_std = scale * np.sqrt(holding_period)
 
     elif distribution == "ged":
         beta, loc, scale = gennorm.fit(returns_clean)
         quantile = gennorm.ppf(1 - confidence_level, beta)
+        scaled_std = scale * np.sqrt(holding_period)
 
     else:
         raise ValueError("Supported distributions: 'normal', 't', 'ged'")
 
-    scaled_std = std_dev * np.sqrt(holding_period)
     var_value = -quantile * scaled_std
 
     var_series = pd.Series(var_value, index=returns.index)
@@ -106,32 +108,41 @@ def compute_es_historical(result_data, confidence_level):
 
 
 
-# Parametric Expected Shortfall (Normal only)
+# Parametric Expected Shortfall (Normal and t only)
 def compute_es_parametric(result_data, returns, confidence_level, holding_period=1, distribution="normal"):
     """
-    Compute Expected Shortfall (ES) for Parametric VaR model (Normal only).
+    Compute Expected Shortfall (ES) for Parametric VaR model using Normal or Student-t.
 
     Parameters:
     - result_data: pd.DataFrame to update with 'ES' column
     - returns: pd.Series used to fit the distribution
     - confidence_level: float
     - holding_period: int
-    - distribution: str ("normal" only)
+    - distribution: str ("normal", "t")
 
     Returns:
     - result_data: pd.DataFrame with added 'ES' column (flat, negative)
     - es_estimate: float (in %)
     """
-    if distribution != "normal":
-        raise ValueError("Only 'normal' distribution is supported for parametric ES.")
-
     returns_clean = returns.dropna()
-    std_dev = returns_clean.std()
     alpha = confidence_level
 
-    z = norm.ppf(alpha)
-    es_raw = std_dev * norm.pdf(z) / (1 - alpha)
-    es_value = es_raw * np.sqrt(holding_period)
+    if distribution == "normal":
+        std_dev = returns_clean.std()
+        z = norm.ppf(alpha)
+        es_raw = std_dev * norm.pdf(z) / (1 - alpha)
+        es_value = es_raw * np.sqrt(holding_period)
+
+    elif distribution == "t":
+        df, loc, scale = t.fit(returns_clean)
+        t_alpha = t.ppf(alpha, df)
+        pdf_val = t.pdf(t_alpha, df)
+        factor = (df + t_alpha**2) / (df - 1)
+        es_raw = scale * pdf_val * factor / (1 - alpha)
+        es_value = es_raw * np.sqrt(holding_period)
+
+    else:
+        raise ValueError("Supported distributions: 'normal', 't'")
 
     result_data["ES"] = pd.Series(es_value, index=result_data.index)
     es_estimate = 100 * es_value
