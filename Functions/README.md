@@ -16,4 +16,6 @@
 
 - Maybe meta functions (like for plotting etc)
 
+- Modify plotting functions so that the user may select static versions and not interactive if desired (easier for pdf etc)
+
 - Better styling when printing results for portfolio functions
