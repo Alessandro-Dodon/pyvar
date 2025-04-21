@@ -13,3 +13,7 @@
 - Continue with portfolio methods/ EVT (when Plazzi explains it)
 
 - Maybe add a function and visualization on the VCV 
+
+- Maybe add a function to download data directly from YF to use the portfolio VaR in an easy way
+
+- Maybe meta functions (like for plotting etc.)
