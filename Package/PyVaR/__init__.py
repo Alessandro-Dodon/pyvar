@@ -1,8 +1,6 @@
 from .BasicVaR import (
     var_historical,
-    var_parametric_iid,
-    var_parametric_student,
-    var_parametric_ged,
+    var_parametric_iid
 )
 
 from .VolatilityVaR import (
@@ -24,7 +22,7 @@ from .Backtesting import (
 )
 
 from .InteractivePlots import (
-    plot_interactive_var,
+    interactive_plot_var,
     interactive_plot_es,
     interactive_plot_volatility,
     get_asset_color_map,
