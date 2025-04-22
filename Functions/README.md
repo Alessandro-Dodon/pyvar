@@ -14,6 +14,6 @@
 
 - Better styling when printing results for portfolio functions
 
-- Backtesting for AN VaR?
+- Backtesting for AN VaR (it would require portfolio returns)? And ES (it would be exactly like parametric VaR with normal distribution)? 
 
 - Correlation modeling? And VEC(1,1)?
