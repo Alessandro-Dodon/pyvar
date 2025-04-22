@@ -285,32 +285,3 @@ def var_moving_average(returns, confidence_level, window=20):
     return result_data, next_day_var
 
 
-
-# Expected Shortfall (Volatility)
-def compute_expected_shortfall_volatility(data, confidence_level, subset=None):
-    """
-    Compute Expected Shortfall (ES) based on empirical innovations.
-
-    Parameters:
-    - data: pd.DataFrame with 'Innovations' and 'Volatility'
-    - confidence_level: float
-    - subset: tuple (start_date, end_date) or None
-
-    Returns:
-    - data: pd.DataFrame with new 'ES' column (full period)
-    """
-    if "Innovations" not in data.columns or "Volatility" not in data.columns:
-        raise ValueError("Data must contain 'Innovations' and 'Volatility' columns.")
-    
-    subset_data = data.copy()
-    if subset is not None:
-        subset_data = data.loc[subset[0]:subset[1]]
-
-    threshold = np.percentile(subset_data["Innovations"].dropna(), 100 * (1 - confidence_level))
-    tail_mean = subset_data["Innovations"][subset_data["Innovations"] < threshold].mean()
-
-    data["ES"] = -data["Volatility"] * tail_mean
-    return data
-
-
-
