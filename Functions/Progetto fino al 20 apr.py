@@ -21,20 +21,40 @@ def get_raw_prices(tickers, start="2024-01-01"):
         .ffill()
     )
 
-def convert_to_base(raw, cur_map, base="EUR"):
-    needed = {cur for cur in cur_map.values() if cur not in {base, "UNKNOWN"}}
+def convert_to_base(raw: pd.DataFrame, cur_map: dict, base: str = "EUR") -> pd.DataFrame:
+    """
+    raw    : DataFrame con prezzi raw (Close) in valute miste
+    cur_map: dict ticker->currency, es. {"MSFT":"USD","BP.L":"GBp",...}
+    base   : valuta di conversione, es. "EUR"
+    """
+    # 1) quali valute servono (escludo base e UNKNOWN)
+    needed = {cur_map[t] for t in raw.columns if cur_map[t] not in {base, "UNKNOWN"}}
+    # 2) scarico i tassi raw base->cur
     fx_pairs = [f"{base}{cur}=X" for cur in needed]
-    fx = (
-        yf.download(" ".join(fx_pairs),
-                    start=raw.index[0], auto_adjust=True, progress=False)["Close"]
-        .ffill() if fx_pairs else pd.DataFrame()
-    )
+    if fx_pairs:
+        fx = (
+            yf.download(" ".join(fx_pairs),
+                        start=raw.index[0], auto_adjust=True, progress=False)["Close"]
+        )
+        # Riallinea l'indice di fx a raw.index e ffill per coprire weekend/holidays
+        fx = fx.reindex(raw.index).ffill()
+    else:
+        fx = pd.DataFrame(index=raw.index)
+
+    # 3) costruisco i prezzi in base
     out = pd.DataFrame(index=raw.index)
     for t in raw.columns:
-        p = raw[t] * (0.01 if cur_map[t] in {"GBp","GBX","ZAc"} else 1)
-        if cur_map[t] not in {base, "UNKNOWN"}:
-            rate = fx[f"{base}{cur_map[t]}=X"]
-            p = p / rate
+        p = raw[t].copy()
+        # se penny stock (GBp, GBX o ZAc) converto prima in unità intere
+        if cur_map[t] in {"GBp","GBX","ZAc"}:
+            p *= 0.01
+        cur = cur_map[t]
+        if cur not in {base, "UNKNOWN"}:
+            pair = f"{base}{cur}=X"
+            if pair not in fx:
+                raise KeyError(f"FX ticker {pair} non trovato su Yahoo Finance")
+            rate = fx[pair]
+            p = p / rate       # ora rate è sempre popolate da ffill()
         out[t] = p
     return out
 
@@ -132,7 +152,7 @@ def compute_ff3factor_var(tickers, shares, base="EUR", start="2024-01-01", alpha
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles   import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums    import TA_CENTER, TA_LEFT
-from reportlab.platypus     import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.platypus     import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 from reportlab.lib.units    import cm
 from reportlab.lib          import colors
 import os
@@ -152,6 +172,7 @@ def save_report_as_pdf(metrics: dict,
         topMargin=2*cm, bottomMargin=2*cm
     )
     styles = getSampleStyleSheet()
+    # titoli e paragrafi
     if "RptTitle" not in styles:
         styles.add(ParagraphStyle("RptTitle",
                                   fontName="Times-Roman",
@@ -171,59 +192,60 @@ def save_report_as_pdf(metrics: dict,
                                   spaceAfter=4))
 
     story = []
-    # titolo
+    # cover
     story.append(Paragraph("Interpretation Report", styles["RptTitle"]))
     story.append(Paragraph(f"Date: {datetime.date.today():%d %B %Y}", styles["BodyTxt"]))
     story.append(Spacer(1, 0.7*cm))
 
-    # --- Metrics ---
-    story.append(Paragraph("Portfolio Risk Metrics", styles["SectHead"]))
-    story.append(Spacer(1, 0.3*cm))  # extra spazio
-    data = [["Metric", "Value"]]
+    # --- VaR Table ---
+    story.append(Paragraph("VaR Metrics (95%)", styles["SectHead"]))
+    data_var = [["Metric", "Value"]]
     for k, v in metrics.items():
-        data.append([k, f"{v:,.2f}"])
-    tbl = Table(data, colWidths=[8*cm, 6*cm])
-    tbl.setStyle(TableStyle([
+        if "VaR" in k and "CVaR" not in k:
+            data_var.append([k, f"{v:,.2f}"])
+    tbl_var = Table(data_var, colWidths=[8*cm, 6*cm])
+    tbl_var.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
         ("ALIGN",       (1,1), (-1,-1), "RIGHT"),
         ("GRID",        (0,0), (-1,-1), 0.5, colors.grey),
         ("FONTNAME",    (0,0), (-1,-1), "Times-Roman"),
     ]))
-    story.append(tbl)
+    story.append(tbl_var)
     story.append(Spacer(1, 0.7*cm))
 
-    # --- Weights ---
-    story.append(Paragraph("Portfolio Weights", styles["SectHead"]))
-    story.append(Spacer(1, 0.3*cm))
-    wdata = [["Ticker", "Weight (%)"]]
-    for t, wt in weights.items():
-        wdata.append([t, f"{wt*100:.2f}"])
-    wtbl = Table(wdata, colWidths=[4*cm, 4*cm])
-    wtbl.setStyle(TableStyle([
+    # --- CVaR Table ---
+    story.append(Paragraph("CVaR Metrics (95%)", styles["SectHead"]))
+    data_cvar = [["Metric", "Value"]]
+    for k, v in metrics.items():
+        if "CVaR" in k:
+            data_cvar.append([k, f"{v:,.2f}"])
+    tbl_cvar = Table(data_cvar, colWidths=[8*cm, 6*cm])
+    tbl_cvar.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
-        ("ALIGN", (1,1), (-1,-1), "RIGHT"),
-        ("GRID",  (0,0), (-1,-1), 0.5, colors.grey),
-        ("FONTNAME", (0,0), (-1,-1), "Times-Roman"),
+        ("ALIGN",       (1,1), (-1,-1), "RIGHT"),
+        ("GRID",        (0,0), (-1,-1), 0.5, colors.grey),
+        ("FONTNAME",    (0,0), (-1,-1), "Times-Roman"),
     ]))
-    story.append(wtbl)
+    story.append(tbl_cvar)
     story.append(Spacer(1, 0.7*cm))
-
-    
 
     # --- LLM Interpretation ---
     story.append(Paragraph("LLM Interpretation", styles["SectHead"]))
-    story.append(Spacer(1, 0.3*cm))
-    # rimuovo eventuale prima riga "Correlation Matrix:..."
-    lines = interpretation.splitlines()
-    if lines and lines[0].startswith("Correlation Matrix"):
-        lines.pop(0)
-    clean_interp = "\n".join(lines).strip()
-    for para in clean_interp.split("\n\n"):
+    for para in interpretation.split("\n\n"):
         story.append(Paragraph(para.replace("\n"," "), styles["BodyTxt"]))
         story.append(Spacer(1, 0.3*cm))
 
-    # costruisco PDF e lo apro
-    doc.build(story)
+    # footer callback
+    def footer(canvas, doc):
+        canvas.saveState()
+        canvas.setFont("Times-Roman", 8)
+        canvas.setFillColor("grey")
+        canvas.drawCentredString(A4[0]/2, 1*cm, f"Page {doc.page} — Confidential")
+        canvas.restoreState()
+
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+
+    # apri file
     path = os.path.abspath(filename)
     os.startfile(path)
     print(f"✅ Report PDF generato e aperto: {path}")
@@ -232,105 +254,136 @@ def save_report_as_pdf(metrics: dict,
 
 
 
+
+
+
+
+
+
+
+
+
 # ────────── Main ──────────
 if __name__ == "__main__":
+    # 1) Input
     BASE   = input("Base currency (EUR): ").upper()
     TKS    = input("Tickers (sep space): ").upper().split()
     SHARES = pd.Series({t: float(input(f"Shares of {t}: ")) for t in TKS})
     START  = "2024-01-01"
 
-    # download, convert, stats
+    # 2) Download, convert, stats
     raw      = get_raw_prices(TKS, START)
-    cur_map  = {t:(yf.Ticker(t).fast_info or {}).get("currency", BASE) for t in TKS}
+    cur_map  = {t: (yf.Ticker(t).fast_info or {}).get("currency", BASE) for t in TKS}
     prices   = convert_to_base(raw, cur_map, BASE)
     rets, mu, cov = compute_returns_stats(prices)
 
-    # portfolio
-    last     = prices.iloc[-1]
-    port_val = (last*SHARES).sum()
-    w        = (last*SHARES)/port_val
+    # ─── DEBUGGING ────────────────────────────────────────────────
+    print("\n[DEBUG] Covariance matrix of returns:")
+    print(cov.round(6))
 
-    # VaR/CVaR
-    hVar,  hCVar  = historical_var(rets.dot(w), alpha=5)
-    nVar,  nCVar  = parametric_var_cvar(w.dot(mu),
-                                        np.sqrt(w.values@cov.values@w.values),
-                                        "normal", alpha=5)
-    tVar,  tCVar  = parametric_var_cvar(w.dot(mu),
-                                        np.sqrt(w.values@cov.values@w.values),
-                                        "t-distribution", alpha=5, dof=6)
+    last5_prices = prices.tail(5)
+    pos_val      = last5_prices.mul(SHARES, axis=1)       # valori azioni in base
+    port_ts      = pos_val.sum(axis=1)                    # valore portafoglio
+    wt_ts        = pos_val.div(port_ts, axis=0)           # pesi
+    debug_df     = pd.concat([
+        port_ts.rename("Portfolio Value"),
+        pos_val.add_suffix(" Value"),
+        wt_ts.add_suffix(" Weight")
+    ], axis=1).round(4)
+
+    print("\n[DEBUG] Last 5 days portfolio breakdown:")
+    print(debug_df)
+    # ──────────────────────────────────────────────────────────────
+
+    # 3) Portfolio aggregates at last date
+    last     = prices.iloc[-1]
+    port_val = (last * SHARES).sum()
+    w        = (last * SHARES) / port_val
+
+    # 4) VaR & CVaR calculations
+    hVar, hCVar = historical_var(rets.dot(w), alpha=5)
+    nVar, nCVar = parametric_var_cvar(
+        w.dot(mu),
+        np.sqrt(w.values @ cov.values @ w.values),
+        dist="normal", alpha=5
+    )
+    tVar, tCVar = parametric_var_cvar(
+        w.dot(mu),
+        np.sqrt(w.values @ cov.values @ w.values),
+        dist="t-distribution", alpha=5, dof=6
+    )
     mcVar, mcCVar, sims = mc_var_cvar(mu, cov, port_val, w, sims=5000, alpha=5)
 
-    spy_price = convert_to_base(get_raw_prices(["SPY"], START),
-                                {"SPY":"USD"}, BASE)["SPY"]
+    spy_price = convert_to_base(
+        get_raw_prices(["SPY"], START),
+        {"SPY": "USD"},
+        BASE
+    )["SPY"]
     market    = spy_price.pct_change().dropna()
     Sigma_sh, betas_sh, idio_sh, _ = sharpe_model_cov(rets, market)
-    sigma_sh  = np.sqrt(w.values@Sigma_sh.values@w.values)
-    sVar      = norm.ppf(0.95)*sigma_sh*port_val
-    sCVar     = sigma_sh*norm.pdf(norm.ppf(0.05))/0.05*port_val
+    sigma_sh = np.sqrt(w.values @ Sigma_sh.values @ w.values)
+    sVar     = norm.ppf(0.95) * sigma_sh * port_val
+    sCVar    = sigma_sh * norm.pdf(norm.ppf(0.05)) / 0.05 * port_val
 
     ffVar, ffCVar = compute_ff3factor_var(TKS, SHARES, BASE, START, alpha=0.95)
 
-    # stampa a console
-    print(f"\nPortfolio Value: {port_val:,.2f} {BASE}")
-    for label,value in [
-        ("Historical VaR 95%",   hVar*port_val),
-        ("Parametric Normal VaR",nVar*port_val),
-        ("Parametric t VaR",     tVar*port_val),
+    # 5) Print results to console
+    print(f"\nPortfolio Value: {port_val:,.2f} {BASE}\n")
+    print("VaR Methods:")
+    for label, val in [
+        ("Historical VaR 95%",   hVar * port_val),
+        ("Parametric Normal VaR",nVar * port_val),
+        ("Parametric t VaR",     tVar * port_val),
         ("MC VaR 95%",           mcVar),
         ("Sharpe-model VaR 95%", sVar),
-        ("FF-3factor VaR 95%",   ffVar)
+        ("FF-3factor VaR 95%",   ffVar),
     ]:
-        print(f"  {label:25s}: {value:,.2f}")
-    print()
-    for label,value in [
-        ("Historical CVaR 95%",   hCVar*port_val),
-        ("Parametric Normal CVaR",nCVar*port_val),
-        ("Parametric t CVaR",     tCVar*port_val),
+        print(f"  {label:25s}: {val:,.2f}")
+    print("\nCVaR Methods:")
+    for label, val in [
+        ("Historical CVaR 95%",   hCVar * port_val),
+        ("Parametric Normal CVaR",nCVar * port_val),
+        ("Parametric t CVaR",     tCVar * port_val),
         ("MC CVaR 95%",           mcCVar),
         ("Sharpe-model CVaR 95%", sCVar),
-        ("FF-3factor CVaR 95%",   ffCVar)
+        ("FF-3factor CVaR 95%",   ffCVar),
     ]:
-        print(f"  {label:25s}: {value:,.2f}")
+        print(f"  {label:25s}: {val:,.2f}")
 
-    # prepare metrics dict
+    # 6) Prepare metrics dict
     metrics = {
-        "Historical VaR 95%":      hVar*port_val,
-        "Historical CVaR 95%":     hCVar*port_val,
-        "Parametric Normal VaR":   nVar*port_val,
-        "Parametric Normal CVaR":  nCVar*port_val,
-        "Parametric t VaR":        tVar*port_val,
-        "Parametric t CVaR":       tCVar*port_val,
+        "Historical VaR 95%":      hVar * port_val,
+        "Historical CVaR 95%":     hCVar * port_val,
+        "Parametric Normal VaR":   nVar * port_val,
+        "Parametric Normal CVaR":  nCVar * port_val,
+        "Parametric t VaR":        tVar * port_val,
+        "Parametric t CVaR":       tCVar * port_val,
         "MC VaR 95%":              mcVar,
         "MC CVaR 95%":             mcCVar,
-        "Sharpe-Model VaR 95%":    sVar,
-        "Sharpe-Model CVaR 95%":   sCVar,
+        "Sharpe-model VaR 95%":    sVar,
+        "Sharpe-model CVaR 95%":   sCVar,
         "FF-3factor VaR 95%":      ffVar,
         "FF-3factor CVaR 95%":     ffCVar,
     }
 
-
-
-
-
-    # load LLM offline
+    # 7) LLM interpretation
     print("\nLoading LLM model…")
-    model = GPT4All(model_name="DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf",  #QUA METTETE IL MODELLO CHE AVETE SCARICATO
-                    model_path=r"C:/Users/nickl/AppData/Local/nomic.ai/GPT4All", #QUA IL PERCORSO DEL MODELLO 
-                    allow_download=False, verbose=False)
-
-    prompt = (f"You are a senior financial analyst. Interpret these metrics: {metrics}") #modifica del prompt
-
-    response = model.generate(prompt, max_tokens=10) #Lunghezza massima della risposta
+    model = GPT4All(
+        model_name="DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf",
+        model_path=r"C:/Users/nickl/AppData/Local/nomic.ai/GPT4All",
+        allow_download=False, verbose=False
+    )
+    prompt   = f"You are a senior financial analyst. Interpret these metrics:\n{metrics}"
+    response = model.generate(prompt, max_tokens=200)
     print("\n--- LLM Interpretation ---\n")
     print(response)
 
-
-    # genera e apre il PDF
+    # 8) Generate & open PDF report
     save_report_as_pdf(metrics, w, response)
 
-    # infine mostra istogramma Monte Carlo
+    # 9) Plot MC histogram
     plt.hist(sims, bins=50, edgecolor='k')
-    plt.axvline(np.percentile(sims,5), color='r', linestyle='--', label='VaR95')
+    plt.axvline(np.percentile(sims, 5), color='r', linestyle='--', label='VaR95')
     plt.title('MC Simulated Portfolio Values')
     plt.xlabel('Portfolio Value')
     plt.ylabel('Frequency')
