@@ -1,6 +1,91 @@
 import numpy as np
 import pandas as pd
 from arch import arch_model
+from scipy.stats import norm, t, gennorm
+import warnings
+
+#################################################
+# Note: double check all formulas and scaling
+#################################################
+
+
+
+# Garch Forecast (Analytical Formula, for Variance or VaR)
+def garch_forecast(
+    returns,
+    steps_ahead=10,
+    cumulative=False,
+    compute_var=False,
+    confidence_level=0.99,
+    distribution="normal"
+):
+    """
+    Forecast GARCH(1,1) variance or Value-at-Risk (VaR) steps_ahead into the future.
+
+    Parameters
+    ----------
+    returns : pd.Series
+        Daily returns in decimal format (e.g., 0.01 = 1%)
+    steps_ahead : int
+        Forecast horizon in days
+    cumulative : bool
+        If True, compute cumulative variance forecast (total variance over horizon)
+    compute_var : bool
+        If True, return VaR instead of variance
+    confidence_level : float
+        Confidence level for VaR computation (e.g., 0.99)
+    distribution : str
+        Distribution for standardized innovations: "normal", "t", or "ged"
+
+    Returns
+    -------
+    float
+        Forecasted variance (decimal) or VaR (percentage).
+    """
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        model = arch_model(returns, vol="GARCH", p=1, q=1, dist="normal")
+        fit = model.fit(disp="off")
+
+    omega = fit.params["omega"]
+    alpha = fit.params["alpha[1]"]
+    beta = fit.params["beta[1]"]
+    phi = alpha + beta
+
+    if phi >= 1:
+        raise ValueError("Unstable GARCH: alpha + beta must be < 1 for variance forecast.")
+
+    sigma2_t = fit.conditional_volatility.iloc[-1] ** 2
+    var_long_run = omega / (1 - phi)
+
+    if cumulative:
+        denom = 1 - phi
+        term1 = var_long_run * (steps_ahead - 1 - phi * (1 - phi**(steps_ahead - 1)) / denom)
+        term2 = ((1 - phi**steps_ahead) / denom) * sigma2_t
+        variance = term1 + term2
+    else:
+        variance = var_long_run + phi**steps_ahead * (sigma2_t - var_long_run)
+
+    if not compute_var:
+        return variance  # plain decimal variance
+
+    # VaR calculation
+    innovations = fit.resid / fit.conditional_volatility
+    innovations = innovations.dropna()
+
+    distribution = distribution.lower()
+    if distribution == "normal":
+        z = norm.ppf(1 - confidence_level)
+    elif distribution == "t":
+        df, loc, scale = t.fit(innovations)
+        z = t.ppf(1 - confidence_level, df, loc=loc, scale=scale)
+    elif distribution == "ged":
+        beta_ged, loc, scale = gennorm.fit(innovations)
+        z = gennorm.ppf(1 - confidence_level, beta_ged, loc=loc, scale=scale)
+    else:
+        raise ValueError("Supported distributions: 'normal', 't', 'ged'")
+
+    return 100 * -z * np.sqrt(variance)  # VaR in %
 
 
 
