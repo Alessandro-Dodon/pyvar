@@ -1,7 +1,5 @@
 ### TODO (Ale)
 
-- Maybe add possibility of using z not empirical but drawn from distributions with volatility models
-
 - Maybe add GARCH based simulations (it is complex)
 
 - In the (volatility and basicVaR) functions, add the possibility to use wealth (W) as input, so it is even more customizable
@@ -16,4 +14,4 @@
 
 - Backtesting for AN VaR (it would require portfolio returns)? And ES (it would be exactly like parametric VaR with normal distribution)? 
 
-- Correlation modeling? And VEC(1,1)?
+- Correlation modeling? Finish debugging so they are compatible with ES and plotting functions.

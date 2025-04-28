@@ -137,82 +137,11 @@ def var_riskmetrics_param(x_matrix, confidence_level=0.99, lambda_decay=0.94):
 
 
 
-# VEC(1,1) VaR
-def var_vec_param(x_matrix, confidence_level=0.99):
-    """
-    Estimate portfolio VaR using a simplified VEC(1,1) model.
-
-    This model simulates multivariate GARCH-style volatility using a VEC(1,1)
-    framework with fixed parameters α and β. It assumes conditional normality
-    of returns and computes time-varying covariance matrices recursively.
-
-    VaR is computed as:
-        VaR_t = z_alpha * sqrt(x_tᵀ Σ_t x_t)
-
-    This function uses monetary positions `x_matrix` directly rather than portfolio weights.
-
-    Parameters:
-    - x_matrix: pd.DataFrame (T × N), monetary positions per asset over time
-    - confidence_level: float, VaR confidence level (e.g., 0.99)
-
-    Assumptions:
-    - Covariance follows VEC(1,1):  
-    Σ_t = ω + α * (r_{t-1} r_{t-1}ᵀ) + β * Σ_{t-1}
-    - Portfolio returns are conditionally normal
-    """
-
-    returns = x_matrix.pct_change().dropna()
-    T, N = returns.shape
-
-    # Initialize with sample VCV
-    sigma_t = returns.cov().values
-    sigma_series = []
-
-    # VEC(1,1) parameters (constant + autoregressive + innovation)
-    alpha = 0.03
-    beta = 0.95
-    omega = (1 - alpha - beta) * returns.cov().values
-
-    for t in range(1, T):
-        r_outer = np.outer(returns.iloc[t-1], returns.iloc[t-1])
-        sigma_t = omega + alpha * r_outer + beta * sigma_t
-        sigma_series.append(sigma_t.copy())
-
-    # Align x with returns
-    x_matrix = x_matrix.loc[returns.index[1:]]
-    returns = returns.iloc[1:]
-
-    z_alpha = norm.ppf(confidence_level)
-    var_series = []
-    vol_series = []
-    portfolio_returns = (x_matrix * returns).sum(axis=1) / x_matrix.sum(axis=1)
-
-    for t, sigma in enumerate(sigma_series):
-        x_t = x_matrix.iloc[t].values.reshape(-1, 1)
-        port_var = float(x_t.T @ sigma @ x_t)
-        vol_series.append(np.sqrt(port_var))
-        var_series.append(z_alpha * np.sqrt(port_var))
-
-    result_data = pd.DataFrame({
-        "Portfolio Return": portfolio_returns,
-        "Portfolio Volatility": vol_series,
-        "VaR": var_series
-    }, index=portfolio_returns.index)
-
-    result_data["VaR Violation"] = result_data["Portfolio Return"] < -result_data["VaR"]
-
-    x_last = x_matrix.iloc[-1].values.reshape(-1, 1)
-    sigma_last = sigma_series[-1]
-    next_day_vol = float(np.sqrt(x_last.T @ sigma_last @ x_last))
-    next_day_var = float(z_alpha * next_day_vol)
-
-    return result_data, next_day_var
-
-
-
 #------------------------------------------------------------------------------------------------------------------
 # We try the same models with z computed empirically, to match the volatility models previoous logic and get the ES
 #------------------------------------------------------------------------------------------------------------------
+
+
 
 # MA VaR (Empirical)
 def var_movingaverage_empirical(x_matrix, confidence_level=0.99, window_size=20):
@@ -384,104 +313,6 @@ def var_riskmetrics_empirical(x_matrix, confidence_level=0.99, lambda_decay=0.94
     # Next-day forecast (last covariance + last position)
     x_last = x_matrix.iloc[-1].values.reshape(-1, 1)
     sigma_last = cov_matrices[-1]
-    next_day_vol = float(np.sqrt(x_last.T @ sigma_last @ x_last))
-    latest_portfolio_value = x_matrix.sum(axis=1).iloc[-1]
-    next_day_var = abs(empirical_quantile * next_day_vol * latest_portfolio_value)
-
-    return result_data, next_day_var
-
-
-
-# VEC(1,1) VaR (Empirical)
-def var_vec_empirical(x_matrix, confidence_level=0.99):
-    """
-    Estimate portfolio VaR using a simplified VEC(1,1) model and empirical quantiles
-    of portfolio standardized innovations.
-
-    This model simulates multivariate GARCH-style volatility using a VEC(1,1)
-    framework with fixed parameters α and β. No distributional assumption is made
-    on returns (non-parametric VaR).
-
-    VaR is computed as:
-        VaR_t = - z_alpha_empirical * sqrt(x_tᵀ Σ_t x_t) × portfolio_value_t
-
-    Innovations are computed dynamically as:
-        innovation_t = portfolio_return_t / sqrt(x_tᵀ Σ_t x_t)
-
-    where:
-    - x_t: vector of monetary positions at time t
-    - Σ_t: estimated VEC(1,1) covariance matrix at time t
-    - portfolio_return_t: portfolio percentage return at time t
-
-    Parameters:
-    - x_matrix: pd.DataFrame (T × N), monetary positions per asset over time
-    - confidence_level: float, VaR confidence level (e.g., 0.99)
-
-    Assumptions:
-    - Portfolio returns are not assumed to be Normally distributed
-    - Covariance matrices evolve according to a VEC(1,1) structure:
-      Σ_t = ω + α (r_{t-1} r_{t-1}ᵀ) + β Σ_{t-1}
-
-    Returns:
-    - result_data: pd.DataFrame with 'Returns', 'Volatility', 'Innovations', 'VaR', 'VaR Violation'
-    - next_day_var: float, VaR estimate for next period (monetary value)
-    """
-    
-    returns = x_matrix.pct_change().dropna()
-    T, N = returns.shape
-
-    # Initialize covariance matrix
-    sigma_t = returns.cov().values
-    sigma_series = []
-
-    # VEC(1,1) parameters
-    alpha = 0.03
-    beta = 0.95
-    omega = (1 - alpha - beta) * returns.cov().values
-
-    for t in range(1, T):
-        r_outer = np.outer(returns.iloc[t-1], returns.iloc[t-1])
-        sigma_t = omega + alpha * r_outer + beta * sigma_t
-        sigma_series.append(sigma_t.copy())
-
-    # Align x_matrix and returns
-    x_matrix = x_matrix.loc[returns.index[1:]]
-    portfolio_returns = (x_matrix * returns.iloc[1:]).sum(axis=1) / x_matrix.sum(axis=1)
-
-    volatilities = []
-    innovations = []
-
-    for t, sigma in enumerate(sigma_series):
-        x_t = x_matrix.iloc[t].values.reshape(-1, 1)
-        portfolio_variance = float(x_t.T @ sigma @ x_t)
-        portfolio_volatility = np.sqrt(portfolio_variance)
-
-        volatilities.append(portfolio_volatility)
-        innovations.append(portfolio_returns.iloc[t] / portfolio_volatility)
-
-    # Create result DataFrame
-    result_data = pd.DataFrame({
-        "Returns": portfolio_returns,
-        "Volatility": volatilities,
-        "Innovations": innovations
-    }, index=portfolio_returns.index)
-
-    # Compute empirical quantile for VaR
-    empirical_quantile = np.percentile(result_data["Innovations"].dropna(), 100 * (1 - confidence_level))
-
-    # Compute VaR in percentage returns first
-    result_data["VaR"] = -result_data["Volatility"] * empirical_quantile
-
-    # Scale to monetary values
-    portfolio_value = x_matrix.sum(axis=1)
-    result_data["VaR"] = result_data["VaR"] * portfolio_value
-
-    # Identify VaR violations
-    result_data["VaR Violation"] = result_data["Returns"] * portfolio_value < -result_data["VaR"]
-
-    # Forecast next day VaR in monetary units
-    x_last = x_matrix.iloc[-1].values.reshape(-1, 1)
-    sigma_last = sigma_series[-1]
     next_day_vol = float(np.sqrt(x_last.T @ sigma_last @ x_last))
     latest_portfolio_value = x_matrix.sum(axis=1).iloc[-1]
     next_day_var = abs(empirical_quantile * next_day_vol * latest_portfolio_value)
