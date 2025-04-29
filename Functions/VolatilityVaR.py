@@ -115,7 +115,6 @@ def var_garch(returns, confidence_level, p=1, q=1, vol_model="GARCH", distributi
     Fit a GARCH-type model to returns and estimate daily Value-at-Risk (VaR) using empirical quantiles of standardized residuals.
 
     Model:
-    -----
     - Standard GARCH(1,1) recursion for variance:
         σ²ₜ = ω + α * ε²ₜ₋₁ + β * σ²ₜ₋₁
     - Extensions:
@@ -124,7 +123,6 @@ def var_garch(returns, confidence_level, p=1, q=1, vol_model="GARCH", distributi
         - APARCH: generalizes to asymmetric power transformations of returns.
 
     Parameters:
-    ----------
     - returns (pd.Series): Daily returns (decimal format, e.g., 0.01 for 1%).
     - confidence_level (float): Confidence level for VaR (e.g., 0.99).
     - p (int): GARCH lag order (default = 1).
