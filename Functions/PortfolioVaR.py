@@ -1,11 +1,19 @@
+#----------------------------------------------------------
+# Packages
+#----------------------------------------------------------
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
 import warnings
 
+#################################################
+# Note: double check all formulas and inputs (x)
+#       add caller (meta) function?
+#################################################
 
-
+#----------------------------------------------------------
 # Asset Normal VaR and Undiversified VaR
+#----------------------------------------------------------
 def var_asset_normal(
     position_data,
     confidence_level,
@@ -13,31 +21,48 @@ def var_asset_normal(
     undiversified=False
 ):
     """
-    Compute Asset-Normal Parametric VaR using a time series of monetary positions.
+    Asset-Normal VaR Estimation.
 
-    If `undiversified=True`, computes the Undiversified VaR assuming full correlation (ρ = 1),
-    i.e., the sum of individual VaRs per asset.
+    Assumes that asset returns are normally distributed, implying that
+    portfolio returns—being linear combinations—are also normally distributed.
 
-    Parameters
-    ----------
-    position_data : pd.DataFrame or np.ndarray
-        Time series of monetary values invested in each asset (shape: T x N).
-        Each row is a day, each column is an asset.
-        Must contain at least two rows to compute the covariance matrix.
+    Description:
+    - Diversified VaR: accounts for covariances among assets.
+    - Undiversified VaR (ρ = 1): assumes full positive correlation between assets, summing individual VaRs.
 
-    confidence_level : float
-        Confidence level for VaR, e.g., 0.99 for 99% VaR.
+    Formulas:
+    - Diversified VaR at time t:
+        VaRₜ = | z × sqrt( xₜᵀ Σ xₜ ) × sqrt(holding_period) |
+    - Undiversified VaR at time t:
+        VaRₜ = | z × sum(σᵢ × xᵢ) × sqrt(holding_period) |
+    where:
+        - xₜ: position vector at time t
+        - Σ: covariance matrix of returns
+        - σᵢ: standard deviation of asset i
+        - z: critical value from the standard normal distribution
 
-    holding_period : int, default = 1
-        VaR horizon in days.
+    Parameters:
+    - position_data (pd.DataFrame or np.ndarray): 
+        Time series of monetary positions (shape: T × N),
+        where T = number of days and N = number of assets.
 
-    undiversified : bool, default = False
-        If True, compute Undiversified VaR (sum of individual VaRs under ρ = 1).
+    - confidence_level (float): 
+        Confidence level for VaR (e.g., 0.99 for 99% VaR).
 
-    Returns
-    -------
-    pd.Series
-        Daily series of VaR estimates (diversified or undiversified), indexed by date.
+    - holding_period (int, optional): 
+        Holding period in days (default = 1).
+
+    - undiversified (bool, optional): 
+        If True, compute undiversified VaR (full correlation assumed).
+
+    Returns:
+    - pd.Series: 
+        Daily time series of VaR estimates, indexed by date (aligned to returns).
+
+    Notes:
+    - Returns are calculated from positions using percentage changes.
+    - Undiversified VaR corresponds to the sum of asset-level VaRs under full correlation (ρ = 1).
+    - Scaling by sqrt(holding_period) assumes independent daily returns.
     """
     # Convert to DataFrame if needed
     position_data = pd.DataFrame(position_data)
@@ -72,33 +97,53 @@ def var_asset_normal(
     return pd.Series(var_list, index=returns_data.index)
 
 
-
-# Marginal VaR using portfolio VaR and consistent scaling
+#----------------------------------------------------------
+# Marginal VaR (Delta VaR per Asset)
+#----------------------------------------------------------
 def marginal_var(
     position_data,
     confidence_level,
     holding_period=1
 ):
     """
-    Compute Marginal VaR (ΔVaR) for each asset in a portfolio over time,
-    using the same covariance structure and portfolio VaR logic as var_asset_normal.
+    Marginal Value-at-Risk (Marginal VaR) Estimation.
 
-    Parameters
-    ----------
-    position_data : pd.DataFrame or np.ndarray
-        Time series of monetary holdings per asset (T x N).
-        Each row is a day, each column is an asset.
+    Compute Marginal VaR (ΔVaR) for each asset in a portfolio at each time step.
 
-    confidence_level : float
+    Description:
+    - Marginal VaR measures the sensitivity of total portfolio VaR to small changes in each asset's position.
+    - It is proportional to each asset's beta relative to portfolio risk:
+        ΔVaRᵢ = ( ∂VaR / ∂xᵢ ) ≈ βᵢ × Portfolio VaR
+    where:
+        - βᵢ = (Σx)ᵢ / (x'Σx)
+        - x: portfolio holdings vector
+        - Σ: covariance matrix of returns
+
+    Formulas:
+    - Portfolio diversified VaR:
+        VaRₜ = | z × sqrt( xₜᵀ Σ xₜ ) × sqrt(holding_period) |
+    - Marginal VaR for asset i at time t:
+        ΔVaRᵢₜ = VaRₜ × ( (Σ xₜ)ᵢ / (xₜᵀ Σ xₜ) )
+
+    Parameters:
+    - position_data (pd.DataFrame or np.ndarray): 
+        Time series of monetary positions (shape: T × N), with T = days, N = assets.
+
+    - confidence_level (float): 
         Confidence level for VaR (e.g., 0.99).
 
-    holding_period : int, default = 1
-        VaR horizon in days.
+    - holding_period (int, optional): 
+        Holding period in days (default = 1).
 
-    Returns
-    -------
-    pd.DataFrame
-        Time series of Marginal VaRs per asset (T x N), in monetary units.
+    Returns:
+    - pd.DataFrame: 
+        Time series of Marginal VaRs (T × N), each entry giving the marginal risk contribution 
+        of asset i on day t, expressed in monetary units.
+
+    Notes:
+    - Relies on diversified VaR logic (full covariance matrix Σ used).
+    - If total portfolio variance is ~0, marginal VaRs are set to 0.
+    - Scaling by sqrt(holding_period) assumes independent daily returns.
     """
     # Ensure proper format
     position_data = pd.DataFrame(position_data)
@@ -143,23 +188,45 @@ def marginal_var(
     )
 
 
-
+#----------------------------------------------------------
 # Component VaR (using marginal VaR)
+#----------------------------------------------------------
 def component_var(position_data, confidence_level, holding_period=1):
     """
-    Compute Component VaR = x_i * ΔVaR_i for each asset and day.
+    Component VaR Estimation.
 
-    Parameters
-    ----------
-    position_data : pd.DataFrame or np.ndarray
-        Monetary positions (T x N)
-    confidence_level : float
-    holding_period : int
+    Compute the contribution of each asset to total portfolio VaR using:
+        ComponentVaRᵢ = xᵢ × ∂VaR/∂xᵢ = xᵢ × ΔVaRᵢ
 
-    Returns
-    -------
-    pd.DataFrame
-        Component VaR (T x N) in monetary units
+    Description:
+    - Relies on Marginal VaR (ΔVaR) estimates, which capture the sensitivity of portfolio VaR to small changes in each position.
+    - Each component reflects the individual risk contribution in monetary units.
+
+    Formulas:
+    - Component VaR at time t:
+        CVaRᵢₜ = xᵢₜ × ΔVaRᵢₜ
+    where:
+        - xᵢₜ: monetary position in asset i at time t
+        - ΔVaRᵢₜ: marginal VaR of asset i at time t
+
+    Parameters:
+    - position_data (pd.DataFrame or np.ndarray):
+        Time series of monetary holdings (shape: T × N),
+        where T = number of days and N = number of assets.
+
+    - confidence_level (float):
+        Confidence level for VaR (e.g., 0.99 for 99% VaR).
+
+    - holding_period (int, optional):
+        VaR horizon in days (default = 1).
+
+    Returns:
+    - pd.DataFrame:
+        Time series of Component VaRs per asset (T × N), in monetary units.
+
+    Notes:
+    - Sum of Component VaRs across assets equals total diversified portfolio VaR.
+    - Consistent with the Euler decomposition of VaR under normality and linearity.
     """
     position_data = pd.DataFrame(position_data)
     marginal_df = marginal_var(position_data, confidence_level, holding_period)
@@ -167,23 +234,45 @@ def component_var(position_data, confidence_level, holding_period=1):
     return component_df
 
 
-
+#----------------------------------------------------------
 # Relative Component VaR
+#----------------------------------------------------------
 def relative_component_var(position_data, confidence_level, holding_period=1):
     """
-    Compute Relative Component VaR = CVaR_i / VaR_total for each asset and day.
+    Relative Component VaR Estimation.
 
-    Parameters
-    ----------
-    position_data : pd.DataFrame or np.ndarray
-        Monetary positions (T x N)
-    confidence_level : float
-    holding_period : int
+    Compute the proportionate contribution of each asset to total portfolio VaR:
+        RelativeComponentVaRᵢ = ComponentVaRᵢ / TotalVaR
 
-    Returns
-    -------
-    pd.DataFrame
-        Relative CVaR (T x N), values between 0 and 1
+    Description:
+    - Measures how much each asset contributes to overall portfolio risk on a relative basis (percentage share).
+    - Useful for identifying risk concentration across assets.
+
+    Formulas:
+    - Relative Component VaR at time t:
+        RCVaRᵢₜ = CVaRᵢₜ / VaRₜ
+    where:
+        - CVaRᵢₜ: Component VaR of asset i at time t
+        - VaRₜ: total diversified portfolio VaR at time t
+
+    Parameters:
+    - position_data (pd.DataFrame or np.ndarray):
+        Time series of monetary holdings (shape: T × N),
+        where T = number of days and N = number of assets.
+
+    - confidence_level (float):
+        Confidence level for VaR (e.g., 0.99 for 99% VaR).
+
+    - holding_period (int, optional):
+        VaR horizon in days (default = 1).
+
+    Returns:
+    - pd.DataFrame:
+        Time series of Relative Component VaRs per asset (T × N), with values between 0 and 1.
+
+    Notes:
+    - Sum of relative components across assets equals 1 at each point in time.
+    - Computation is based on Component VaR divided by Total Diversified VaR.
     """
     position_data = pd.DataFrame(position_data)
     
@@ -197,28 +286,47 @@ def relative_component_var(position_data, confidence_level, holding_period=1):
     return rcvar_df
 
 
-
+#----------------------------------------------------------
 # Incremental VaR
+#----------------------------------------------------------
 def incremental_var(position_data, change_vector, confidence_level, holding_period=1):
     """
-    Compute Incremental VaR for a specified change in the portfolio.
+    Incremental VaR Estimation.
 
-    Formula (first-order approx):
-        IVaR = ΔVaR' × a
+    Compute the impact on total portfolio VaR of a change in positions, using Marginal VaR.
 
-    Parameters
-    ----------
-    position_data : pd.DataFrame or np.ndarray
-        Monetary positions (T x N)
-    change_vector : list or np.ndarray of shape (N,)
-        Change in holdings (same units as position_data)
-    confidence_level : float
-    holding_period : int
+    Description:
+    - Measures how a specific change in portfolio composition affects overall risk.
+    - First-order approximation based on the gradient (Marginal VaR).
 
-    Returns
-    -------
-    pd.Series
-        Time series of Incremental VaR values (1 per day)
+    Formulas:
+    - Incremental VaR at time t:
+        IVaRₜ = ΔVaRₜ' × a
+    where:
+        - ΔVaRₜ: vector of marginal VaRs at time t
+        - a: change vector (same dimension as the number of assets)
+
+    Parameters:
+    - position_data (pd.DataFrame or np.ndarray):
+        Time series of monetary holdings (shape: T × N),
+        where T = number of days and N = number of assets.
+
+    - change_vector (list or np.ndarray):
+        Vector specifying changes in holdings (shape: N,).
+
+    - confidence_level (float):
+        Confidence level for VaR (e.g., 0.99 for 99% VaR).
+
+    - holding_period (int, optional):
+        VaR horizon in days (default = 1).
+
+    Returns:
+    - pd.Series:
+        Time series of Incremental VaR estimates (one value per day).
+
+    Notes:
+    - Positive IVaR means the change increases portfolio risk.
+    - Negative IVaR means the change reduces portfolio risk.
     """
     position_data = pd.DataFrame(position_data)
     marginal_df = marginal_var(position_data, confidence_level, holding_period)

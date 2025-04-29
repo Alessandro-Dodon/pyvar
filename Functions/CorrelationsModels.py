@@ -1,8 +1,236 @@
+#----------------------------------------------------------
+# Packages
+#----------------------------------------------------------
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
 from arch.__future__ import reindexing
 from arch.univariate import ConstantMean, GARCH, StudentsT
+
+#################################################
+# Note: double check all formulas 
+#       add caller (meta) function?
+#       The plotting doesn't work! 
+#       Haven't checked the backtesting yet
+#################################################
+
+#----------------------------------------------------------
+# MA VaR (Empirical)
+#----------------------------------------------------------
+def var_movingaverage_empirical(x_matrix, confidence_level=0.99, window_size=20):
+    """
+    Moving Average VaR Estimation (Empirical, Non-Parametric).
+
+    Estimate portfolio Value-at-Risk (VaR) using a rolling sample covariance matrix
+    and empirical quantiles of standardized portfolio innovations.
+
+    Description:
+    - This method does not assume a parametric distribution.
+    - Volatility is computed via a rolling covariance matrix of returns.
+    - Standardized innovations are used to estimate an empirical quantile.
+
+    Formulas:
+    - Portfolio return:
+        Rₜ = (xₜ · rₜ) / (∑ xₜ)
+    - Rolling portfolio variance:
+        σ²ₜ = xₜᵀ Σₜ xₜ
+    - Standardized innovation:
+        εₜ = Rₜ / sqrt(σ²ₜ)
+    - VaR at time t:
+        VaRₜ = - Quantile(ε) × sqrt(σ²ₜ) × ∑ xₜ
+    - Next-day VaR:
+        VaRₜ₊₁ = - Quantile(ε) × sqrt(xₜ₊₁ᵀ Σₜ xₜ₊₁) × ∑ xₜ₊₁
+
+    Parameters:
+    - x_matrix (pd.DataFrame):
+        Monetary positions per asset (shape: T × N).
+
+    - confidence_level (float):
+        Confidence level for VaR (e.g., 0.99 for 99% VaR).
+
+    - window_size (int):
+        Rolling window size used to estimate Σₜ.
+
+    Returns:
+    - result_data (pd.DataFrame):
+        - 'Returns': portfolio returns (% of portfolio value)
+        - 'Volatility': time-varying portfolio volatility (decimal)
+        - 'Innovations': standardized shocks
+        - 'VaR': estimated portfolio VaR (monetary units)
+        - 'VaR Violation': boolean where realized loss > VaR
+
+    - next_day_var (float):
+        1-step ahead forecasted VaR in monetary units.
+
+    Notes:
+    - No parametric assumptions are made on return distributions.
+    - VaR is scaled in monetary terms using the current portfolio value.
+    """
+    returns = x_matrix.pct_change().dropna()
+    portfolio_returns = (x_matrix * returns).sum(axis=1) / x_matrix.sum(axis=1)
+
+    rolling_covs = returns.rolling(window=window_size).cov()
+
+    volatilities = []
+    innovations = []
+    valid_index = []
+
+    for t in range(window_size - 1, len(returns)):
+        cov_matrix = rolling_covs.loc[returns.index[t]]
+        x_t = x_matrix.iloc[t].values.reshape(-1, 1)
+        portfolio_variance = float(x_t.T @ cov_matrix.values @ x_t)
+        portfolio_volatility = np.sqrt(portfolio_variance)
+
+        volatilities.append(portfolio_volatility)
+        innovations.append(portfolio_returns.iloc[t] / portfolio_volatility)
+        valid_index.append(returns.index[t])
+
+    # Create the result DataFrame
+    result_data = pd.DataFrame({
+        "Returns": portfolio_returns.loc[valid_index],
+        "Volatility": volatilities,
+        "Innovations": innovations
+    }, index=valid_index)
+
+    # Compute empirical quantile for VaR
+    empirical_quantile = np.percentile(result_data["Innovations"].dropna(), 100 * (1 - confidence_level))
+
+    # Compute VaR series in percentage returns first
+    result_data["VaR"] = -result_data["Volatility"] * empirical_quantile
+
+    # Scale to monetary values
+    portfolio_value = x_matrix.sum(axis=1).loc[valid_index]
+    result_data["VaR"] = result_data["VaR"] * portfolio_value
+
+    # Identify VaR violations
+    result_data["VaR Violation"] = result_data["Returns"] * portfolio_value < -result_data["VaR"]
+
+    # Forecast next day VaR in monetary units
+    x_last = x_matrix.iloc[-1].values.reshape(-1, 1)
+    sigma_last = rolling_covs.loc[returns.index[-1]].values
+    next_day_vol = float(np.sqrt(x_last.T @ sigma_last @ x_last))
+    latest_portfolio_value = x_matrix.sum(axis=1).iloc[-1]
+    next_day_var = abs(empirical_quantile * next_day_vol * latest_portfolio_value)
+
+    return result_data, next_day_var
+
+
+# ----------------------------------------------------------
+# RiskMetrics VaR (Empirical)
+#----------------------------------------------------------
+def var_riskmetrics_empirical(x_matrix, confidence_level=0.99, lambda_decay=0.94):
+    """
+    RiskMetrics VaR Estimation (Empirical, Non-Parametric).
+
+    Estimate portfolio Value-at-Risk (VaR) using an exponentially weighted moving average (EWMA)
+    covariance matrix and empirical quantiles of standardized portfolio innovations.
+
+    Description:
+    - No assumption is made about return distributions.
+    - Time-varying risk is captured through EWMA updating of covariances.
+
+    Formulas:
+    - Portfolio return:
+        Rₜ = (xₜ · rₜ) / (∑ xₜ)
+    - EWMA update:
+        Σₜ = λ Σₜ₋₁ + (1 - λ) rₜ rₜᵀ
+    - Portfolio variance:
+        σ²ₜ = xₜᵀ Σₜ xₜ
+    - Innovation:
+        εₜ = Rₜ / sqrt(σ²ₜ)
+    - VaR:
+        VaRₜ = - Quantile(ε) × sqrt(σ²ₜ) × ∑ xₜ
+
+    Parameters:
+    - x_matrix (pd.DataFrame):
+        Time series of monetary positions per asset (T × N).
+
+    - confidence_level (float):
+        Confidence level for VaR (e.g., 0.99).
+
+    - lambda_decay (float):
+        Exponential decay factor for EWMA covariance (default = 0.94).
+
+    Returns:
+    - result_data (pd.DataFrame):
+        - 'Returns': portfolio returns
+        - 'Volatility': conditional volatility (decimal)
+        - 'Innovations': standardized shocks
+        - 'VaR': monetary VaR estimate per day
+        - 'VaR Violation': boolean flag where return × value < -VaR
+
+    - next_day_var (float):
+        One-step-ahead VaR forecast (monetary units).
+
+    Notes:
+    - The method captures volatility clustering without requiring normality.
+    - Innovations are used to obtain the empirical quantile for VaR computation.
+    """
+    # Compute returns matrix from x
+    returns = x_matrix.pct_change().dropna()
+    portfolio_returns = (x_matrix * returns).sum(axis=1) / x_matrix.sum(axis=1)
+
+    # Initialize EWMA covariance matrices
+    ewma_cov = returns.cov().values
+    cov_matrices = []
+
+    for t in range(returns.shape[0]):
+        r_t = returns.iloc[t].values.reshape(-1, 1)
+        ewma_cov = lambda_decay * ewma_cov + (1 - lambda_decay) * (r_t @ r_t.T)
+        cov_matrices.append(ewma_cov.copy())
+
+    # Align x_matrix to returns index
+    x_matrix = x_matrix.loc[returns.index]
+
+    volatilities = []
+    innovations = []
+
+    for t, sigma in enumerate(cov_matrices):
+        x_t = x_matrix.iloc[t].values.reshape(-1, 1)
+        portfolio_variance = float(x_t.T @ sigma @ x_t)
+        portfolio_volatility = np.sqrt(portfolio_variance)
+
+        volatilities.append(portfolio_volatility)
+        innovations.append(portfolio_returns.iloc[t] / portfolio_volatility)
+
+    # Create result DataFrame
+    result_data = pd.DataFrame({
+        "Returns": portfolio_returns,
+        "Volatility": volatilities,
+        "Innovations": innovations
+    }, index=returns.index)
+
+    # Compute empirical quantile for VaR
+    empirical_quantile = np.percentile(result_data["Innovations"].dropna(), 100 * (1 - confidence_level))
+
+    # Compute VaR in percentage returns first
+    result_data["VaR"] = -result_data["Volatility"] * empirical_quantile
+
+    # Scale to monetary values
+    portfolio_value = x_matrix.sum(axis=1)
+    result_data["VaR"] = result_data["VaR"] * portfolio_value
+
+    # Identify VaR violations
+    result_data["VaR Violation"] = result_data["Returns"] * portfolio_value < -result_data["VaR"]
+
+    # Next-day forecast (last covariance + last position)
+    x_last = x_matrix.iloc[-1].values.reshape(-1, 1)
+    sigma_last = cov_matrices[-1]
+    next_day_vol = float(np.sqrt(x_last.T @ sigma_last @ x_last))
+    latest_portfolio_value = x_matrix.sum(axis=1).iloc[-1]
+    next_day_var = abs(empirical_quantile * next_day_vol * latest_portfolio_value)
+
+    return result_data, next_day_var
+
+
+
+
+
+
+#----------------------------------------------------------
+# Those following are the old versions, delete later (still in the test notebook)
+#----------------------------------------------------------
+
 
 
 
@@ -132,189 +360,5 @@ def var_riskmetrics_param(x_matrix, confidence_level=0.99, lambda_decay=0.94):
     sigma_last = cov_matrices[-1]
     next_day_vol = float(np.sqrt(x_last.T @ sigma_last @ x_last))
     next_day_var = float(z_alpha * next_day_vol)
-
-    return result_data, next_day_var
-
-
-
-#------------------------------------------------------------------------------------------------------------------
-# We try the same models with z computed empirically, to match the volatility models previoous logic and get the ES
-#------------------------------------------------------------------------------------------------------------------
-
-
-
-# MA VaR (Empirical)
-def var_movingaverage_empirical(x_matrix, confidence_level=0.99, window_size=20):
-    """
-    Estimate portfolio VaR using a moving average (rolling window) of sample covariances
-    and empirical quantiles of portfolio standardized innovations.
-
-    This method assumes no fixed distribution for returns (non-parametric),
-    and uses a rolling historical sample covariance matrix to estimate
-    the time-varying variance-covariance matrix of returns.
-
-    VaR is computed as:
-        VaR_t = - z_alpha_empirical * sqrt(x_tᵀ Σ_t x_t) × portfolio_value_t
-
-    Innovations are computed dynamically as:
-        innovation_t = portfolio_return_t / sqrt(x_tᵀ Σ_t x_t)
-
-    where:
-    - x_t: vector of monetary positions at time t
-    - Σ_t: estimated covariance matrix at time t (from rolling sample)
-    - portfolio_return_t: portfolio percentage return at time t
-
-    Parameters:
-    - x_matrix: pd.DataFrame (T × N), monetary positions per asset over time
-    - confidence_level: float, VaR confidence level (e.g., 0.99)
-    - window_size: int, rolling window size for the moving average
-
-    Assumptions:
-    - Portfolio returns are not assumed to be Normally distributed
-    - Time-varying volatility comes from sample covariances in a rolling window
-
-    Returns:
-    - result_data: pd.DataFrame with 'Returns', 'Volatility', 'Innovations', 'VaR', 'VaR Violation'
-    - next_day_var: float, VaR estimate for next period (monetary value)
-    """
-    
-    returns = x_matrix.pct_change().dropna()
-    portfolio_returns = (x_matrix * returns).sum(axis=1) / x_matrix.sum(axis=1)
-
-    rolling_covs = returns.rolling(window=window_size).cov()
-
-    volatilities = []
-    innovations = []
-    valid_index = []
-
-    for t in range(window_size - 1, len(returns)):
-        cov_matrix = rolling_covs.loc[returns.index[t]]
-        x_t = x_matrix.iloc[t].values.reshape(-1, 1)
-        portfolio_variance = float(x_t.T @ cov_matrix.values @ x_t)
-        portfolio_volatility = np.sqrt(portfolio_variance)
-
-        volatilities.append(portfolio_volatility)
-        innovations.append(portfolio_returns.iloc[t] / portfolio_volatility)
-        valid_index.append(returns.index[t])
-
-    # Create the result DataFrame
-    result_data = pd.DataFrame({
-        "Returns": portfolio_returns.loc[valid_index],
-        "Volatility": volatilities,
-        "Innovations": innovations
-    }, index=valid_index)
-
-    # Compute empirical quantile for VaR
-    empirical_quantile = np.percentile(result_data["Innovations"].dropna(), 100 * (1 - confidence_level))
-
-    # Compute VaR series in percentage returns first
-    result_data["VaR"] = -result_data["Volatility"] * empirical_quantile
-
-    # Scale to monetary values
-    portfolio_value = x_matrix.sum(axis=1).loc[valid_index]
-    result_data["VaR"] = result_data["VaR"] * portfolio_value
-
-    # Identify VaR violations
-    result_data["VaR Violation"] = result_data["Returns"] * portfolio_value < -result_data["VaR"]
-
-    # Forecast next day VaR in monetary units
-    x_last = x_matrix.iloc[-1].values.reshape(-1, 1)
-    sigma_last = rolling_covs.loc[returns.index[-1]].values
-    next_day_vol = float(np.sqrt(x_last.T @ sigma_last @ x_last))
-    latest_portfolio_value = x_matrix.sum(axis=1).iloc[-1]
-    next_day_var = abs(empirical_quantile * next_day_vol * latest_portfolio_value)
-
-    return result_data, next_day_var
-
-
-
-# RiskMetrics VaR (Empirical)
-def var_riskmetrics_empirical(x_matrix, confidence_level=0.99, lambda_decay=0.94):
-    """
-    Estimate portfolio VaR using the RiskMetrics (EWMA) model and empirical quantiles
-    of portfolio standardized innovations.
-
-    This method uses exponential smoothing to estimate a time-varying 
-    variance-covariance matrix of returns. No distributional assumption is made
-    on returns (non-parametric VaR).
-
-    VaR is computed as:
-        VaR_t = - z_alpha_empirical * sqrt(x_tᵀ Σ_t x_t) × portfolio_value_t
-
-    Innovations are computed dynamically as:
-        innovation_t = portfolio_return_t / sqrt(x_tᵀ Σ_t x_t)
-
-    where:
-    - x_t: vector of monetary positions at time t
-    - Σ_t: estimated EWMA covariance matrix at time t
-    - portfolio_return_t: portfolio percentage return at time t
-
-    Parameters:
-    - x_matrix: pd.DataFrame (T × N), monetary positions per asset over time
-    - confidence_level: float, VaR confidence level (e.g., 0.99)
-    - lambda_decay: float, exponential decay factor (default = 0.94)
-
-    Assumptions:
-    - Portfolio returns are not assumed to be Normally distributed
-    - Volatility clusters over time, captured by EWMA covariance updates
-
-    Returns:
-    - result_data: pd.DataFrame with 'Returns', 'Volatility', 'Innovations', 'VaR', 'VaR Violation'
-    - next_day_var: float, VaR estimate for next period (monetary value)
-    """
-    
-    # Compute returns matrix from x
-    returns = x_matrix.pct_change().dropna()
-    portfolio_returns = (x_matrix * returns).sum(axis=1) / x_matrix.sum(axis=1)
-
-    # Initialize EWMA covariance matrices
-    ewma_cov = returns.cov().values
-    cov_matrices = []
-
-    for t in range(returns.shape[0]):
-        r_t = returns.iloc[t].values.reshape(-1, 1)
-        ewma_cov = lambda_decay * ewma_cov + (1 - lambda_decay) * (r_t @ r_t.T)
-        cov_matrices.append(ewma_cov.copy())
-
-    # Align x_matrix to returns index
-    x_matrix = x_matrix.loc[returns.index]
-
-    volatilities = []
-    innovations = []
-
-    for t, sigma in enumerate(cov_matrices):
-        x_t = x_matrix.iloc[t].values.reshape(-1, 1)
-        portfolio_variance = float(x_t.T @ sigma @ x_t)
-        portfolio_volatility = np.sqrt(portfolio_variance)
-
-        volatilities.append(portfolio_volatility)
-        innovations.append(portfolio_returns.iloc[t] / portfolio_volatility)
-
-    # Create result DataFrame
-    result_data = pd.DataFrame({
-        "Returns": portfolio_returns,
-        "Volatility": volatilities,
-        "Innovations": innovations
-    }, index=returns.index)
-
-    # Compute empirical quantile for VaR
-    empirical_quantile = np.percentile(result_data["Innovations"].dropna(), 100 * (1 - confidence_level))
-
-    # Compute VaR in percentage returns first
-    result_data["VaR"] = -result_data["Volatility"] * empirical_quantile
-
-    # Scale to monetary values
-    portfolio_value = x_matrix.sum(axis=1)
-    result_data["VaR"] = result_data["VaR"] * portfolio_value
-
-    # Identify VaR violations
-    result_data["VaR Violation"] = result_data["Returns"] * portfolio_value < -result_data["VaR"]
-
-    # Next-day forecast (last covariance + last position)
-    x_last = x_matrix.iloc[-1].values.reshape(-1, 1)
-    sigma_last = cov_matrices[-1]
-    next_day_vol = float(np.sqrt(x_last.T @ sigma_last @ x_last))
-    latest_portfolio_value = x_matrix.sum(axis=1).iloc[-1]
-    next_day_var = abs(empirical_quantile * next_day_vol * latest_portfolio_value)
 
     return result_data, next_day_var

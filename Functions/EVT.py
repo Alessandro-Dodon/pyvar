@@ -1,10 +1,17 @@
+#----------------------------------------------------------
+# Packages
+#----------------------------------------------------------
 import numpy as np
 import pandas as pd
 from scipy.stats import genpareto
 
+#################################################
+# Note: double check all formulas 
+#################################################
 
-
+#----------------------------------------------------------
 # EVT VaR and ES
+#----------------------------------------------------------
 def evt(
     returns,
     confidence_level=0.99,
@@ -13,61 +20,74 @@ def evt(
     diagnostics=False
 ):
     """
-    Estimate EVT-based Value-at-Risk (VaR), Expected Shortfall (ES), and exceedance probabilities
-    using the Peaks Over Threshold (POT) method with Generalized Pareto Distribution (GPD) fitting.
+    EVT-Based VaR and ES Estimation (Peaks Over Threshold Method).
 
-    This function applies EVT to the right tail of the loss distribution, assuming
-    losses are the negative of returns. It is suitable for univariate daily log returns.
+    Estimate Value-at-Risk (VaR), Expected Shortfall (ES), and exceedance probabilities
+    using Extreme Value Theory (EVT) applied to the right tail of the loss distribution.
 
-    Parameters:
-    ----------
-    returns : pd.Series
-        Daily log returns or simple returns in decimal form (e.g., 0.01 = 1%).
-    confidence_level : float, optional
-        Confidence level for VaR and ES (e.g., 0.99 for 99%). Default is 0.99.
-    threshold_percentile : float, optional
-        Percentile (0–100) used to select the threshold u for POT (e.g., 99 = top 1% tail). Default is 99.
-    exceedance_level : float, optional
-        Loss level (in decimals) at which to estimate the probability of exceedance. Must be > threshold u.
-    diagnostics : bool, optional
-        If True, return tail fit parameters and threshold diagnostics.
+    Description:
+    - Uses the Peaks Over Threshold (POT) method with a Generalized Pareto Distribution (GPD)
+    fitted to excess losses above a high threshold.
+    - Suitable for univariate daily return series in decimal format.
 
-    Returns:
-    -------
-    result_data : pd.DataFrame
-        Contains:
-        - 'Returns': original return series
-        - 'VaR': constant daily EVT VaR estimate (positive loss magnitude, in decimals)
-        - 'ES' : constant daily EVT ES estimate (positive loss magnitude, in decimals)
-        - 'VaR Violation': boolean indicating whether return < -VaR
-    var_estimate : float
-        EVT-based Value-at-Risk (in percentage, absolute magnitude).
-    es_estimate : float
-        EVT-based Expected Shortfall (in percentage, absolute magnitude).
-    prob_exceedance : float or None
-        Estimated probability of exceeding `exceedance_level` (as a decimal loss), or None if not specified.
-    diagnostics_dict : dict (only if diagnostics=True)
-        Contains:
-        - 'xi'          : GPD shape parameter
-        - 'beta'        : GPD scale parameter
-        - 'threshold_u' : Threshold value u (in decimals)
-        - 'max_support' : Maximum domain of GPD (∞ if xi ≥ 0, otherwise finite)
-        - 'num_exceedances': Number of exceedances above threshold
-
-    EVT Formulas:
-    ------------
+    Formulas:
     Let u be the threshold (e.g., 99th percentile of losses), and y = loss - u.
 
-    • GPD(y; ξ, β) fitted to y = losses − u
-    • VaR_q = u + (β / ξ) * [ (N / nu * (1 - q))^(−ξ) − 1 ]
-    • ES_q  = [VaR_q + (β - ξ * u)] / (1 - ξ)
-    • P(X > x) = (nu / N) * [1 + ξ * (x - u) / β]^(−1/ξ)
+    - GPD density for exceedances:
+        y ∼ GPD(ξ, β), where y = loss − u
+
+    - Value-at-Risk at level q:
+        VaR_q = u + (β / ξ) × [ (N / nu × (1 - q))^(−ξ) − 1 ]
+
+    - Expected Shortfall at level q:
+        ES_q = [VaR_q + (β - ξ × u)] / (1 - ξ)
+
+    - Probability of loss exceeding a given level x > u:
+        P(X > x) = (nu / N) × [1 + ξ × (x - u) / β]^(−1/ξ)
+
+    Parameters:
+    - returns (pd.Series): 
+        Daily log or simple returns (in decimals, e.g., 0.01 = 1%).
+
+    - confidence_level (float, optional): 
+        Confidence level for VaR and ES (default = 0.99).
+
+    - threshold_percentile (float, optional): 
+        Percentile (0–100) to define the threshold u (default = 99).
+
+    - exceedance_level (float, optional): 
+        Loss level to estimate exceedance probability (must be > u).
+
+    - diagnostics (bool, optional): 
+        If True, returns diagnostic info for the tail fit.
+
+    Returns:
+    - result_data (pd.DataFrame):
+        - 'Returns': original returns
+        - 'VaR': constant daily EVT VaR (positive, in decimals)
+        - 'ES': constant daily EVT ES (positive, in decimals)
+        - 'VaR Violation': True if return < -VaR
+
+    - var_estimate (float): 
+        EVT-based VaR estimate (absolute %, e.g., 3.24).
+
+    - es_estimate (float): 
+        EVT-based ES estimate (absolute %, e.g., 4.71).
+
+    - prob_exceedance (float or None): 
+        Probability of exceeding `exceedance_level` (decimal), or None.
+
+    - diagnostics_dict (dict, if diagnostics=True):
+        - 'xi': GPD shape parameter
+        - 'beta': GPD scale parameter
+        - 'threshold_u': Estimated threshold
+        - 'max_support': GPD domain max (∞ if ξ ≥ 0)
+        - 'num_exceedances': Number of exceedances above u
 
     Notes:
-    -----
-    - All returns and loss levels must be in decimal format (e.g., 0.025 = 2.5%).
-    - VaR and ES estimates are returned as percentages (e.g., 3.54).
-    - Exceedance probabilities are returned as decimals (e.g., 0.012 = 1.2%).
+    - All inputs and loss levels must be in decimal format (e.g., 0.025 = 2.5%).
+    - VaR and ES outputs are returned as positive percentages.
+    - This method captures heavy tails and rare events in return distributions.
     """
     returns = returns.dropna()
     returns = pd.Series(returns)

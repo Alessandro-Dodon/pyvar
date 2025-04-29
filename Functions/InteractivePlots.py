@@ -1,20 +1,39 @@
+#----------------------------------------------------------
+# Packages
+#----------------------------------------------------------
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import itertools
 
+#################################################
+# Note: add static versions? take away pie chart?
+#       add caller (meta) function?
+#################################################
 
-
+#----------------------------------------------------------
 # VaR Plot Backtesting
+#----------------------------------------------------------
 def interactive_plot_var(data, subset=None):
     """
-    Interactive version of plot_var using Plotly with white background,
-    black border, cleaner hover formatting (VaR as positive), and optional subset.
+    Interactive VaR Backtest Plot.
+
+    Create an interactive Plotly figure showing returns, VaR level, and VaR violations.
 
     Parameters:
-    - data: pd.DataFrame with 'Returns', 'VaR', 'VaR Violation'
-    - subset: tuple (start_date, end_date) or None
+    - data (pd.DataFrame):
+        Must contain 'Returns', 'VaR', and 'VaR Violation' columns.
+    - subset (tuple, optional):
+        (start_date, end_date) to zoom into a specific time range.
+
+    Returns:
+    - plotly.graph_objs.Figure:
+        Interactive backtest plot with clean formatting.
+
+    Notes:
+    - VaR is plotted as a negative threshold line.
+    - Violations are shown as red open circles.
     """
     if subset is not None:
         data = data.loc[subset[0]:subset[1]]
@@ -67,12 +86,30 @@ def interactive_plot_var(data, subset=None):
     return fig
 
 
-
+#----------------------------------------------------------
 # ES Plot Backtesting
+#----------------------------------------------------------
 def interactive_plot_es(data, subset=None):
     """
-    Interactive version of plot_es using Plotly with white background,
-    black border, zero line, and cleaner hover formatting (VaR/ES as positive).
+    Interactive ES Backtest Plot.
+
+    Create an interactive Plotly figure showing returns, VaR, ES level, and VaR violations.
+
+    Parameters:
+    - data (pd.DataFrame):
+        Must contain 'Returns', 'VaR', 'ES', and 'VaR Violation' columns.
+    - subset (tuple, optional):
+        (start_date, end_date) to zoom into a specific time range.
+
+    Returns:
+    - plotly.graph_objs.Figure:
+        Interactive backtest plot with clean formatting.
+
+    Notes:
+    - VaR is plotted as a solid black line.
+    - ES is plotted as a dashed red line.
+    - Violations are shown as red open circles.
+    - A zero-return line is added for reference.
     """
     if subset is not None:
         data = data.loc[subset[0]:subset[1]]
@@ -143,18 +180,30 @@ def interactive_plot_es(data, subset=None):
     return fig
 
 
-
+#----------------------------------------------------------
 # Volatility Plot
+#----------------------------------------------------------
 def interactive_plot_volatility(volatility_series, subset=None):
     """
-    Interactive plot of conditional volatility with white background and black border.
+    Interactive Volatility Plot.
+
+    Create an interactive Plotly figure showing conditional volatility over time.
 
     Parameters:
-    - volatility_series: pd.Series with datetime index and volatility values
-    - subset: tuple (start_date, end_date) or None
+    - volatility_series (pd.Series):
+        Time series of volatility estimates (decimal format).
+
+    - subset (tuple, optional):
+        (start_date, end_date) to zoom into a specific time range.
 
     Returns:
-    - fig: plotly.graph_objects.Figure
+    - plotly.graph_objs.Figure:
+        Interactive volatility plot with clean formatting.
+
+    Notes:
+    - Volatility is displayed as a blue line (in %).
+    - The background is white with black axis borders.
+    - Hover labels show volatility in percentage terms.
     """
     if subset is not None:
         volatility_series = volatility_series.loc[subset[0]:subset[1]]
@@ -186,43 +235,56 @@ def interactive_plot_volatility(volatility_series, subset=None):
     return fig
 
 
-
+#----------------------------------------------------------
 # Asset Color Map (for portfolio visualization)
+#----------------------------------------------------------
 def get_asset_color_map(assets):
     """
-    Generate a consistent color map for any list of assets using a cycling color palette.
+    Asset Color Mapping.
 
-    Parameters
-    ----------
-    assets : list-like
+    Generate a consistent color assignment for a list of assets, cycling through a predefined color palette.
+
+    Parameters:
+    - assets (list-like):
         List of asset names (strings).
 
-    Returns
-    -------
-    dict
+    Returns:
+    - dict:
         Dictionary mapping each asset to a unique color.
+
+    Notes:
+    - Colors are drawn cyclically from Plotly's qualitative palette.
+    - Ensures consistent asset coloring across plots.
     """
     base_colors = px.colors.qualitative.Plotly
     color_cycle = itertools.cycle(base_colors)
     return {asset: next(color_cycle) for asset in assets}
 
 
-
+#----------------------------------------------------------
 # VaR and UVaR Plot (for portfolio visualization)
+#----------------------------------------------------------
 def interactive_plot_var_series(var_series, uvar_series):
     """
-    Plot Asset-Normal VaR and Undiversified VaR over time.
+    Asset-Normal vs. Undiversified VaR Plot.
 
-    Parameters
-    ----------
-    var_series : pd.Series
-        Time series of diversified VaR (Asset-Normal VaR).
-    uvar_series : pd.Series
-        Time series of Undiversified VaR (ρ = 1 case).
+    Create an interactive Plotly line chart comparing diversified (Asset-Normal) VaR and 
+    Undiversified VaR (ρ = 1) over time.
 
-    Returns
-    -------
-    None
+    Parameters:
+    - var_series (pd.Series):
+        Time series of diversified Value-at-Risk (VaR).
+
+    - uvar_series (pd.Series):
+        Time series of undiversified VaR (full asset correlation assumed).
+
+    Returns:
+    - None:
+        Displays an interactive plot with both series for comparison.
+
+    Notes:
+    - Useful for visualizing the impact of diversification over time.
+    - Outputs VaR in monetary units.
     """
     fig = go.Figure()
     fig.add_trace(go.Scatter(
@@ -251,20 +313,29 @@ def interactive_plot_var_series(var_series, uvar_series):
     fig.show()
 
 
-
+#----------------------------------------------------------
 # Risk Contribution Pie Chart (for portfolio visualization)
+#----------------------------------------------------------
 def interactive_plot_risk_contribution_pie(component_df):
     """
-    Plot an interactive pie chart of average absolute Component VaR per asset.
+    Average Component VaR Contribution Pie Chart.
 
-    Parameters
-    ----------
-    component_df : pd.DataFrame
-        Time series of Component VaR values (T x N).
+    Create an interactive Plotly pie chart showing the average absolute Component VaR 
+    contribution of each asset to total portfolio risk.
 
-    Returns
-    -------
-    None
+    Parameters:
+    - component_df (pd.DataFrame):
+        Time series of Component VaR values (shape: T × N).
+
+    Returns:
+    - None:
+        Displays an interactive pie chart with labeled asset contributions.
+
+    Notes:
+    - Contributions are based on the average absolute value of Component VaR across time.
+    - Useful for identifying which assets contribute most to portfolio risk.
+    - Colors are assigned consistently using a fixed palette.
+    - Pie segments show both label and percentage contribution.
     """
     average_contributions = component_df.abs().mean()
     total = average_contributions.sum()
@@ -299,20 +370,28 @@ def interactive_plot_risk_contribution_pie(component_df):
     fig.show()
 
 
-
+#----------------------------------------------------------
 # Risk Contribution Over Time (for portfolio visualization)
+#----------------------------------------------------------
 def interactive_plot_risk_contribution_lines(component_df):
     """
-    Plot Component VaR over time for each asset using consistent colors.
+    Component VaR Over Time Line Plot.
 
-    Parameters
-    ----------
-    component_df : pd.DataFrame
-        Time series of Component VaR values (T x N).
+    Create an interactive Plotly line chart showing the evolution of each asset's Component VaR 
+    contribution over time.
 
-    Returns
-    -------
-    None
+    Parameters:
+    - component_df (pd.DataFrame):
+        Time series of Component VaR values (shape: T × N).
+
+    Returns:
+    - None:
+        Displays an interactive line plot with one line per asset.
+
+    Notes:
+    - Colors are consistently assigned using a fixed palette.
+    - Helps visualize changing risk contributions across time.
+    - Hover templates display asset name and Component VaR in monetary units.
     """
     asset_colors = get_asset_color_map(component_df.columns)
 
@@ -344,15 +423,34 @@ def interactive_plot_risk_contribution_lines(component_df):
     fig.show()
 
 
-
+#----------------------------------------------------------
 # Correlation Matrix Heatmap
+#----------------------------------------------------------
 def interactive_plot_correlation_matrix(position_data):
     """
-    Interactive heatmap of the lower-triangle correlation matrix of returns from monetary positions,
-    styled like seaborn heatmap with red-high / blue-low, white cell borders, no axis lines or labels.
+    Interactive Correlation Matrix Heatmap.
 
-    Uses log returns if all positions are positive, otherwise falls back to percentage returns
-    to support short positions.
+    Create an interactive heatmap visualization of the asset return correlations, 
+    showing only the lower triangle of the matrix with a diverging red-blue color scheme.
+
+    Description:
+    - Computes returns from monetary positions:
+        - Log returns if all positions are positive.
+        - Percentage returns if any position is negative (e.g., due to short selling).
+    - Masks the upper triangle to reduce redundancy.
+    - White gridlines and no visible axes for a clean heatmap appearance.
+
+    Parameters:
+    - position_data (pd.DataFrame or np.ndarray):
+        Time series of monetary positions (shape: T × N).
+
+    Returns:
+    - fig (plotly.graph_objects.Figure):
+        Interactive heatmap figure ready for display.
+
+    Notes:
+    - Correlations range from -1 (perfect negative) to +1 (perfect positive).
+    - Hover tooltips show asset pairs and their correlation values.
     """
     position_data = pd.DataFrame(position_data).dropna()
 
