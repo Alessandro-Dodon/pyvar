@@ -8,8 +8,10 @@ import plotly.express as px
 import itertools
 
 #################################################
-# Note: add static versions? take away pie chart?
+# Note: add static versions? 
 #       add caller (meta) function?
+# There should be a way to call each function, force the highest quality 
+# resolution each time and decide if interactive or not (see later)
 #################################################
 
 #----------------------------------------------------------
@@ -262,7 +264,7 @@ def get_asset_color_map(assets):
 
 
 #----------------------------------------------------------
-# VaR and UVaR Plot (for portfolio visualization)
+# VaR and UVaR Plot 
 #----------------------------------------------------------
 def interactive_plot_var_series(var_series, uvar_series):
     """
@@ -292,35 +294,35 @@ def interactive_plot_var_series(var_series, uvar_series):
         y=var_series,
         name='VaR',
         line=dict(color='blue'),
-        hovertemplate="Date: %{x}<br>VaR = %{y:.3f}<extra></extra>"
+        hovertemplate="Date: %{x}<br>VaR = %{y:.2f}<extra></extra>"
     ))
     fig.add_trace(go.Scatter(
         x=uvar_series.index,
         y=uvar_series,
         name='Undiversified VaR',
         line=dict(color='red'),
-        hovertemplate="Date: %{x}<br>Undiversified VaR = %{y:.3f}<extra></extra>"
+        hovertemplate="Date: %{x}<br>Undiversified VaR = %{y:.2f}<extra></extra>"
     ))
     fig.update_layout(
-        title='Asset-Normal VaR vs. Undiversified VaR',
+        title='Asset-Normal VaR vs. Undiversified VaR Over Time',
         xaxis_title='Date',
         yaxis_title='VaR (monetary units)',
         template='simple_white',
         margin=dict(l=60, r=60, t=50, b=50),
-        xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
-        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
+        xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True, tickformat="%Y-%m-%d"),
+        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True, tickformat="%Y-%m-%d")
     )
     fig.show()
 
 
-#----------------------------------------------------------
-# Risk Contribution Pie Chart (for portfolio visualization)
-#----------------------------------------------------------
-def interactive_plot_risk_contribution_pie(component_df):
+# ----------------------------------------------------------
+# Risk Contribution Bar Chart 
+# ----------------------------------------------------------
+def interactive_plot_risk_contribution_bar(component_df):
     """
-    Average Component VaR Contribution Pie Chart.
+    Average Component VaR Contribution Bar Chart.
 
-    Create an interactive Plotly pie chart showing the average absolute Component VaR 
+    Create an interactive horizontal bar chart showing the average absolute Component VaR 
     contribution of each asset to total portfolio risk.
 
     Parameters:
@@ -328,50 +330,52 @@ def interactive_plot_risk_contribution_pie(component_df):
         Time series of Component VaR values (shape: T × N).
 
     Returns:
-    - None:
-        Displays an interactive pie chart with labeled asset contributions.
-
-    Notes:
-    - Contributions are based on the average absolute value of Component VaR across time.
-    - Useful for identifying which assets contribute most to portfolio risk.
-    - Colors are assigned consistently using a fixed palette.
-    - Pie segments show both label and percentage contribution.
+    - fig (plotly.graph_objs.Figure):
+        Interactive bar chart figure.
     """
     average_contributions = component_df.abs().mean()
     total = average_contributions.sum()
 
     if total == 0:
-        raise ValueError("All component VaR contributions are zero; cannot plot pie chart.")
+        raise ValueError("All component VaR contributions are zero; cannot plot bar chart.")
 
-    asset_colors = get_asset_color_map(average_contributions.index)
+    percentages = 100 * average_contributions / total
+    sorted_assets = average_contributions.sort_values().index
+
+    asset_colors = get_asset_color_map(sorted_assets)
 
     fig = go.Figure(
         data=[
-            go.Pie(
-                labels=average_contributions.index,
-                values=average_contributions,
-                hovertemplate="%{label}<br>Average Contribution = %{value:.3f} (%{percent})<extra></extra>",
-                textinfo='label+percent',
+            go.Bar(
+                x=average_contributions[sorted_assets].values,
+                y=sorted_assets,
+                orientation="h",
                 marker=dict(
-                    colors=[asset_colors[asset] for asset in average_contributions.index],
+                    color=[asset_colors[asset] for asset in sorted_assets],
                     line=dict(color='black', width=1)
                 ),
-                hole=0.3
+                hovertemplate="%{y}<br>Average Absolute CVaR = %{x:.2f}<br>% Contribution = %{customdata:.2f}%<extra></extra>",
+                customdata=percentages[sorted_assets].values,
+                name="Average Component VaR"
             )
         ]
     )
 
     fig.update_layout(
-        title='Average Component VaR Contribution by Asset',
-        template='simple_white',
-        margin=dict(l=60, r=60, t=50, b=50)
+        title="Average Absolute Component VaR by Asset",
+        xaxis_title="Average Absolute CVaR",
+        yaxis_title="Asset",
+        template="simple_white",
+        height=500,
+        margin=dict(l=80, r=40, t=50, b=50),
+        showlegend=False
     )
 
     fig.show()
 
 
 #----------------------------------------------------------
-# Risk Contribution Over Time (for portfolio visualization)
+# Component VaR Over Time 
 #----------------------------------------------------------
 def interactive_plot_risk_contribution_lines(component_df):
     """
@@ -404,7 +408,7 @@ def interactive_plot_risk_contribution_lines(component_df):
             mode="lines",
             name=asset,
             line=dict(color=asset_colors[asset]),
-            hovertemplate="Date: %{x}<br>" + asset + " VaR = %{y:.3f}<extra></extra>"
+            hovertemplate="Date: %{x}<br>" + asset + " CVaR = %{y:.2f}<extra></extra>"
         ))
 
     fig.update_layout(
@@ -415,8 +419,8 @@ def interactive_plot_risk_contribution_lines(component_df):
         hovermode="x unified",
         plot_bgcolor="white",
         paper_bgcolor="white",
-        xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
-        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
+        xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True, tickformat="%Y-%m-%d"),
+        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True, tickformat="%Y-%m-%d"),
         margin=dict(l=60, r=60, t=50, b=50)
     )
 
@@ -525,3 +529,5 @@ def interactive_plot_correlation_matrix(position_data):
                       xref="x", yref="y")
 
     return fig
+
+

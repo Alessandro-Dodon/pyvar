@@ -5,73 +5,56 @@ import numpy as np
 import pandas as pd
 
 #################################################
-# Note: double check/ they can be merged in 1 function!
+# Note: double check
 #################################################
 
 # ----------------------------------------------------------
-# VaR Backtesting (General)
+# VaR Backtesting (General or Subset)
 # ----------------------------------------------------------
-def backtest_var(data, confidence_level):
+def backtest_var(data, confidence_level, start_date=None, end_date=None):
     """
-    VaR Backtesting (Full Sample).
+    VaR Backtesting (Full Sample or Subset Period).
 
     Count how many times the actual returns exceed (violate) the estimated VaR.
 
     Parameters:
     - data (pd.DataFrame):
-        Must contain columns 'Returns', 'VaR', and 'VaR Violation'.
+        Must contain columns 'VaR Violation' and optionally 'Returns'.
+        Index must be datetime-like for subset testing.
+
     - confidence_level (float):
         VaR confidence level (e.g., 0.99).
 
-    Returns:
-    - total_violations (int):
-        Number of VaR violations observed.
-    - violation_rate (float):
-        Percentage of days with violations.
-    """
-    violations = data["VaR Violation"]
-    total_violations = violations.sum()
-    total_days = len(violations)
-    violation_rate = 100 * total_violations / total_days
+    - start_date (str or pd.Timestamp, optional):
+        Start date for subset backtest (default is full sample).
 
-    return total_violations, violation_rate
-
-
-# ----------------------------------------------------------
-# VaR Backtesting (Subset Period)
-# ----------------------------------------------------------
-def subset_backtest_var(data, start_date, end_date):
-    """
-    VaR Backtesting (Subset Period).
-
-    Count VaR violations and violation rate between two specific dates.
-
-    Parameters:
-    - data (pd.DataFrame):
-        Must contain 'VaR Violation' column with datetime index.
-    - start_date (str or pd.Timestamp):
-        Start date of the subset (e.g., "2019-01-01").
-    - end_date (str or pd.Timestamp):
-        End date of the subset (e.g., "2020-01-01").
+    - end_date (str or pd.Timestamp, optional):
+        End date for subset backtest (default is full sample).
 
     Returns:
     - total_violations (int):
         Number of violations in the selected period.
+
     - violation_rate (float):
-        Percentage of violations over the subset.
+        Percentage of days with violations in the selected period.
 
     Notes:
     - Raises an error if the subset is empty.
     """
     if "VaR Violation" not in data.columns:
         raise ValueError("Data must contain 'VaR Violation' column.")
-    
-    subset = data.loc[start_date:end_date]
-    total_violations = subset["VaR Violation"].sum()
-    total_days = len(subset)
-    
-    if total_days == 0:
+
+    subset = data.copy()
+
+    if start_date is not None or end_date is not None:
+        subset = subset.loc[start_date:end_date]
+
+    if subset.empty:
         raise ValueError("Subset is empty. Check your date range.")
 
+    violations = subset["VaR Violation"]
+    total_violations = violations.sum()
+    total_days = len(violations)
     violation_rate = 100 * total_violations / total_days
+
     return total_violations, violation_rate
