@@ -20,7 +20,7 @@ def evt(
     diagnostics=False
 ):
     """
-    EVT-Based VaR and ES Estimation (Peaks Over Threshold Method).
+    EVT-Based VaR and ES Estimation.
 
     Estimate Value-at-Risk (VaR), Expected Shortfall (ES), and exceedance probabilities
     using Extreme Value Theory (EVT) applied to the right tail of the loss distribution.
