@@ -7,12 +7,9 @@ from arch import arch_model
 from scipy.stats import norm, t, gennorm
 import warnings
 
-
 #################################################
 # Note: double check all formulas and scaling
-#       add caller (meta) function?
 #################################################
-
 
 #----------------------------------------------------------
 # Garch Forecast (Analytical Formula, for Variance or VaR)
@@ -108,7 +105,7 @@ def garch_forecast(
 #----------------------------------------------------------
 # Garch VaR
 #----------------------------------------------------------
-def var_garch(returns, confidence_level, p=1, q=1, vol_model="GARCH", distribution="normal"):
+def var_garch(returns, confidence_level=0.99, p=1, q=1, vol_model="GARCH", distribution="normal"):
     """
     GARCH-type VaR Estimation.
 
@@ -124,7 +121,7 @@ def var_garch(returns, confidence_level, p=1, q=1, vol_model="GARCH", distributi
 
     Parameters:
     - returns (pd.Series): Daily returns (decimal format, e.g., 0.01 for 1%).
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
+    - confidence_level (float): Confidence level for VaR (default = 0.99).
     - p (int): GARCH lag order (default = 1).
     - q (int): ARCH lag order (default = 1).
     - vol_model (str): Volatility model ("GARCH", "EGARCH", "GJR", or "APARCH").
@@ -196,7 +193,7 @@ def var_garch(returns, confidence_level, p=1, q=1, vol_model="GARCH", distributi
 #----------------------------------------------------------
 # Arch VaR
 #----------------------------------------------------------
-def var_arch(returns, confidence_level, p=1):
+def var_arch(returns, confidence_level=0.99, p=1):
     """
     ARCH-type VaR Estimation.
 
@@ -208,7 +205,7 @@ def var_arch(returns, confidence_level, p=1):
 
     Parameters:
     - returns (pd.Series): Daily returns (decimal format, e.g., 0.01 = 1%).
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
+    - confidence_level (float): Confidence level for VaR (default = 0.99).
     - p (int): ARCH order (default = 1).
 
     Returns:
@@ -251,7 +248,7 @@ def var_arch(returns, confidence_level, p=1):
 #----------------------------------------------------------
 # EWMA VaR
 #----------------------------------------------------------
-def var_ewma(returns, confidence_level, decay_factor=0.94):
+def var_ewma(returns, confidence_level=0.99, decay_factor=0.94):
     """
     EWMA-type VaR Estimation.
 
@@ -266,7 +263,7 @@ def var_ewma(returns, confidence_level, decay_factor=0.94):
 
     Parameters:
     - returns (pd.Series): Daily returns (decimal format, e.g., 0.01 = 1%).
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
+    - confidence_level (float): Confidence level for VaR (default = 0.99).
     - decay_factor (float): Smoothing parameter λ (default = 0.94).
 
     Returns:
@@ -308,7 +305,7 @@ def var_ewma(returns, confidence_level, decay_factor=0.94):
 #----------------------------------------------------------
 # MA VaR
 #----------------------------------------------------------
-def var_moving_average(returns, confidence_level, window=20):
+def var_moving_average(returns, confidence_level=0.99, window=20):
     """
     Moving Average Volatility VaR Estimation.
 
@@ -320,7 +317,7 @@ def var_moving_average(returns, confidence_level, window=20):
 
     Parameters:
     - returns (pd.Series): Daily returns (decimal format, e.g., 0.01 = 1%).
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
+    - confidence_level (float): Confidence level for VaR (default = 0.99).
     - window (int): Size of the moving window for volatility estimation (default = 20).
 
     Returns:
@@ -356,3 +353,37 @@ def var_moving_average(returns, confidence_level, window=20):
     return result_data, next_day_var
 
 
+#----------------------------------------------------------
+# Unified Volatility-Based VaR Caller
+#----------------------------------------------------------
+def var_volatility_model(returns, confidence_level=0.99, method="garch", **kwargs):
+    """
+    Unified Value-at-Risk (VaR) Estimator using Volatility Models.
+
+    Selects and applies a specific volatility-based method to estimate daily VaR.
+
+    Parameters:
+    - returns (pd.Series): Time series of returns (decimal format, e.g., 0.01 = 1%).
+    - confidence_level (float): Confidence level for VaR (default = 0.99).
+    - method (str): One of {"garch", "arch", "ewma", "ma"} to choose the model.
+    - **kwargs: Additional arguments passed to the selected model function.
+
+    Returns:
+    - result_data (pd.DataFrame): Contains returns, volatility, VaR, and violations.
+    - next_day_var (float): Absolute 1-day ahead VaR estimate (in %).
+    """
+    method = method.lower()
+
+    model_functions = {
+        "garch": var_garch,
+        "arch": var_arch,
+        "ewma": var_ewma,
+        "ma": var_moving_average
+    }
+
+    if method not in model_functions:
+        raise ValueError(f"'method' must be one of {list(model_functions.keys())}")
+
+    model_func = model_functions[method]
+
+    return model_func(returns, confidence_level, **kwargs)

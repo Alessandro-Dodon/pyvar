@@ -12,7 +12,7 @@ import pandas as pd
 #----------------------------------------------------------
 # Historical VaR (Non-Parametric)
 #----------------------------------------------------------
-def var_historical(returns, confidence_level, holding_period=1):
+def var_historical(returns, confidence_level=0.99, holding_period=1):
     """
     Historical VaR Estimation (Non-Parametric).
 
@@ -31,7 +31,7 @@ def var_historical(returns, confidence_level, holding_period=1):
         Time series of returns (decimal format, e.g., 0.01 = 1%).
 
     - confidence_level (float):
-        Confidence level for VaR (e.g., 0.99 for 99% VaR).
+        Confidence level for VaR (default = 0.99).
 
     - holding_period (int, optional):
         Holding period in days (default = 1).
@@ -66,7 +66,7 @@ def var_historical(returns, confidence_level, holding_period=1):
 #----------------------------------------------------------
 # Parametric VaR (i.i.d. assumption)
 #----------------------------------------------------------
-def var_parametric_iid(returns, confidence_level, holding_period=1, distribution="normal"):
+def var_parametric_iid(returns, confidence_level=0.99, holding_period=1, distribution="normal"):
     """
     Parametric i.i.d. VaR Estimation.
 
@@ -89,7 +89,7 @@ def var_parametric_iid(returns, confidence_level, holding_period=1, distribution
         Time series of returns (decimal format, e.g., 0.01 = 1%).
 
     - confidence_level (float):
-        Confidence level for VaR (e.g., 0.99 for 99% VaR).
+        Confidence level for VaR (default = 0.99).
 
     - holding_period (int, optional):
         Holding period in days (default = 1).

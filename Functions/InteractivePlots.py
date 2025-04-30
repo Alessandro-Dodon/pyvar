@@ -268,7 +268,7 @@ def get_asset_color_map(assets):
 #----------------------------------------------------------
 # VaR and UVaR Plot 
 #----------------------------------------------------------
-def interactive_plot_var_series(var_series, uvar_series):
+def interactive_plot_var_series(var_df):
     """
     Asset-Normal vs. Undiversified VaR Plot.
 
@@ -292,15 +292,15 @@ def interactive_plot_var_series(var_series, uvar_series):
     """
     fig = go.Figure()
     fig.add_trace(go.Scatter(
-        x=var_series.index,
-        y=var_series,
+        x=var_df.index,
+        y=var_df["Diversified_VaR"],
         name='VaR',
         line=dict(color='blue'),
         hovertemplate="Date: %{x}<br>VaR = %{y:.2f}<extra></extra>"
     ))
     fig.add_trace(go.Scatter(
-        x=uvar_series.index,
-        y=uvar_series,
+        x=var_df.index,
+        y=var_df["Undiversified_VaR"],
         name='Undiversified VaR',
         line=dict(color='red'),
         hovertemplate="Date: %{x}<br>Undiversified VaR = %{y:.2f}<extra></extra>"
@@ -311,8 +311,8 @@ def interactive_plot_var_series(var_series, uvar_series):
         yaxis_title='VaR (monetary units)',
         template='simple_white',
         margin=dict(l=60, r=60, t=50, b=50),
-        xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True, tickformat="%Y-%m-%d"),
-        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True, tickformat="%Y-%m-%d")
+        xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
+        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
     )
     return fig
 

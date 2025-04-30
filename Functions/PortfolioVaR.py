@@ -5,30 +5,32 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 import warnings
+from IPython.display import display
 
 #################################################
 # Note: double check all formulas and inputs (x)
-#       add caller (meta) function?
+#       check index stuff
 #################################################
 
 #----------------------------------------------------------
-# Asset Normal VaR and Undiversified VaR
+# Asset Normal VaR with Diversification Table
 #----------------------------------------------------------
 def var_asset_normal(
     position_data,
-    confidence_level,
+    confidence_level=0.99,
     holding_period=1,
-    undiversified=False
+    display_table=False
 ):
     """
-    Asset-Normal VaR Estimation.
+    Asset-Normal VaR Estimation with Diversification Metrics.
 
-    Assumes that asset returns are normally distributed, implying that
-    portfolio returns—being linear combinations—are also normally distributed.
+    Computes both the diversified and undiversified Value-at-Risk (VaR) for a portfolio 
+    assuming normally distributed returns, and derives the diversification benefit as the difference.
 
     Description:
-    - Diversified VaR: accounts for covariances among assets.
-    - Undiversified VaR (ρ = 1): assumes full positive correlation between assets, summing individual VaRs.
+    - Diversified VaR: uses the full covariance matrix Σ to account for correlations among assets.
+    - Undiversified VaR: assumes perfect positive correlation (ρ = 1) and sums individual asset VaRs.
+    - The difference between the two reflects the gain from diversification.
 
     Formulas:
     - Diversified VaR at time t:
@@ -36,35 +38,35 @@ def var_asset_normal(
     - Undiversified VaR at time t:
         VaRₜ = | z × sum(σᵢ × xᵢ) × sqrt(holding_period) |
     where:
-        - xₜ: position vector at time t
-        - Σ: covariance matrix of returns
+        - xₜ: portfolio position vector at time t
+        - Σ: covariance matrix of asset returns
         - σᵢ: standard deviation of asset i
-        - z: critical value from the standard normal distribution
+        - z: quantile of the standard normal distribution
 
     Parameters:
-    - position_data (pd.DataFrame or np.ndarray): 
+    - position_data (pd.DataFrame or np.ndarray):
         Time series of monetary positions (shape: T × N),
-        where T = number of days and N = number of assets.
+        where T = number of time steps and N = number of assets.
 
-    - confidence_level (float): 
-        Confidence level for VaR (e.g., 0.99 for 99% VaR).
+    - confidence_level (float, optional):
+        Confidence level for VaR (default = 0.99).
 
-    - holding_period (int, optional): 
-        Holding period in days (default = 1).
+    - holding_period (int, optional):
+        Holding period in days over which risk is measured (default = 1).
 
-    - undiversified (bool, optional): 
-        If True, compute undiversified VaR (full correlation assumed).
+    - display_table (bool, optional):
+        If True, displays the result as a formatted table (only in interactive environments).
 
     Returns:
-    - pd.Series: 
-        Daily time series of VaR estimates, indexed by date (aligned to returns).
+    - pd.DataFrame:
+        Table indexed by date with three columns:
+        ['Diversified_VaR', 'Undiversified_VaR', 'Diversification_Benefit']
 
     Notes:
-    - Returns are calculated from positions using percentage changes.
-    - Undiversified VaR corresponds to the sum of asset-level VaRs under full correlation (ρ = 1).
+    - Returns are internally computed from positions via percentage change.
     - Scaling by sqrt(holding_period) assumes independent daily returns.
+    - Clean date strings (YYYY-MM-DD) are used as the index for clarity.
     """
-    # Convert to DataFrame if needed
     position_data = pd.DataFrame(position_data)
 
     if position_data.shape[0] < 2:
@@ -78,23 +80,44 @@ def var_asset_normal(
     z_score = norm.ppf(1 - confidence_level)
 
     positions = position_data.loc[returns_data.index].values
-    var_list = []
+    div_list = []
+    undiv_list = []
 
     for xt in positions:
         x = xt.reshape(-1, 1)
 
-        if undiversified:
-            std_devs = np.sqrt(np.diag(sigma_matrix)).reshape(-1, 1)
-            var_i = z_score * std_devs * x
-            var_t = np.abs(var_i.sum()) * np.sqrt(holding_period)
-        else:
-            variance = float(x.T @ sigma_matrix @ x)
-            std_dev = np.sqrt(variance)
-            var_t = np.abs(z_score * std_dev * np.sqrt(holding_period))
+        # Diversified VaR
+        variance = float(x.T @ sigma_matrix @ x)
+        std_dev = np.sqrt(variance)
+        var_div = np.abs(z_score * std_dev * np.sqrt(holding_period))
+        div_list.append(var_div)
 
-        var_list.append(var_t)
+        # Undiversified VaR
+        std_devs = np.sqrt(np.diag(sigma_matrix)).reshape(-1, 1)
+        var_i = z_score * std_devs * x
+        var_undiv = np.abs(var_i.sum()) * np.sqrt(holding_period)
+        undiv_list.append(var_undiv)
 
-    return pd.Series(var_list, index=returns_data.index)
+    # Format clean index
+    clean_index = returns_data.index.strftime("%Y-%m-%d")
+
+    result = pd.DataFrame({
+        "Diversified_VaR": div_list,
+        "Undiversified_VaR": undiv_list,
+        "Diversification_Benefit": np.array(undiv_list) - np.array(div_list)
+    }, index=clean_index)
+
+    if display_table:
+        try:
+            display(
+                result.style
+                    .format("{:.2f}")
+                    .set_table_styles([{"selector": "caption", "props": [("display", "none")]}])
+            )
+        except ImportError:
+            print("Table display is available only in interactive environments.")
+
+    return result
 
 
 #----------------------------------------------------------
@@ -102,8 +125,9 @@ def var_asset_normal(
 #----------------------------------------------------------
 def marginal_var(
     position_data,
-    confidence_level,
-    holding_period=1
+    confidence_level=0.99,
+    holding_period=1,
+    display_table=False
 ):
     """
     Marginal Value-at-Risk (Marginal VaR) Estimation.
@@ -130,10 +154,13 @@ def marginal_var(
         Time series of monetary positions (shape: T × N), with T = days, N = assets.
 
     - confidence_level (float): 
-        Confidence level for VaR (e.g., 0.99).
+        Confidence level for VaR (default = 0.99).
 
     - holding_period (int, optional): 
         Holding period in days (default = 1).
+
+    - display_table (bool, optional): 
+        If True, displays a styled table (default = False).
 
     Returns:
     - pd.DataFrame: 
@@ -145,7 +172,6 @@ def marginal_var(
     - If total portfolio variance is ~0, marginal VaRs are set to 0.
     - Scaling by sqrt(holding_period) assumes independent daily returns.
     """
-    # Ensure proper format
     position_data = pd.DataFrame(position_data)
 
     if position_data.shape[0] < 2:
@@ -156,15 +182,15 @@ def marginal_var(
     returns_data = position_data.pct_change().dropna()
     sigma_matrix = returns_data.cov().values
 
-    # Get AN VaR from the existing function
-    portfolio_var_series = var_asset_normal(
+    # Use only diversified VaR from the updated function
+    portfolio_var_df = var_asset_normal(
         position_data=position_data,
         confidence_level=confidence_level,
         holding_period=holding_period,
-        undiversified=False
+        display_table=False
     )
+    portfolio_var_series = portfolio_var_df["Diversified_VaR"]
 
-    # Align data
     positions = position_data.loc[returns_data.index].values
     marginal_var_list = []
 
@@ -175,69 +201,99 @@ def marginal_var(
         if variance <= 1e-10:
             delta_var = np.zeros_like(x.flatten())
         else:
-            # Compute beta weights (Σx / x'Σx)
             beta_vector = (sigma_matrix @ x).flatten() / variance
-            delta_var = var_t * beta_vector  # Monetary marginal VaR
+            delta_var = var_t * beta_vector
 
         marginal_var_list.append(delta_var)
 
-    return pd.DataFrame(
+    result = pd.DataFrame(
         marginal_var_list,
-        index=returns_data.index,
+        index=returns_data.index.strftime("%Y-%m-%d"),
         columns=position_data.columns
     )
+
+    if display_table:
+        display(
+            result.style
+                .format("{:.2f}")
+                .set_table_styles([{"selector": "caption", "props": [("display", "none")]}])
+        )
+
+    return result
 
 
 #----------------------------------------------------------
 # Component VaR (using marginal VaR)
 #----------------------------------------------------------
-def component_var(position_data, confidence_level, holding_period=1):
+def component_var(
+    position_data,
+    confidence_level=0.99,
+    holding_period=1,
+    display_table=False
+):
     """
-    Component VaR Estimation.
+    Component Value-at-Risk (VaR) Estimation.
 
-    Compute the contribution of each asset to total portfolio VaR using:
-        ComponentVaRᵢ = xᵢ × ∂VaR/∂xᵢ = xᵢ × ΔVaRᵢ
-
-    Description:
-    - Relies on Marginal VaR (ΔVaR) estimates, which capture the sensitivity of portfolio VaR to small changes in each position.
-    - Each component reflects the individual risk contribution in monetary units.
-
-    Formulas:
-    - Component VaR at time t:
-        CVaRᵢₜ = xᵢₜ × ΔVaRᵢₜ
-    where:
-        - xᵢₜ: monetary position in asset i at time t
-        - ΔVaRᵢₜ: marginal VaR of asset i at time t
+    Computes the contribution of each asset to the total portfolio VaR
+    using the Euler decomposition via marginal VaR.
 
     Parameters:
     - position_data (pd.DataFrame or np.ndarray):
-        Time series of monetary holdings (shape: T × N),
-        where T = number of days and N = number of assets.
+        Time series of monetary holdings (T × N)
 
     - confidence_level (float):
-        Confidence level for VaR (e.g., 0.99 for 99% VaR).
+        Confidence level for VaR (default = 0.99)
 
     - holding_period (int, optional):
-        VaR horizon in days (default = 1).
+        VaR horizon in days (default = 1)
+
+    - display_table (bool, optional):
+        If True, displays a styled table (default = False)
 
     Returns:
     - pd.DataFrame:
-        Time series of Component VaRs per asset (T × N), in monetary units.
-
-    Notes:
-    - Sum of Component VaRs across assets equals total diversified portfolio VaR.
-    - Consistent with the Euler decomposition of VaR under normality and linearity.
+        Time series of Component VaRs (T × N), in monetary units
     """
     position_data = pd.DataFrame(position_data)
-    marginal_df = marginal_var(position_data, confidence_level, holding_period)
-    component_df = position_data.loc[marginal_df.index] * marginal_df
+
+    # Compute Marginal VaR
+    marginal_df = marginal_var(
+        position_data=position_data,
+        confidence_level=confidence_level,
+        holding_period=holding_period,
+        display_table=False
+    )
+
+    # Safely reformat index without mutating original input
+    position_data_aligned = position_data.copy()
+    if isinstance(position_data_aligned.index[0], pd.Timestamp):
+        position_data_aligned.index = position_data_aligned.index.strftime("%Y-%m-%d")
+
+    # Align rows
+    aligned_positions = position_data_aligned.loc[marginal_df.index]
+
+    # Compute Component VaR
+    component_df = aligned_positions * marginal_df
+
+    if display_table:
+        display(
+            component_df.style
+                .format("{:.2f}")
+                .set_table_styles([{"selector": "caption", "props": [("display", "none")]}])
+        )
+
     return component_df
 
 
 #----------------------------------------------------------
 # Relative Component VaR
 #----------------------------------------------------------
-def relative_component_var(position_data, confidence_level, holding_period=1):
+def relative_component_var(
+    position_data,
+    confidence_level=0.99,
+    holding_period=1,
+    display_table=False
+):
     """
     Relative Component VaR Estimation.
 
@@ -261,10 +317,13 @@ def relative_component_var(position_data, confidence_level, holding_period=1):
         where T = number of days and N = number of assets.
 
     - confidence_level (float):
-        Confidence level for VaR (e.g., 0.99 for 99% VaR).
+        Confidence level for VaR (default = 0.99).
 
     - holding_period (int, optional):
         VaR horizon in days (default = 1).
+
+    - display_table (bool, optional):
+        If True, displays a styled table (default = False).
 
     Returns:
     - pd.DataFrame:
@@ -275,21 +334,48 @@ def relative_component_var(position_data, confidence_level, holding_period=1):
     - Computation is based on Component VaR divided by Total Diversified VaR.
     """
     position_data = pd.DataFrame(position_data)
-    
-    # Get components
-    cvar_df = component_var(position_data, confidence_level, holding_period)
-    var_series = var_asset_normal(position_data, confidence_level, holding_period)
-    
-    # Divide each row by the total VaR of that day
+
+    # Compute Component VaR and total portfolio VaR
+    cvar_df = component_var(
+        position_data=position_data,
+        confidence_level=confidence_level,
+        holding_period=holding_period,
+        display_table=False
+    )
+
+    var_df = var_asset_normal(
+        position_data=position_data,
+        confidence_level=confidence_level,
+        holding_period=holding_period,
+        display_table=False
+    )
+
+    # Extract just the diversified VaR column
+    var_series = var_df["Diversified_VaR"]
+
+    # Compute relative contributions
     rcvar_df = cvar_df.div(var_series, axis=0)
-    
+
+    if display_table:
+        display(
+            rcvar_df.style
+                .format("{:.2%}")
+                .set_table_styles([{"selector": "caption", "props": [("display", "none")]}])
+        )
+
     return rcvar_df
 
 
 #----------------------------------------------------------
 # Incremental VaR
 #----------------------------------------------------------
-def incremental_var(position_data, change_vector, confidence_level, holding_period=1):
+def incremental_var(
+    position_data,
+    change_vector,
+    confidence_level=0.99,
+    holding_period=1,
+    display_table=False
+):
     """
     Incremental VaR Estimation.
 
@@ -315,10 +401,13 @@ def incremental_var(position_data, change_vector, confidence_level, holding_peri
         Vector specifying changes in holdings (shape: N,).
 
     - confidence_level (float):
-        Confidence level for VaR (e.g., 0.99 for 99% VaR).
+        Confidence level for VaR (default = 0.99).
 
     - holding_period (int, optional):
         VaR horizon in days (default = 1).
+
+    - display_table (bool, optional):
+        If True, displays a styled table (default = False).
 
     Returns:
     - pd.Series:
@@ -329,14 +418,29 @@ def incremental_var(position_data, change_vector, confidence_level, holding_peri
     - Negative IVaR means the change reduces portfolio risk.
     """
     position_data = pd.DataFrame(position_data)
-    marginal_df = marginal_var(position_data, confidence_level, holding_period)
+
+    # Get Marginal VaR
+    marginal_df = marginal_var(
+        position_data=position_data,
+        confidence_level=confidence_level,
+        holding_period=holding_period,
+        display_table=False
+    )
 
     a = np.asarray(change_vector).reshape(-1)
     if a.shape[0] != marginal_df.shape[1]:
         raise ValueError("Change vector must match number of assets.")
 
-    ivar_series = marginal_df @ a
+    # Compute Incremental VaR
+    ivar_series = marginal_df @ a  # dot product over columns
+
+    # No need to change index; marginal_df already returns a string-based index
+    if display_table:
+        display(
+            ivar_series.to_frame("Incremental_VaR")
+                .style
+                .format("{:.2f}")
+                .set_table_styles([{"selector": "caption", "props": [("display", "none")]}])
+        )
+
     return ivar_series
-
-
-
