@@ -6,12 +6,14 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import itertools
+import kaleido  # Required for static image export via Plotly
+from IPython.display import display, HTML
+from plotly.io import to_image
+from io import BytesIO
+import base64
 
 #################################################
-# Note: add static versions? 
-#       add caller (meta) function?
-# There should be a way to call each function, force the highest quality 
-# resolution each time and decide if interactive or not (see later)
+# Note: double check all names/ titles
 #################################################
 
 #----------------------------------------------------------
@@ -312,7 +314,7 @@ def interactive_plot_var_series(var_series, uvar_series):
         xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True, tickformat="%Y-%m-%d"),
         yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True, tickformat="%Y-%m-%d")
     )
-    fig.show()
+    return fig
 
 
 # ----------------------------------------------------------
@@ -371,7 +373,7 @@ def interactive_plot_risk_contribution_bar(component_df):
         showlegend=False
     )
 
-    fig.show()
+    return fig
 
 
 #----------------------------------------------------------
@@ -424,7 +426,7 @@ def interactive_plot_risk_contribution_lines(component_df):
         margin=dict(l=60, r=60, t=50, b=50)
     )
 
-    fig.show()
+    return fig
 
 
 #----------------------------------------------------------
@@ -531,3 +533,65 @@ def interactive_plot_correlation_matrix(position_data):
     return fig
 
 
+#----------------------------------------------------------
+# General Plot Caller Function (Notebook + High-Res Export)
+#----------------------------------------------------------
+def display_high_dpi_inline(png_bytes, width):
+    """
+    Display a high-DPI PNG inline in Jupyter without losing resolution.
+    """
+    encoded = base64.b64encode(png_bytes).decode('utf-8')
+    return HTML(f'<img src="data:image/png;base64,{encoded}" style="width:{width}px;"/>')
+
+
+def plot_caller(plot_type, interactive=True, output_path=None, **kwargs):
+    """
+    General Plot Caller.
+
+    Displays a Plotly plot interactively or as a static high-res PNG (inline or saved).
+
+    Parameters:
+    - plot_type (str): One of:
+        'var', 'es', 'volatility', 'var_series', 
+        'risk_bar', 'risk_lines', 'correlation'.
+
+    - interactive (bool): If True, show interactive plot (default).
+                          If False, render or save high-resolution static plot.
+
+    - output_path (str or None): If set and interactive=False, save high-res PNG to this path.
+
+    - **kwargs: Passed to the selected plotting function.
+
+    Returns:
+    - None (renders or saves the figure)
+    """
+    plot_functions = {
+    "backtest_var": interactive_plot_var,
+    "backtest_es": interactive_plot_es,
+    "volatility": interactive_plot_volatility,
+    "compare_var_series": interactive_plot_var_series,
+    "component_var_bar": interactive_plot_risk_contribution_bar,
+    "component_var_lines": interactive_plot_risk_contribution_lines,
+    "correlation_matrix": interactive_plot_correlation_matrix
+    }
+
+    if plot_type not in plot_functions:
+        raise ValueError(f"Invalid plot_type: '{plot_type}'. "
+                         f"Choose from {list(plot_functions.keys())}.")
+
+    fig = plot_functions[plot_type](**kwargs)
+
+    # Use figure's own layout dimensions, fallback defaults if missing
+    width = fig.layout.width or 1000
+    height = fig.layout.height or 500
+    scale = 4  # Very high resolution for export
+
+    if interactive:
+        fig.show()
+    elif output_path:
+        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+    else:
+        png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
+        display(display_high_dpi_inline(png_bytes, width))
+
+    return None
