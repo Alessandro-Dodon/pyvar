@@ -14,6 +14,9 @@ import base64
 
 #################################################
 # Note: double check all names/ titles
+#       fix ES plot blue inconsistency 
+#       (it varies and becomes ligther)
+#       check corr and shorting
 #################################################
 
 #----------------------------------------------------------

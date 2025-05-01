@@ -1,8 +1,6 @@
 ### TODO (Ale)
 
-- Maybe add GARCH based simulations (it is complex)
-
-- Correlation modeling? Finish debugging 
+- Finish check on corr models
 
 - Check returns vs log returns on everything (and % change returns)
 
@@ -10,4 +8,6 @@
 
 - Portfolio VaR (double check), it is not supposed to be backtested or work with ES (but make sure the logic is ok)
 
-- Eliminate ARCH from volatility models? (it is like GARCH but more imprecise...)
+- For displaying the tables with PortfolioVaR add head and tail only, it may be too long otherwise (years of data...)
+
+- Check correlations plots and shorting cases

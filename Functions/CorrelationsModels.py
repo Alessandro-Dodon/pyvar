@@ -9,6 +9,7 @@ from arch.univariate import ConstantMean, GARCH, StudentsT
 
 #################################################
 # Note: double check all formulas 
+#       check normalization
 #################################################
 
 #----------------------------------------------------------
@@ -91,35 +92,41 @@ def var_corr_ma(x_matrix, confidence_level=0.99, window_size=20):
         portfolio_variance = float(x_t.T @ cov_matrix.values @ x_t)
         portfolio_volatility = np.sqrt(portfolio_variance)
 
+        # Normalize to percentage of portfolio value
+        portfolio_value = x_matrix.sum(axis=1).iloc[t]
+        portfolio_volatility /= portfolio_value
+
         volatilities.append(portfolio_volatility)
         innovations.append(portfolio_returns.iloc[t] / portfolio_volatility)
         valid_index.append(returns.index[t])
 
-    # Create the result DataFrame
+    # Assemble result DataFrame
     result_data = pd.DataFrame({
         "Returns": portfolio_returns.loc[valid_index],
         "Volatility": volatilities,
         "Innovations": innovations
     }, index=valid_index)
 
-    # Compute empirical quantile for VaR
+    # Empirical quantile for VaR
     empirical_quantile = np.percentile(result_data["Innovations"].dropna(), 100 * (1 - confidence_level))
 
-    # Compute VaR in decimal (% of portfolio)
+    # VaR in decimal units
     result_data["VaR"] = -result_data["Volatility"] * empirical_quantile
 
-    # Compute VaR in monetary units
-    portfolio_value = x_matrix.sum(axis=1).loc[valid_index]
-    result_data["VaR Monetary"] = result_data["VaR"] * portfolio_value
+    # VaR in monetary units
+    portfolio_value_series = x_matrix.sum(axis=1).loc[valid_index]
+    result_data["VaR Monetary"] = result_data["VaR"] * portfolio_value_series
 
-    # Identify VaR violations using monetary returns
-    result_data["VaR Violation"] = result_data["Returns"] * portfolio_value < -result_data["VaR Monetary"]
+    # VaR violations
+    result_data["VaR Violation"] = result_data["Returns"] * portfolio_value_series < -result_data["VaR Monetary"]
 
-    # Forecast next day VaR in monetary units
+    # Forecast next-day VaR (monetary)
     x_last = x_matrix.iloc[-1].values.reshape(-1, 1)
     sigma_last = rolling_covs.loc[returns.index[-1]].values
-    next_day_vol = float(np.sqrt(x_last.T @ sigma_last @ x_last))
+    next_day_variance = float(x_last.T @ sigma_last @ x_last)
+    next_day_vol = np.sqrt(next_day_variance)
     latest_portfolio_value = x_matrix.sum(axis=1).iloc[-1]
+    next_day_vol /= latest_portfolio_value  # normalize
     next_day_var_monetary = abs(empirical_quantile * next_day_vol * latest_portfolio_value)
 
     return result_data, next_day_var_monetary
@@ -189,7 +196,7 @@ def var_corr_riskmetrics(x_matrix, confidence_level=0.99, lambda_decay=0.94):
     - This method empirically estimates tail quantiles using historical standardized residuals.
     - Output includes both percentage-based and monetary VaR.
     """
-    # Compute returns matrix from x
+    # Compute returns
     returns = x_matrix.pct_change().dropna()
     portfolio_returns = (x_matrix * returns).sum(axis=1) / x_matrix.sum(axis=1)
 
@@ -211,6 +218,10 @@ def var_corr_riskmetrics(x_matrix, confidence_level=0.99, lambda_decay=0.94):
         portfolio_variance = float(x_t.T @ sigma @ x_t)
         portfolio_volatility = np.sqrt(portfolio_variance)
 
+        # Normalize volatility to percentage of portfolio value
+        portfolio_value = x_matrix.sum(axis=1).iloc[t]
+        portfolio_volatility /= portfolio_value
+
         volatilities.append(portfolio_volatility)
         innovations.append(portfolio_returns.iloc[t] / portfolio_volatility)
 
@@ -222,21 +233,22 @@ def var_corr_riskmetrics(x_matrix, confidence_level=0.99, lambda_decay=0.94):
 
     empirical_quantile = np.percentile(result_data["Innovations"].dropna(), 100 * (1 - confidence_level))
 
-    # Decimal VaR (% of wealth)
+    # Decimal VaR
     result_data["VaR"] = -result_data["Volatility"] * empirical_quantile
 
     # Monetary VaR
-    portfolio_value = x_matrix.sum(axis=1)
-    result_data["VaR Monetary"] = result_data["VaR"] * portfolio_value
+    portfolio_value_series = x_matrix.sum(axis=1)
+    result_data["VaR Monetary"] = result_data["VaR"] * portfolio_value_series
 
-    # Violation check using monetary returns
-    result_data["VaR Violation"] = result_data["Returns"] * portfolio_value < -result_data["VaR Monetary"]
+    # Violation detection
+    result_data["VaR Violation"] = result_data["Returns"] * portfolio_value_series < -result_data["VaR Monetary"]
 
-    # Next-day forecast
+    # One-step-ahead forecast
     x_last = x_matrix.iloc[-1].values.reshape(-1, 1)
     sigma_last = cov_matrices[-1]
-    next_day_vol = float(np.sqrt(x_last.T @ sigma_last @ x_last))
+    next_day_vol = np.sqrt(float(x_last.T @ sigma_last @ x_last))
     latest_portfolio_value = x_matrix.sum(axis=1).iloc[-1]
+    next_day_vol /= latest_portfolio_value  # Normalize
     next_day_var_monetary = abs(empirical_quantile * next_day_vol * latest_portfolio_value)
 
     return result_data, next_day_var_monetary
