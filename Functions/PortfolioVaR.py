@@ -10,6 +10,9 @@ from IPython.display import display
 #################################################
 # Note: double check all formulas and inputs (x)
 #       check index stuff
+#       limit displaying table (too long)
+#################################################
+# Note2: backtesting VaR AN? good idea or not?
 #################################################
 
 #----------------------------------------------------------
