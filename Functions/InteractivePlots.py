@@ -536,6 +536,7 @@ def interactive_plot_correlation_matrix(position_data):
     return fig
 
 
+# Take away the caller, add interactive=False to each function
 #----------------------------------------------------------
 # General Plot Caller Function (Notebook + High-Res Export)
 #----------------------------------------------------------

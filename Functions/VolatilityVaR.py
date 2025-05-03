@@ -11,6 +11,10 @@ import warnings
 # Note: double check all formulas 
 #       double check caller logic and wealth scaling
 #################################################
+# Note2: double check caller with forecast function
+#        to see if variance/ VaR work well
+#        remove formulas from docstrings
+#################################################
 
 #----------------------------------------------------------
 # Garch Forecast (Analytical Formula, for Variance or VaR)
@@ -387,6 +391,8 @@ def apply_wealth_scaling(result_data, wealth):
     return result_data
 
 
+# Note: seems like the user can't get the variance from the forecast function via caller
+# Note: remove caller and put wealth scaling as additional arguments
 #----------------------------------------------------------
 # Unified Volatility-Based VaR Caller with Wealth Scaling
 #----------------------------------------------------------
