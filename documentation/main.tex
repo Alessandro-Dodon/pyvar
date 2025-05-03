@@ -1,0 +1,141 @@
+% !TEX TS-program = pdflatex
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb, bm, geometry, graphicx}
+\usepackage{hyperref}
+\geometry{margin=1in}
+\title{\textbf{\huge Programming in Economics \& Finance II, Final Project}}
+\author{Niccol\`o Lecce, Marco Gasparetti, Alessandro Dodon}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section*{Project Title: Python Package for Efficient VaR Estimation}
+
+This document presents the mathematical models for Value-at-Risk (VaR) and Expected Shortfall (ES) used in our Python package for efficient VaR estimation. The package implements different volatility models to estimate VaR and ES for financial portfolios, covering both univariate models for individual assets and multivariate models for entire portfolios.
+
+\section*{Notation}
+Let $r_t$ be the (excess) return at time $t$, and let $z_t$ be an i.i.d.\ standardized shock.  For portfolio models, denote by
+\begin{itemize}
+  \item $x_t = (x_{1,t},\dots,x_{N,t})^\top$ the vector of monetary positions in each of the $N$ assets at time $t$,  
+  \item $W_t = \sum_{i=1}^N x_{i,t}$ the total portfolio value,  
+  \item $w_t = x_t / W_t$ the weight vector,  
+  \item $\Sigma$ the (daily) covariance matrix of asset returns,  
+  \item $H$ the time horizon in days,  
+  \item $z_\alpha$ the $\alpha$-quantile of the chosen shock distribution (e.g., standard normal).  
+\end{itemize}
+
+\section*{Models}
+
+\subsection*{GARCH$(p,q)$ VaR}
+Univariate GARCH captures volatility clustering:
+\begin{align*}
+  r_t &= \mu + \varepsilon_t, \qquad \varepsilon_t = \sigma_t z_t,  \\  
+  \sigma_t^2 &= \omega + \sum_{i=1}^q \alpha_i \varepsilon_{t-i}^2 + \sum_{j=1}^p \beta_j \sigma_{t-j}^2,  \\   
+  \text{VaR}_{t,\alpha} &= -\hat{\sigma}_t \; z_\alpha.
+\end{align*}
+
+\subsection*{EGARCH$(p,q)$ VaR}
+EGARCH models asymmetric effects in log-volatility:
+\begin{align*}
+  \log\bigl(\sigma_t^2\bigr) &= \omega + \sum_{j=1}^p \beta_j \log\bigl(\sigma_{t-j}^2\bigr)
+     + \sum_{i=1}^q \alpha_i \Bigl(\tfrac{|\varepsilon_{t-i}|}{\sigma_{t-i}} - \mathbb{E}[|z|]\Bigr)
+     + \sum_{i=1}^q \gamma_i \tfrac{\varepsilon_{t-i}}{\sigma_{t-i}},  \\   
+  \text{VaR}_{t,\alpha} &= -\hat{\sigma}_t \; z_\alpha.
+\end{align*}
+
+\subsection*{GJR–GARCH$(p,q)$ VaR}
+GJR–GARCH adds leverage terms for negative shocks:
+\begin{align*}
+  \sigma_t^2 &= \omega + \sum_{i=1}^q \alpha_i \varepsilon_{t-i}^2 + \sum_{j=1}^p \beta_j \sigma_{t-j}^2
+    + \sum_{i=1}^q \gamma_i \varepsilon_{t-i}^2 \;\mathbb{I}_{\{\varepsilon_{t-i}<0\}},  \\  
+  \text{VaR}_{t,\alpha} &= -\hat{\sigma}_t \; z_\alpha.
+\end{align*}
+
+\subsection*{APARCH$(p,q)$ VaR}
+APARCH incorporates power and asymmetry:
+\begin{align*}
+  \sigma_t^\delta &= \omega + \sum_{i=1}^q \alpha_i \bigl(|\varepsilon_{t-i}| - \gamma_i \varepsilon_{t-i}\bigr)^\delta
+     + \sum_{j=1}^p \beta_j \sigma_{t-j}^\delta,  \\  
+  \text{VaR}_{t,\alpha} &= -\hat{\sigma}_t \; z_\alpha.
+\end{align*}
+
+\subsection*{ARCH$(p)$ VaR}
+Simplest ARCH model:
+\[
+  \sigma_t^2 = \omega + \sum_{i=1}^p \alpha_i \varepsilon_{t-i}^2,
+  \qquad
+  \text{VaR}_{t,\alpha} = -\hat{\sigma}_t \; z_\alpha.
+\]
+
+\subsection*{EWMA VaR}
+Exponentially weighted variance:
+\[
+  \sigma_t^2 = \lambda\,\sigma_{t-1}^2 + (1-\lambda)\,r_{t-1}^2,
+  \qquad
+  \text{VaR}_{t,\alpha} = -\hat{\sigma}_t \; z_\alpha.
+\]
+
+\subsection*{Moving Average VaR}
+Simple rolling estimate:
+\[
+  \sigma_t = \sqrt{\frac{1}{n}\sum_{i=1}^n r_{t-i}^2},
+  \qquad
+  \text{VaR}_{t,\alpha} = -\hat{\sigma}_t \; z_\alpha.
+\]
+
+\subsection*{Expected Shortfall (ES)}
+Average loss beyond VaR:
+\[
+  \text{ES}_{t,\alpha} = -\hat{\sigma}_t \,\mathbb{E}[z_t \mid z_t < z_\alpha].
+\]
+
+\subsection*{GARCH(1,1) Variance Forecasts}
+Long‑run variance: $\mathrm{VL}=\omega/(1-\alpha-\beta)$.  
+\begin{align*}
+  \mathbb{E}[\sigma_{t+\tau}^2] &= \mathrm{VL} + (\alpha+\beta)^\tau(\sigma_t^2 - \mathrm{VL}),  \\  
+  \mathbb{E}[\sigma_{t,T}^2] &= \mathrm{VL}\Bigl(T-1 - \tfrac{(\alpha+\beta)(1-(\alpha+\beta)^{T-1})}{1-(\alpha+\beta)}\Bigr)
+    + \sigma_t^2\,\tfrac{1-(\alpha+\beta)^T}{1-(\alpha+\beta)}.
+\end{align*}
+\[
+  \text{VaR}_{t,T} = -\,z_\alpha \,\sqrt{\mathbb{E}[\sigma_{t,T}^2] }.
+\]
+
+\subsection*{Portfolio Risk Decomposition}
+For horizon $H$, parametric portfolio VaR using positions $x_t$:
+\[
+  \mathrm{VaR}_{t,H} = z_\alpha \sqrt{H\;x_t^\top\Sigma\,x_t}
+  = z_\alpha\;\sqrt{H\;w_t^\top\Sigma\,w_t}\;W_t.
+\]
+Undiversified VaR (all correlations=1):
+\[
+  \mathrm{UVaR}_{t,H} = z_\alpha\sqrt{H}\sum_{i=1}^N\sigma_{i,t}\,x_{i,t}.
+\]
+Marginal VaR (sensitivity):
+\[
+  \Delta\mathrm{VaR}_{i,t} = \frac{\partial\mathrm{VaR}_{t,H}}{\partial x_{i,t}}
+    = z_\alpha\sqrt{H}\;\frac{(\Sigma x_t)_i}{\sqrt{x_t^\top\Sigma x_t}}.
+\]
+Component VaR:
+\[
+  \mathrm{CVaR}_{i,t} = x_{i,t}\,\Delta\mathrm{VaR}_{i,t},
+  \qquad
+  \mathrm{RCVaR}_{i,t} = \frac{\mathrm{CVaR}_{i,t}}{\mathrm{VaR}_{t,H}}.
+\]
+
+\subsection*{Parametric ES Formulas}
+\textbf{Historical ES:}
+\[
+  \text{ES}_{\mathrm{hist}} = -\mathbb{E}[r_t \mid r_t < -\mathrm{VaR}_\alpha].
+\]
+\textbf{Parametric ES (Normal):}
+\[
+  \text{ES}_{\mathrm{normal}} = \sigma\;\frac{\phi(z_\alpha)}{1-\alpha}.
+\]
+\textbf{Parametric ES (Student-$t$):}
+\[
+  \text{ES}_{t,\alpha} = \sigma\;\frac{f_{t_\nu}(t_\alpha)}{1-\alpha}\;\frac{\nu + t_\alpha^2}{\nu - 1}.
+\]
+
+\end{document}

@@ -1,0 +1,10 @@
+Metadata-Version: 2.1
+Name: PyVaR
+Version: 0.1
+Summary: VaR and risk modeling toolkit for financial applications
+Author: Alessandro Dodon, Niccolò Lecce, Marco Gasparetti
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: plotly
+Requires-Dist: scipy
+Requires-Dist: arch
