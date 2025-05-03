@@ -12,7 +12,7 @@ import pandas as pd
 #----------------------------------------------------------
 # Historical VaR (Non-Parametric)
 #----------------------------------------------------------
-def var_historical(returns, confidence_level=0.99, holding_period=1):
+def var_historical(returns, confidence_level=0.99, holding_period=1, wealth=None):
     """
     Historical VaR Estimation (Non-Parametric).
 
@@ -51,22 +51,27 @@ def var_historical(returns, confidence_level=0.99, holding_period=1):
     """
     var_cutoff = np.percentile(returns.dropna(), 100 * (1 - confidence_level))
     scaled_var = np.sqrt(holding_period) * var_cutoff
-
     var_series = pd.Series(-scaled_var, index=returns.index)
+
     result_data = pd.DataFrame({
         "Returns": returns,
         "VaR": var_series
     })
     result_data["VaR Violation"] = returns < -var_series
 
-    var_estimate = 100 * abs(scaled_var)
+    if wealth is not None:
+        result_data["VaR_monetary"] = result_data["VaR"] * wealth
+        var_estimate = abs(scaled_var) * wealth
+    else:
+        var_estimate = 100 * abs(scaled_var)
+
     return result_data.dropna(), var_estimate
 
 
 #----------------------------------------------------------
 # Parametric VaR (i.i.d. assumption)
 #----------------------------------------------------------
-def var_parametric_iid(returns, confidence_level=0.99, holding_period=1, distribution="normal"):
+def var_parametric_iid(returns, confidence_level=0.99, holding_period=1, distribution="normal", wealth=None):
     """
     Parametric i.i.d. VaR Estimation.
 
@@ -139,5 +144,10 @@ def var_parametric_iid(returns, confidence_level=0.99, holding_period=1, distrib
     })
     result_data["VaR Violation"] = returns < -var_series
 
-    var_estimate = 100 * abs(var_value)
+    if wealth is not None:
+        result_data["VaR_monetary"] = result_data["VaR"] * wealth
+        var_estimate = abs(var_value) * wealth
+    else:
+        var_estimate = 100 * abs(var_value)
+
     return result_data.dropna(), var_estimate

@@ -9,11 +9,8 @@ import warnings
 
 #################################################
 # Note: double check all formulas 
-#       double check caller logic and wealth scaling
 #################################################
-# Note2: double check caller with forecast function
-#        to see if variance/ VaR work well
-#        remove formulas from docstrings
+# Note2: remove formulas from docstrings
 #################################################
 
 #----------------------------------------------------------
@@ -25,7 +22,8 @@ def garch_forecast(
     cumulative=False,
     compute_var=False,
     confidence_level=0.99,
-    distribution="normal"
+    distribution="normal",
+    wealth=None
 ):
     """
     GARCH(1,1) Variance or Value-at-Risk Forecast.
@@ -88,6 +86,9 @@ def garch_forecast(
     else:
         variance = var_long_run + phi**steps_ahead * (sigma2_t - var_long_run)
 
+    if wealth is not None and not compute_var:
+        raise ValueError("Wealth can only be used when compute_var=True")
+
     if not compute_var:
         return variance  # plain decimal variance
 
@@ -107,13 +108,18 @@ def garch_forecast(
     else:
         raise ValueError("Supported distributions: 'normal', 't', 'ged'")
 
-    return -z * np.sqrt(variance)  # VaR in decimals
+    var_result = -z * np.sqrt(variance)
+
+    if wealth is not None:
+        return var_result * wealth
+
+    return var_result
 
 
 #----------------------------------------------------------
 # Garch VaR
 #----------------------------------------------------------
-def var_garch(returns, confidence_level=0.99, p=1, q=1, vol_model="GARCH", distribution="normal"):
+def var_garch(returns, confidence_level=0.99, p=1, q=1, vol_model="GARCH", distribution="normal", wealth=None):
     """
     GARCH-type Value-at-Risk (VaR) Estimation.
 
@@ -198,13 +204,18 @@ def var_garch(returns, confidence_level=0.99, p=1, q=1, vol_model="GARCH", distr
     next_day_vol = np.sqrt(forecast_var) / 100
     next_day_var = abs(quantile * next_day_vol)
 
+    if wealth is not None:
+        result_data["VaR_monetary"] = result_data["VaR"] * wealth
+        next_day_var *= wealth
+
     return result_data.dropna(), next_day_var
+
 
 
 #----------------------------------------------------------
 # Arch VaR
 #----------------------------------------------------------
-def var_arch(returns, confidence_level=0.99, p=1):
+def var_arch(returns, confidence_level=0.99, p=1, wealth=None):
     """
     ARCH-type Value-at-Risk (VaR) Estimation.
 
@@ -252,7 +263,11 @@ def var_arch(returns, confidence_level=0.99, p=1):
     result_data["VaR Violation"] = returns < -var_series
 
     next_day_vol = (fit.forecast(horizon=1).variance.values[-1][0] ** 0.5) / 100
-    next_day_var =  abs(quantile * next_day_vol)
+    next_day_var = abs(quantile * next_day_vol)
+
+    if wealth is not None:
+        result_data["VaR_monetary"] = result_data["VaR"] * wealth
+        next_day_var *= wealth
 
     return result_data.dropna(), next_day_var
 
@@ -260,7 +275,7 @@ def var_arch(returns, confidence_level=0.99, p=1):
 #----------------------------------------------------------
 # EWMA VaR
 #----------------------------------------------------------
-def var_ewma(returns, confidence_level=0.99, decay_factor=0.94):
+def var_ewma(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
     """
     EWMA-based Value-at-Risk (VaR) Estimation.
 
@@ -310,7 +325,11 @@ def var_ewma(returns, confidence_level=0.99, decay_factor=0.94):
     result_data.dropna(inplace=True)
 
     next_day_vol = volatility.iloc[-1]
-    next_day_var =  abs(quantile * next_day_vol)
+    next_day_var = abs(quantile * next_day_vol)
+
+    if wealth is not None:
+        result_data["VaR_monetary"] = result_data["VaR"] * wealth
+        next_day_var *= wealth
 
     return result_data, next_day_var
 
@@ -318,7 +337,7 @@ def var_ewma(returns, confidence_level=0.99, decay_factor=0.94):
 #----------------------------------------------------------
 # MA VaR
 #----------------------------------------------------------
-def var_moving_average(returns, confidence_level=0.99, window=20):
+def var_moving_average(returns, confidence_level=0.99, window=20, wealth=None):
     """
     Moving Average-based Value-at-Risk (VaR) Estimation.
 
@@ -364,92 +383,10 @@ def var_moving_average(returns, confidence_level=0.99, window=20):
     next_day_vol = volatility.iloc[-1]
     next_day_var = abs(quantile * next_day_vol)
 
+    if wealth is not None:
+        result_data["VaR_monetary"] = result_data["VaR"] * wealth
+        next_day_var *= wealth
+
     return result_data, next_day_var
 
 
-#----------------------------------------------------------
-# Wealth Scaling for VaR
-#----------------------------------------------------------
-def apply_wealth_scaling(result_data, wealth):
-    """
-    Apply wealth scaling to Value-at-Risk (VaR) estimates.
-
-    Parameters:
-    - result_data (pd.DataFrame): Output from a VaR model function. Must contain 'VaR' column (in decimals).
-    - wealth (float or None): Portfolio value for converting VaR from percentage (decimal) to monetary units.
-
-    Returns:
-    - pd.DataFrame: DataFrame with a new 'VaR_monetary' column (if wealth is provided).
-
-    Notes:
-    - Does not modify the original 'VaR' column (remains in decimals, e.g., 0.01 = 1%).
-    - Adds a new column 'VaR_monetary' only if wealth is specified.
-    """
-    if wealth is not None:
-        if "VaR" in result_data.columns:
-            result_data["VaR_monetary"] = result_data["VaR"] * wealth
-    return result_data
-
-
-# Note: seems like the user can't get the variance from the forecast function via caller
-# Note: remove caller and put wealth scaling as additional arguments
-#----------------------------------------------------------
-# Unified Volatility-Based VaR Caller with Wealth Scaling
-#----------------------------------------------------------
-def compute_var_volatility(returns, confidence_level=0.99, method="garch", wealth=None, **kwargs):
-    """
-    Unified Value-at-Risk (VaR) Estimator Using Volatility Models.
-
-    Dispatches the VaR estimation to a selected volatility-based model and optionally applies wealth scaling.
-
-    Parameters:
-    - returns (pd.Series): Return series in decimal format (e.g., 0.01 = 1%).
-    - confidence_level (float): Confidence level for VaR estimation (e.g., 0.99).
-    - method (str): One of {"garch", "arch", "ewma", "ma", "forecast"}.
-    - wealth (float or None): If provided, scales VaR results to monetary units.
-    - **kwargs: Additional arguments for the chosen model.
-
-    Returns:
-    - result_data (pd.DataFrame or None): Contains 'VaR' in decimals, and 'VaR_monetary' if wealth is given.
-    - next_day_var (float): One-step-ahead VaR estimate in decimal or monetary units.
-
-    Notes:
-    - For method='forecast', only a scalar is returned (not a full time series).
-    - All VaR values are returned as positive loss magnitudes.
-    - Wealth scaling does not alter the original 'VaR' values.
-    """
-    method = method.lower()
-
-    model_functions = {
-        "garch": var_garch,
-        "arch": var_arch,
-        "ewma": var_ewma,
-        "ma": var_moving_average,
-        "forecast": garch_forecast
-    }
-
-    if method not in model_functions:
-        raise ValueError(f"'method' must be one of {list(model_functions.keys())}")
-
-    # Special case for forecast: returns only scalar, not DataFrame
-    if method == "forecast":
-        var_forecast = garch_forecast(
-            returns=returns,
-            compute_var=True,
-            confidence_level=confidence_level,
-            **kwargs
-        )
-        if wealth is not None:
-            var_forecast = var_forecast * wealth
-        return None, var_forecast
-
-    # Standard case: use model function
-    model_func = model_functions[method]
-    result_data, next_day_var = model_func(returns, confidence_level, **kwargs)
-
-    result_data = apply_wealth_scaling(result_data, wealth)
-
-    if wealth is not None:
-        next_day_var = next_day_var * wealth
-
-    return result_data, next_day_var

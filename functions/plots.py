@@ -14,33 +14,41 @@ import base64
 
 #################################################
 # Note: double check all names/ titles
-#       fix ES plot blue inconsistency 
-#       (it varies and becomes ligther)
 #       check corr and shorting
+#       make portflio plots larger
 #################################################
+# Note: check ES plot, when static and long period
+#       it gets ligtht blue again
+#################################################
+
+#----------------------------------------------------------
+# Display helper (only define once in your script)
+#----------------------------------------------------------
+def display_high_dpi_inline(png_bytes, width):
+    encoded = base64.b64encode(png_bytes).decode("utf-8")
+    return HTML(f'<img src="data:image/png;base64,{encoded}" style="width:{width}px;"/>')
+
 
 #----------------------------------------------------------
 # VaR Plot Backtesting
 #----------------------------------------------------------
-def interactive_plot_var(data, subset=None):
+def plot_var(data, subset=None, interactive=True, output_path=None):
     """
-    Interactive VaR Backtest Plot.
+    Interactive or Static VaR Backtest Plot.
 
-    Create an interactive Plotly figure showing returns, VaR level, and VaR violations.
+    Create a Plotly figure showing returns, VaR level, and VaR violations.
 
     Parameters:
-    - data (pd.DataFrame):
-        Must contain 'Returns', 'VaR', and 'VaR Violation' columns.
-    - subset (tuple, optional):
-        (start_date, end_date) to zoom into a specific time range.
+    - data (pd.DataFrame): Must contain 'Returns', 'VaR', and 'VaR Violation' columns.
+    - subset (tuple, optional): (start_date, end_date) to zoom into a specific time range.
+    - interactive (bool): If True, show plot interactively. If False, export or show static PNG.
+    - output_path (str, optional): File path to save static PNG (if interactive=False).
 
     Returns:
-    - plotly.graph_objs.Figure:
-        Interactive backtest plot with clean formatting.
+    - fig (plotly.graph_objs.Figure): Plotly figure object.
 
     Notes:
-    - VaR is plotted as a negative threshold line.
-    - Violations are shown as red open circles.
+    - Uses high-DPI export (scale=4) for static plots.
     """
     if subset is not None:
         data = data.loc[subset[0]:subset[1]]
@@ -90,13 +98,25 @@ def interactive_plot_var(data, subset=None):
         yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
     )
 
-    return fig
+    width = fig.layout.width or 1000
+    height = fig.layout.height or 500
+    scale = 4
+
+    if interactive:
+        fig.show()
+        return fig  # only return in interactive mode
+
+    elif output_path:
+        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+    else:
+        png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
+        display(display_high_dpi_inline(png_bytes, width))
 
 
 #----------------------------------------------------------
 # ES Plot Backtesting
 #----------------------------------------------------------
-def interactive_plot_es(data, subset=None):
+def plot_es(data, subset=None, interactive=True, output_path=None):
     """
     Interactive ES Backtest Plot.
 
@@ -126,21 +146,25 @@ def interactive_plot_es(data, subset=None):
     fig = go.Figure()
 
     fig.add_trace(go.Bar(
-        x=data.index,
-        y=100 * data["Returns"],
-        name="Log Returns",
-        marker_color="blue",
-        hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
+    x=data.index,
+    y=100 * data["Returns"],
+    name="Log Returns",
+    marker=dict(
+        color="blue",  # strong consistent blue
+        line=dict(color="black", width=0)  # optional for definition
+    ),
+    opacity=1.0,  # force full opacity
+    hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
     ))
 
     fig.add_trace(go.Scatter(
-        x=data.index,
-        y=-100 * data["VaR"],
-        mode="lines",
-        name="VaR",
-        line=dict(color="black", width=0.8),
-        hovertemplate="Date: %{x}<br>VaR: %{customdata:.2f}%",
-        customdata=100 * data["VaR"].abs()
+    x=data.index,
+    y=-100 * data["VaR"],
+    mode="lines",
+    name="VaR",
+    line=dict(color="black", width=0.8),
+    hovertemplate="Date: %{x}<br>VaR: %{customdata:.2f}%",
+    customdata=100 * data["VaR"].abs()
     ))
 
     fig.add_trace(go.Scatter(
@@ -171,26 +195,48 @@ def interactive_plot_es(data, subset=None):
     )
 
     fig.update_layout(
-        title="Backtesting Expected Shortfall",
-        yaxis_title="Returns (%)",
-        hovermode="x unified",
-        height=500,
-        width=1000,
-        barmode="overlay",
-        plot_bgcolor="white",
-        paper_bgcolor="white",
-        margin=dict(l=60, r=60, t=50, b=50),
-        xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
-        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
+    title="Backtesting Expected Shortfall",
+    yaxis_title="Returns (%)",
+    hovermode="x unified",
+    height=500,
+    width=1000,
+    barmode="overlay",  
+    bargap=0.025,  # small gap = visually thicker bars
+    plot_bgcolor="white",
+    paper_bgcolor="white",
+    margin=dict(l=60, r=60, t=50, b=50),
+    xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
+    yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
     )
 
+    fig.update_traces(
+    selector=dict(type="bar"),
+    selected=dict(marker=dict(opacity=1)),
+    unselected=dict(marker=dict(opacity=1))
+)
+
+    width = fig.layout.width or 1000
+    height = fig.layout.height or 500
+    scale = 4
+
+    if interactive:
+        fig.show()
+        return fig
+
+    elif output_path:
+        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+    else:
+        png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
+        display(display_high_dpi_inline(png_bytes, width))
+
     return fig
+
 
 
 #----------------------------------------------------------
 # Volatility Plot
 #----------------------------------------------------------
-def interactive_plot_volatility(volatility_series, subset=None):
+def plot_volatility(volatility_series, subset=None, interactive=True, output_path=None):
     """
     Interactive Volatility Plot.
 
@@ -219,7 +265,7 @@ def interactive_plot_volatility(volatility_series, subset=None):
 
     fig.add_trace(go.Scatter(
         x=volatility_series.index,
-        y=100 * volatility_series,  # Convert to percentage
+        y=100 * volatility_series,
         mode="lines",
         name="Volatility",
         line=dict(color="blue", width=0.8),
@@ -239,7 +285,20 @@ def interactive_plot_volatility(volatility_series, subset=None):
         yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
     )
 
-    return fig
+    width = fig.layout.width or 1000
+    height = fig.layout.height or 500
+    scale = 4
+
+    if interactive:
+        fig.show()
+        return fig
+
+    elif output_path:
+        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+
+    else:
+        png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
+        display(display_high_dpi_inline(png_bytes, width))
 
 
 #----------------------------------------------------------
@@ -271,7 +330,7 @@ def get_asset_color_map(assets):
 #----------------------------------------------------------
 # VaR and UVaR Plot 
 #----------------------------------------------------------
-def interactive_plot_var_series(var_df):
+def plot_var_series(var_df, interactive=True, output_path=None):
     """
     Asset-Normal vs. Undiversified VaR Plot.
 
@@ -294,6 +353,7 @@ def interactive_plot_var_series(var_df):
     - Outputs VaR in monetary units.
     """
     fig = go.Figure()
+
     fig.add_trace(go.Scatter(
         x=var_df.index,
         y=var_df["Diversified_VaR"],
@@ -301,6 +361,7 @@ def interactive_plot_var_series(var_df):
         line=dict(color='blue'),
         hovertemplate="Date: %{x}<br>VaR = %{y:.2f}<extra></extra>"
     ))
+
     fig.add_trace(go.Scatter(
         x=var_df.index,
         y=var_df["Undiversified_VaR"],
@@ -308,6 +369,7 @@ def interactive_plot_var_series(var_df):
         line=dict(color='red'),
         hovertemplate="Date: %{x}<br>Undiversified VaR = %{y:.2f}<extra></extra>"
     ))
+
     fig.update_layout(
         title='Asset-Normal VaR vs. Undiversified VaR Over Time',
         xaxis_title='Date',
@@ -317,13 +379,30 @@ def interactive_plot_var_series(var_df):
         xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
         yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
     )
-    return fig
+
+    # Ensure consistent width and height
+    if fig.layout.width is None:
+        fig.update_layout(width=1000)
+    if fig.layout.height is None:
+        fig.update_layout(height=500)
+
+    width = fig.layout.width
+    height = fig.layout.height
+    scale = 4
+
+    if interactive:
+        fig.show()
+    elif output_path:
+        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+    else:
+        png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
+        display(display_high_dpi_inline(png_bytes, width))
 
 
 # ----------------------------------------------------------
 # Risk Contribution Bar Chart 
 # ----------------------------------------------------------
-def interactive_plot_risk_contribution_bar(component_df):
+def plot_risk_contribution_bar(component_df, interactive=True, output_path=None):
     """
     Average Component VaR Contribution Bar Chart.
 
@@ -346,7 +425,6 @@ def interactive_plot_risk_contribution_bar(component_df):
 
     percentages = 100 * average_contributions / total
     sorted_assets = average_contributions.sort_values().index
-
     asset_colors = get_asset_color_map(sorted_assets)
 
     fig = go.Figure(
@@ -372,17 +450,29 @@ def interactive_plot_risk_contribution_bar(component_df):
         yaxis_title="Asset",
         template="simple_white",
         height=500,
+        width=1000,
         margin=dict(l=80, r=40, t=50, b=50),
         showlegend=False
     )
 
-    return fig
+    width = fig.layout.width or 1000
+    height = fig.layout.height or 500
+    scale = 4
+
+    if interactive:
+        fig.show()
+        return  # Prevent double rendering
+    elif output_path:
+        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+    else:
+        png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
+        display(display_high_dpi_inline(png_bytes, width))
 
 
 #----------------------------------------------------------
 # Component VaR Over Time 
 #----------------------------------------------------------
-def interactive_plot_risk_contribution_lines(component_df):
+def plot_risk_contribution_lines(component_df, interactive=True, output_path=None):
     """
     Component VaR Over Time Line Plot.
 
@@ -403,7 +493,6 @@ def interactive_plot_risk_contribution_lines(component_df):
     - Hover templates display asset name and Component VaR in monetary units.
     """
     asset_colors = get_asset_color_map(component_df.columns)
-
     fig = go.Figure()
 
     for asset in component_df.columns:
@@ -413,7 +502,7 @@ def interactive_plot_risk_contribution_lines(component_df):
             mode="lines",
             name=asset,
             line=dict(color=asset_colors[asset]),
-            hovertemplate="Date: %{x}<br>" + asset + " CVaR = %{y:.2f}<extra></extra>"
+            hovertemplate=f"Date: %{{x}}<br>{asset} CVaR = %{{y:.2f}}<extra></extra>"
         ))
 
     fig.update_layout(
@@ -425,17 +514,30 @@ def interactive_plot_risk_contribution_lines(component_df):
         plot_bgcolor="white",
         paper_bgcolor="white",
         xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True, tickformat="%Y-%m-%d"),
-        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True, tickformat="%Y-%m-%d"),
-        margin=dict(l=60, r=60, t=50, b=50)
+        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
+        margin=dict(l=60, r=60, t=50, b=50),
+        height=500,
+        width=1000
     )
 
-    return fig
+    width = fig.layout.width or 1000
+    height = fig.layout.height or 500
+    scale = 4
+
+    if interactive:
+        fig.show()
+        return  # Prevent duplicate display
+    elif output_path:
+        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+    else:
+        png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
+        display(display_high_dpi_inline(png_bytes, width))
 
 
 #----------------------------------------------------------
 # Correlation Matrix Heatmap
 #----------------------------------------------------------
-def interactive_plot_correlation_matrix(position_data):
+def plot_correlation_matrix(position_data, interactive=True, output_path=None):
     """
     Interactive Correlation Matrix Heatmap.
 
@@ -463,7 +565,7 @@ def interactive_plot_correlation_matrix(position_data):
     """
     position_data = pd.DataFrame(position_data).dropna()
 
-    # Use log returns if all values are positive
+    # Compute returns
     if (position_data <= 0).any().any():
         returns = position_data.pct_change().dropna()
     else:
@@ -472,7 +574,6 @@ def interactive_plot_correlation_matrix(position_data):
     corr_matrix = returns.corr()
     asset_names = corr_matrix.columns.tolist()
 
-    # Mask upper triangle
     mask = np.tril(np.ones(corr_matrix.shape, dtype=bool))
     masked_corr = np.where(mask, corr_matrix.values, np.nan)
 
@@ -502,100 +603,31 @@ def interactive_plot_correlation_matrix(position_data):
         template="simple_white",
         plot_bgcolor="white",
         paper_bgcolor="white",
-        margin=dict(l=80, r=80, t=80, b=80),  # extra margin to avoid axis bleeding
-        xaxis=dict(
-            visible=False,
-            showgrid=False,
-            showline=False,
-            showticklabels=False,
-            zeroline=False
-        ),
-        yaxis=dict(
-            visible=False,
-            showgrid=False,
-            showline=False,
-            showticklabels=False,
-            zeroline=False,
-            autorange="reversed"
-        )
+        margin=dict(l=80, r=80, t=80, b=80),
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False, autorange="reversed")
     )
 
-    # White gridlines between cells
+    # White gridlines
     for i in range(len(asset_names)):
-        fig.add_shape(type="line",
-                      x0=-0.5, x1=len(asset_names) - 0.5,
-                      y0=i - 0.5, y1=i - 0.5,
-                      line=dict(color="white", width=1),
+        fig.add_shape(type="line", x0=-0.5, x1=len(asset_names) - 0.5,
+                      y0=i - 0.5, y1=i - 0.5, line=dict(color="white", width=1),
                       xref="x", yref="y")
-        fig.add_shape(type="line",
-                      x0=i - 0.5, x1=i - 0.5,
-                      y0=-0.5, y1=len(asset_names) - 0.5,
-                      line=dict(color="white", width=1),
+        fig.add_shape(type="line", x0=i - 0.5, x1=i - 0.5,
+                      y0=-0.5, y1=len(asset_names) - 0.5, line=dict(color="white", width=1),
                       xref="x", yref="y")
 
-    return fig
-
-
-# Take away the caller, add interactive=False to each function
-#----------------------------------------------------------
-# General Plot Caller Function (Notebook + High-Res Export)
-#----------------------------------------------------------
-def display_high_dpi_inline(png_bytes, width):
-    """
-    Display a high-DPI PNG inline in Jupyter without losing resolution.
-    """
-    encoded = base64.b64encode(png_bytes).decode('utf-8')
-    return HTML(f'<img src="data:image/png;base64,{encoded}" style="width:{width}px;"/>')
-
-
-def plot_caller(plot_type, interactive=True, output_path=None, **kwargs):
-    """
-    General Plot Caller.
-
-    Displays a Plotly plot interactively or as a static high-res PNG (inline or saved).
-
-    Parameters:
-    - plot_type (str): One of:
-        'var', 'es', 'volatility', 'var_series', 
-        'risk_bar', 'risk_lines', 'correlation'.
-
-    - interactive (bool): If True, show interactive plot (default).
-                          If False, render or save high-resolution static plot.
-
-    - output_path (str or None): If set and interactive=False, save high-res PNG to this path.
-
-    - **kwargs: Passed to the selected plotting function.
-
-    Returns:
-    - None (renders or saves the figure)
-    """
-    plot_functions = {
-    "backtest_var": interactive_plot_var,
-    "backtest_es": interactive_plot_es,
-    "volatility": interactive_plot_volatility,
-    "compare_var_series": interactive_plot_var_series,
-    "component_var_bar": interactive_plot_risk_contribution_bar,
-    "component_var_lines": interactive_plot_risk_contribution_lines,
-    "correlation_matrix": interactive_plot_correlation_matrix
-    }
-
-    if plot_type not in plot_functions:
-        raise ValueError(f"Invalid plot_type: '{plot_type}'. "
-                         f"Choose from {list(plot_functions.keys())}.")
-
-    fig = plot_functions[plot_type](**kwargs)
-
-    # Use figure's own layout dimensions, fallback defaults if missing
-    width = fig.layout.width or 1000
-    height = fig.layout.height or 500
-    scale = 4  # Very high resolution for export
+    width = fig.layout.width or 900
+    height = fig.layout.height or 800
+    scale = 4
 
     if interactive:
         fig.show()
+        return
     elif output_path:
         fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
 
-    return None
+

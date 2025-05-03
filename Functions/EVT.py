@@ -7,7 +7,7 @@ from scipy.stats import genpareto
 
 #################################################
 # Note: double check all formulas 
-#       wealth scaling?
+#       check probability of exceedance and diagnostics
 #################################################
 
 #----------------------------------------------------------
@@ -18,7 +18,8 @@ def evt(
     confidence_level=0.99,
     threshold_percentile=99,
     exceedance_level=None,
-    diagnostics=False
+    diagnostics=False,
+    wealth=None
 ):
     """
     EVT-Based VaR and ES Estimation.
@@ -90,8 +91,7 @@ def evt(
     - VaR and ES outputs are returned as positive percentages.
     - This method captures heavy tails and rare events in return distributions.
     """
-    returns = returns.dropna()
-    returns = pd.Series(returns)
+    returns = pd.Series(returns).dropna()
     losses = -returns
 
     threshold_u = np.percentile(losses, threshold_percentile)
@@ -129,6 +129,13 @@ def evt(
         "ES": es_series
     })
     result_data["VaR Violation"] = returns < -var_series
+
+    # Apply wealth scaling if requested
+    if wealth is not None:
+        result_data["VaR_monetary"] = result_data["VaR"] * wealth
+        result_data["ES_monetary"] = result_data["ES"] * wealth
+        var_estimate = var_evt_value * wealth
+        es_estimate = es_evt_value * wealth
 
     if diagnostics:
         x_max = threshold_u - beta_hat / xi_hat if xi_hat < 0 else np.inf

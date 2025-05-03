@@ -1,7 +1,5 @@
 ### TODO (Ale)
 
-- Finish check on corr models
-
 - Check returns vs log returns on everything (and % change returns)
 
 - After those, check the shorting for the functions that receive x positions as inputs... (and shorting on others?)
@@ -12,10 +10,6 @@
 
 - Check correlations plots and shorting cases
 
-- EVT needs to have wealth input? so worth separating it (into ES and VaR)? Likely not the best, both ES and VaR need the same params...
+- Plots (make portfolio plots larger, and ES plot fix the bug when going too long of a period)
 
-- Add wealth scaling to basic VaR
-
-- **kwargs hides parameters from users (fix that)
-
-- Remove callers, add wealth scaling directly into each function for VaR and ES (as extra column)
+- Once finished, make tutorial

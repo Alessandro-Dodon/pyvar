@@ -10,20 +10,14 @@ from IPython.display import display # for new ES functions
 
 #################################################
 # Note: double check all formulas 
-#       add a failsafe when user tries to scale
-#       ES with dynamic corr methods or portfolio
-#       methods (avoid double scaling)
-#################################################
-# Note2: write a new ES function for the corr models
-#       that get both ES in decimals (plotting) and
-#       monetary units (scaling), then the caller
-#       MUST prevent to use wealth with this function
+#       and ES for vol and corr models should also
+#       return the ES for the next day? or not?
 #################################################
 
 #----------------------------------------------------------
 # Historical Expected Shortfall (Tail Mean)
 #----------------------------------------------------------
-def compute_es_historical(result_data, confidence_level):
+def compute_es_historical(result_data, confidence_level, wealth=None):
     """
     Historical Expected Shortfall Estimation (Tail Mean Method).
 
@@ -66,15 +60,29 @@ def compute_es_historical(result_data, confidence_level):
     else:
         es_value = tail_returns.mean()
 
-    result_data["ES"] = pd.Series(es_value * -1, index=result_data.index)
-    es_estimate = result_data["ES"].iloc[0]
+    es_series = pd.Series(-es_value, index=result_data.index)
+    result_data["ES"] = es_series
+
+    es_estimate = -es_value
+
+    if wealth is not None:
+        result_data["ES_monetary"] = es_series * wealth
+        es_estimate *= wealth
+
     return result_data, es_estimate
 
 
 #----------------------------------------------------------
 # Parametric Expected Shortfall (Normal and t only)
 #----------------------------------------------------------
-def compute_es_parametric(result_data, returns, confidence_level, holding_period=1, distribution="normal"):
+def compute_es_parametric(
+    result_data,
+    returns,
+    confidence_level,
+    holding_period=1,
+    distribution="normal",
+    wealth=None
+):   
     """
     Parametric Expected Shortfall Estimation (Normal or Student-t).
 
@@ -137,13 +145,17 @@ def compute_es_parametric(result_data, returns, confidence_level, holding_period
     result_data["ES"] = pd.Series(es_value, index=result_data.index)
     es_estimate = es_value
 
+    if wealth is not None:
+        result_data["ES_monetary"] = result_data["ES"] * wealth
+        es_estimate *= wealth
+
     return result_data, es_estimate
 
 
 #----------------------------------------------------------
 # Expected Shortfall Volatility
 #----------------------------------------------------------
-def compute_expected_shortfall_volatility(data, confidence_level, subset=None):
+def compute_expected_shortfall_volatility(data, confidence_level, subset=None, wealth=None):
     """
     Volatility-Based Expected Shortfall Estimation (Empirical Innovations Method).
 
@@ -188,6 +200,10 @@ def compute_expected_shortfall_volatility(data, confidence_level, subset=None):
     tail_mean = subset_data["Innovations"][subset_data["Innovations"] < threshold].mean()
 
     data["ES"] = -data["Volatility"] * tail_mean
+
+    if wealth is not None:
+        data["ES_monetary"] = data["ES"] * wealth
+
     return data
 
 
@@ -268,9 +284,6 @@ def compute_expected_shortfall_correlation(data, confidence_level=0.99, subset=N
         raise ValueError("To compute 'ES Monetary', data must include 'VaR' and 'VaR Monetary' columns.")
 
     return data
-
-
-### Portfolio Metrics for ES
 
 
 #----------------------------------------------------------
@@ -600,153 +613,4 @@ def incremental_es(
 
     ies_series.attrs["es_unit"] = "monetary"
     return ies_series
-
-
-#----------------------------------------------------------
-# Wealth Scaling for ES
-#----------------------------------------------------------
-def apply_wealth_scaling_es(result_data, es_estimate=None, wealth=None):
-    """
-    Apply wealth scaling to Expected Shortfall (ES) values.
-
-    Parameters:
-    - result_data (pd.DataFrame): Output of an ES function, must include an 'ES' column (in decimals, e.g., 0.01 = 1%).
-    - es_estimate (float or None): Scalar ES value to be scaled (in decimals).
-    - wealth (float or None): Portfolio value used for converting ES from percentage (decimal) to monetary units.
-
-    Returns:
-    - result_data (pd.DataFrame): DataFrame with optional new column 'ES_monetary' (in monetary units).
-    - es_estimate (float or None): Scaled scalar ES in monetary units (if provided), else None.
-
-    Notes:
-    - Does not overwrite the 'ES' column; only adds 'ES_monetary'.
-    - Assumes all ES values are in decimal format (e.g., 0.01 = 1%).
-    """
-    if wealth is not None and "ES" in result_data.columns:
-        result_data["ES_monetary"] = result_data["ES"] * wealth
-
-    if wealth is not None and es_estimate is not None:
-        es_estimate = es_estimate * wealth
-
-    return result_data, es_estimate
-
-
-#----------------------------------------------------------
-# Unified Expected Shortfall (ES) Caller with Wealth Scaling
-#----------------------------------------------------------
-def compute_expected_shortfall(method, result_data, confidence_level=0.99, wealth=None, **kwargs):
-    """
-    Unified Expected Shortfall (ES) Estimator with Optional Wealth Scaling.
-
-    Dispatches ES computation to one of several supported methods:
-    - 'historical': empirical tail average based on past returns.
-    - 'parametric': closed-form ES using Normal or Student-t distribution.
-    - 'volatility': time-varying ES from scaled innovation tails.
-    - 'correlation': ES from correlation-based models with empirical tails.
-    - 'marginal': marginal ES per asset using Euler decomposition.
-    - 'component': asset-level ES contribution based on marginal ES.
-    - 'relative_component': proportional ES contribution per asset.
-    - 'incremental': first-order ES impact from position changes.
-
-    Wealth Scaling:
-    - Automatically applied to methods that return ES in decimal format.
-    - Blocked for methods that return monetary ES or proportions directly.
-
-    Parameters:
-    - method (str): One of the supported method names.
-    - result_data (pd.DataFrame): Input DataFrame with required columns per method.
-    - confidence_level (float): ES confidence level (e.g., 0.99).
-    - wealth (float or None): If provided, scales ES results (only for compatible methods).
-    - **kwargs: Additional arguments depending on method:
-        - 'returns' (pd.Series) for 'parametric'
-        - 'holding_period' (int) for 'parametric', 'marginal', etc.
-        - 'distribution' (str): 'normal' or 't' (optional)
-        - 'subset' (tuple): Date range for volatility/correlation methods
-        - 'position_data' (pd.DataFrame): Required for marginal/component/incremental
-        - 'change_vector' (array-like): Required for 'incremental'
-
-    Returns:
-    - result_data (pd.DataFrame): Output with 'ES' and possibly 'ES_monetary'.
-    - es_estimate (float or None): Scalar ES value (only for some methods).
-
-    Notes:
-    - All decimal ES values are in percentage-of-wealth units (e.g., 0.012 = 1.2%).
-    - Methods returning ES in monetary units block external wealth scaling.
-    - 'relative_component' returns proportions and is excluded from scaling.
-    """
-    method = method.lower()
-
-    if method == "historical":
-        result_data, es_estimate = compute_es_historical(result_data, confidence_level)
-
-    elif method == "parametric":
-        returns = kwargs.get("returns")
-        if returns is None:
-            raise ValueError("Parametric ES requires 'returns' (pd.Series).")
-        holding_period = kwargs.get("holding_period", 1)
-        distribution = kwargs.get("distribution", "normal")
-        result_data, es_estimate = compute_es_parametric(
-            result_data, returns, confidence_level, holding_period, distribution
-        )
-
-    elif method == "volatility":
-        subset = kwargs.get("subset", None)
-        result_data = compute_expected_shortfall_volatility(result_data, confidence_level, subset)
-        es_estimate = None
-
-    elif method == "correlation":
-        if wealth is not None:
-            raise ValueError("Method 'correlation' already returns monetary ES. 'wealth' must be None.")
-        subset = kwargs.get("subset", None)
-        result_data = compute_expected_shortfall_correlation(result_data, confidence_level, subset)
-        es_estimate = None
-
-    elif method == "marginal":
-        if wealth is not None:
-            raise ValueError("Method 'marginal' already returns monetary ES. 'wealth' must be None.")
-        position_data = kwargs.get("position_data")
-        distribution = kwargs.get("distribution", "normal")
-        holding_period = kwargs.get("holding_period", 1)
-        result_data = marginal_es(position_data, confidence_level, holding_period, distribution)
-        es_estimate = None
-
-    elif method == "component":
-        if wealth is not None:
-            raise ValueError("Method 'component' already returns monetary ES. 'wealth' must be None.")
-        position_data = kwargs.get("position_data")
-        distribution = kwargs.get("distribution", "normal")
-        holding_period = kwargs.get("holding_period", 1)
-        result_data = component_es(position_data, confidence_level, holding_period, distribution)
-        es_estimate = None
-
-    elif method == "relative_component":
-        if wealth is not None:
-            raise ValueError("Method 'relative_component' returns proportions. 'wealth' must be None.")
-        position_data = kwargs.get("position_data")
-        distribution = kwargs.get("distribution", "normal")
-        holding_period = kwargs.get("holding_period", 1)
-        result_data = relative_component_es(position_data, confidence_level, holding_period, distribution)
-        es_estimate = None
-
-    elif method == "incremental":
-        if wealth is not None:
-            raise ValueError("Method 'incremental' already returns monetary ES. 'wealth' must be None.")
-        position_data = kwargs.get("position_data")
-        change_vector = kwargs.get("change_vector")
-        if change_vector is None:
-            raise ValueError("Incremental ES requires 'change_vector'.")
-        distribution = kwargs.get("distribution", "normal")
-        holding_period = kwargs.get("holding_period", 1)
-        result_data = incremental_es(position_data, change_vector, confidence_level, holding_period, distribution)
-        es_estimate = None
-
-    else:
-        raise ValueError("Method must be one of: 'historical', 'parametric', 'volatility', 'correlation', "
-                         "'marginal', 'component', 'relative_component', 'incremental'.")
-
-    if method in {"historical", "parametric", "volatility"}:
-        result_data, es_estimate = apply_wealth_scaling_es(result_data, es_estimate, wealth)
-
-    return result_data, es_estimate
-
 
