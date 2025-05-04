@@ -9,38 +9,78 @@ from zipfile import ZipFile
 import requests
 
 
-def single_factor_var(returns: pd.DataFrame, market: pd.Series):
-    """
-    Costruisce la matrice di covarianza con modello single-factor (Sharpe)
-    e restituisce Sigma, betas, varianze idiosincratiche e varianza di mercato.
 
-    Args:
-        returns : DataFrame con rendimenti degli asset (colonne=tickers)
-        market  : Series con rendimenti del mercato (es. SPY)
 
-    Returns:
-        Sigma                : DataFrame, matrice di covarianza stimata
-        betas                : Series, beta di ogni asset vs. mercato
-        idiosyncratic_var    : Series, varianza idiosincratica di ogni asset
-        sigma_m2             : float, varianza del mercato
+def single_factor_var_es(
+    returns: pd.DataFrame,
+    benchmark: pd.Series,
+    weights: pd.Series,
+    port_val: float,
+    confidence_level: float = 0.99
+) -> tuple[float, float, pd.DataFrame, pd.Series, pd.Series]:
     """
-    # varianza del mercato
-    sigma_m2 = market.var(ddof=0)
-    # covarianza asset-market
-    cov_im = returns.apply(lambda x: x.cov(market))
-    # betas
-    betas = cov_im / sigma_m2
-    # varianze idiosincratiche
-    idiosyncratic_var = returns.var(ddof=0) - betas.pow(2) * sigma_m2
-    # matrice di covarianza totale
+    Compute portfolio Value-at-Risk (VaR) and Expected Shortfall (ES) 
+    using a single-factor (Sharpe) model.
+
+    Parameters
+    ----------
+    returns : pd.DataFrame
+        Time series of asset returns (columns are tickers).
+    benchmark : pd.Series
+        Time series of benchmark returns (e.g., market index).
+    weights : pd.Series
+        Portfolio weights (must sum to 1).
+    portfolio_value : float
+        Current total value of the portfolio (monetary units).
+    confidence_level : float, optional
+        Confidence level for VaR (default is 0.99).
+
+    Returns
+    -------
+    var : float
+        Portfolio VaR at the specified confidence level (monetary units).
+    es : float
+        Portfolio Expected Shortfall at the specified confidence level (monetary units).
+    Sigma : pd.DataFrame
+        Covariance matrix estimated by the single-factor model.
+    betas : pd.Series
+        Beta of each asset with respect to the benchmark.
+    idiosyncratic_var : pd.Series
+        Estimated idiosyncratic variance of each asset.
+    """
+    # 1) Estimate market variance
+    market_var = benchmark.var(ddof=0)
+
+    # 2) Compute covariance between each asset and the benchmark
+    cov_with_benchmark = returns.apply(lambda x: x.cov(benchmark))
+
+    # 3) Compute betas
+    betas = cov_with_benchmark / market_var
+
+    # 4) Compute idiosyncratic variances
+    idiosyncratic_var = returns.var(ddof=0) - betas.pow(2) * market_var
+
+    # 5) Build total covariance matrix: B Σ_m B' + diag(idiosyncratic_var)
     tickers = returns.columns
-    outer = np.outer(betas, betas) * sigma_m2
-    Sigma = pd.DataFrame(outer, index=tickers, columns=tickers)
-    # aggiungo varianze idiosincratiche sui diagonali
+    # outer product of betas scaled by market variance
+    factor_cov = np.outer(betas, betas) * market_var
+    Sigma = pd.DataFrame(factor_cov, index=tickers, columns=tickers)
+    # add idiosyncratic variances to the diagonal
     for t in tickers:
         Sigma.at[t, t] += idiosyncratic_var[t]
 
-    return Sigma, betas, idiosyncratic_var, sigma_m2
+    # 6) Portfolio volatility
+    port_vol = np.sqrt(weights.values @ Sigma.values @ weights.values)
+
+    # 7) Compute VaR
+    z = norm.ppf(confidence_level)
+    var = z * port_vol * port_val
+
+    # 8) Compute ES
+    tail_prob = 1 - confidence_level
+    es = (port_vol * norm.pdf(norm.ppf(tail_prob)) / tail_prob) * port_val
+
+    return var, es, Sigma, betas, idiosyncratic_var
 
 
 
