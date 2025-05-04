@@ -18,36 +18,32 @@ def save_report_as_pdf(metrics: dict,
                        filename: str = "interpretation_report.pdf"):
     """
     Genera un report PDF con:
-    - Tabelle VaR e CVaR
+    - Tabella VaR
+    - Tabella ES (invece di CVaR)
     - Tabella posizioni opzioni (se presente)
     - Interpretazione LLM
     """
     # Setup documento
     doc = SimpleDocTemplate(
-        filename,
-        pagesize=A4,
+        filename, pagesize=A4,
         rightMargin=2*cm, leftMargin=2*cm,
         topMargin=2*cm, bottomMargin=2*cm
     )
     styles = getSampleStyleSheet()
-    # Stili aggiuntivi
-    if "RptTitle" not in styles:
-        styles.add(ParagraphStyle("RptTitle",
-                                  fontName="Times-Roman",
-                                  fontSize=24,
-                                  alignment=TA_CENTER,
-                                  spaceAfter=12))
-    if "SectHead" not in styles:
-        styles.add(ParagraphStyle("SectHead",
-                                  fontName="Times-Roman",
-                                  fontSize=18,
-                                  spaceAfter=6))
-    if "BodyTxt" not in styles:
-        styles.add(ParagraphStyle("BodyTxt",
-                                  fontName="Times-Roman",
-                                  fontSize=12,
-                                  leading=14,
-                                  spaceAfter=4))
+    styles.add(ParagraphStyle("RptTitle",
+                              fontName="Times-Roman",
+                              fontSize=24,
+                              alignment=TA_CENTER,
+                              spaceAfter=12))
+    styles.add(ParagraphStyle("SectHead",
+                              fontName="Times-Roman",
+                              fontSize=18,
+                              spaceAfter=6))
+    styles.add(ParagraphStyle("BodyTxt",
+                              fontName="Times-Roman",
+                              fontSize=12,
+                              leading=14,
+                              spaceAfter=4))
 
     story = []
     # Cover
@@ -55,12 +51,12 @@ def save_report_as_pdf(metrics: dict,
     story.append(Paragraph(f"Date: {datetime.date.today():%d %B %Y}", styles["BodyTxt"]))
     story.append(Spacer(1, 0.7*cm))
 
-    # VaR Table
+    # — Tabella VaR
     story.append(Paragraph("VaR Metrics (95%)", styles["SectHead"]))
     story.append(Spacer(1, 0.5*cm))
     data_var = [["Metric", "Value"]]
     for k, v in metrics.items():
-        if "VaR" in k and "CVaR" not in k:
+        if "VaR" in k and "ES" not in k:
             data_var.append([k, f"{v:,.2f}"])
     tbl_var = Table(data_var, colWidths=[8*cm, 6*cm])
     tbl_var.setStyle(TableStyle([
@@ -72,24 +68,24 @@ def save_report_as_pdf(metrics: dict,
     story.append(tbl_var)
     story.append(Spacer(1, 0.7*cm))
 
-    # CVaR Table
-    story.append(Paragraph("CVaR Metrics (95%)", styles["SectHead"]))
+    # — Tabella ES
+    story.append(Paragraph("ES Metrics (95%)", styles["SectHead"]))
     story.append(Spacer(1, 0.5*cm))
-    data_cvar = [["Metric", "Value"]]
+    data_es = [["Metric", "Value"]]
     for k, v in metrics.items():
-        if "CVaR" in k:
-            data_cvar.append([k, f"{v:,.2f}"])
-    tbl_cvar = Table(data_cvar, colWidths=[8*cm, 6*cm])
-    tbl_cvar.setStyle(TableStyle([
+        if "ES" in k:
+            data_es.append([k, f"{v:,.2f}"])
+    tbl_es = Table(data_es, colWidths=[8*cm, 6*cm])
+    tbl_es.setStyle(TableStyle([
         ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
         ("ALIGN",       (1,1), (-1,-1), "RIGHT"),
         ("GRID",        (0,0), (-1,-1), 0.5, colors.grey),
         ("FONTNAME",    (0,0), (-1,-1), "Times-Roman"),
     ]))
-    story.append(tbl_cvar)
+    story.append(tbl_es)
     story.append(Spacer(1, 0.7*cm))
 
-    # Opzioni (se presenti)
+    # — Tabella posizioni opzioni (se presenti)
     if opt_list:
         story.append(Paragraph("Option Positions", styles["SectHead"]))
         story.append(Spacer(1, 0.5*cm))
@@ -102,7 +98,7 @@ def save_report_as_pdf(metrics: dict,
                 f"{op['K']:.2f}",
                 f"{op['T']:.2f}"
             ])
-        tbl_opts = Table(data_opts, colWidths=[3*cm, 3*cm, 3*cm, 4*cm, 3*cm])
+        tbl_opts = Table(data_opts, colWidths=[3*cm,3*cm,3*cm,4*cm,3*cm])
         tbl_opts.setStyle(TableStyle([
             ("BACKGROUND", (0,0), (-1,0), colors.lightgrey),
             ("ALIGN",       (2,1), (-1,-1), "RIGHT"),
@@ -112,7 +108,7 @@ def save_report_as_pdf(metrics: dict,
         story.append(tbl_opts)
         story.append(Spacer(1, 0.7*cm))
 
-    # LLM Interpretation
+    # — Interpretazione LLM
     story.append(Paragraph("LLM Interpretation", styles["SectHead"]))
     for para in interpretation.split("\n\n"):
         story.append(Paragraph(para.replace("\n", " "), styles["BodyTxt"]))
@@ -123,13 +119,10 @@ def save_report_as_pdf(metrics: dict,
         canvas.saveState()
         canvas.setFont("Times-Roman", 8)
         canvas.setFillColor("grey")
-        canvas.drawCentredString(A4[0]/2, 1*cm, f"Page {doc.page} — Confidential")
+        canvas.drawCentredString(A4[0]/2, 1*cm,
+                                 f"Page {doc.page} — Confidential")
         canvas.restoreState()
 
-    # Build PDF
+    # Build
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
-
-    # Open file
-    path = os.path.abspath(filename)
-    os.startfile(path)
-    print(f"✅ Report PDF generated and opened: {path}")
+    print(f"✅ Report PDF generato: {os.path.abspath(filename)}")
