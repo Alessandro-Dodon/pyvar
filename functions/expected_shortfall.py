@@ -17,7 +17,7 @@ from IPython.display import display # for new ES functions
 #----------------------------------------------------------
 # Historical Expected Shortfall (Tail Mean)
 #----------------------------------------------------------
-def compute_es_historical(result_data, confidence_level, wealth=None):
+def compute_es_historical(result_data, confidence_level, wealth=None): # <---- is even confidence_level needed here?
     """
     Historical Expected Shortfall Estimation (Tail Mean Method).
 
