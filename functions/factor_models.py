@@ -1,4 +1,4 @@
-# ff3_var.py  –––  può finire nel tuo package `riskmetrics`
+# ff3_var.py — can be included in your `riskmetrics` package
 
 import numpy as np
 import pandas as pd
@@ -8,9 +8,9 @@ from io import BytesIO
 from zipfile import ZipFile
 import requests
 
-
-
-
+# -------------------------------------------------------
+# Single-Factor (Sharpe) VaR and ES estimation
+# -------------------------------------------------------
 def single_factor_var_es(
     returns: pd.DataFrame,
     benchmark: pd.Series,
@@ -19,76 +19,58 @@ def single_factor_var_es(
     confidence_level: float = 0.99
 ) -> tuple[float, float, pd.DataFrame, pd.Series, pd.Series]:
     """
-    Compute portfolio Value-at-Risk (VaR) and Expected Shortfall (ES) 
+    Computes portfolio Value-at-Risk (VaR) and Expected Shortfall (ES) 
     using a single-factor (Sharpe) model.
 
     Parameters
     ----------
     returns : pd.DataFrame
-        Time series of asset returns (columns are tickers).
+        Asset return time series (columns = tickers).
     benchmark : pd.Series
-        Time series of benchmark returns (e.g., market index).
+        Market return series (e.g., index).
     weights : pd.Series
         Portfolio weights (must sum to 1).
-    portfolio_value : float
-        Current total value of the portfolio (monetary units).
-    confidence_level : float, optional
-        Confidence level for VaR (default is 0.99).
+    port_val : float
+        Total current value of the portfolio.
+    confidence_level : float
+        Confidence level (default = 0.99).
 
     Returns
     -------
     var : float
-        Portfolio VaR at the specified confidence level (monetary units).
+        Value-at-Risk at given confidence level.
     es : float
-        Portfolio Expected Shortfall at the specified confidence level (monetary units).
+        Expected Shortfall at given confidence level.
     Sigma : pd.DataFrame
-        Covariance matrix estimated by the single-factor model.
+        Covariance matrix estimated via single-factor model.
     betas : pd.Series
-        Beta of each asset with respect to the benchmark.
+        Asset betas relative to the benchmark.
     idiosyncratic_var : pd.Series
-        Estimated idiosyncratic variance of each asset.
+        Asset-specific variance (residual).
     """
-    # 1) Estimate market variance
     market_var = benchmark.var(ddof=0)
-
-    # 2) Compute covariance between each asset and the benchmark
     cov_with_benchmark = returns.apply(lambda x: x.cov(benchmark))
-
-    # 3) Compute betas
     betas = cov_with_benchmark / market_var
-
-    # 4) Compute idiosyncratic variances
     idiosyncratic_var = returns.var(ddof=0) - betas.pow(2) * market_var
 
-    # 5) Build total covariance matrix: B Σ_m B' + diag(idiosyncratic_var)
     tickers = returns.columns
-    # outer product of betas scaled by market variance
     factor_cov = np.outer(betas, betas) * market_var
     Sigma = pd.DataFrame(factor_cov, index=tickers, columns=tickers)
-    # add idiosyncratic variances to the diagonal
     for t in tickers:
         Sigma.at[t, t] += idiosyncratic_var[t]
 
-    # 6) Portfolio volatility
     port_vol = np.sqrt(weights.values @ Sigma.values @ weights.values)
-
-    # 7) Compute VaR
     z = norm.ppf(confidence_level)
     var = z * port_vol * port_val
-
-    # 8) Compute ES
     tail_prob = 1 - confidence_level
     es = (port_vol * norm.pdf(norm.ppf(tail_prob)) / tail_prob) * port_val
 
     return var, es, Sigma, betas, idiosyncratic_var
 
 
-
-
-#FAMA-FRENCH
-# ----------------------------------------------------------------------
-# helper per scaricare i fattori Fama-French daily
-# ----------------------------------------------------------------------
+# -------------------------------------------------------
+# Fama-French 3-Factor Model — Factor Loader
+# -------------------------------------------------------
 _FF_ZIP_URL = (
     "https://mba.tuck.dartmouth.edu/pages/faculty/"
     "ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip"
@@ -96,18 +78,17 @@ _FF_ZIP_URL = (
 
 def load_ff3_factors(start=None, end=None) -> pd.DataFrame:
     """
-    Restituisce un DataFrame con colonne
-       ['Mkt_RF', 'SMB', 'HML', 'RF'] in frazioni (non %).
+    Downloads Fama-French 3-factor daily data.
+    Returns DataFrame with ['Mkt_RF', 'SMB', 'HML', 'RF'] as fractional returns.
     """
     resp = requests.get(_FF_ZIP_URL, timeout=30)
     resp.raise_for_status()
-    zf   = ZipFile(BytesIO(resp.content))
+    zf = ZipFile(BytesIO(resp.content))
     csvf = next(n for n in zf.namelist() if n.lower().endswith(".csv"))
-    ff   = pd.read_csv(zf.open(csvf), skiprows=3, index_col=0)
+    ff = pd.read_csv(zf.open(csvf), skiprows=3, index_col=0)
 
-    # righe utili = AAAAMMGG
-    mask  = ff.index.astype(str).str.match(r"^\d{8}$")
-    ff    = ff.loc[mask].astype(float) / 100.0
+    mask = ff.index.astype(str).str.match(r"^\d{8}$")
+    ff = ff.loc[mask].astype(float) / 100.0
     ff.index = pd.to_datetime(ff.index.astype(str), format="%Y%m%d")
     ff.columns = ["Mkt_RF", "SMB", "HML", "RF"]
 
@@ -115,9 +96,10 @@ def load_ff3_factors(start=None, end=None) -> pd.DataFrame:
     if end:   ff = ff.loc[:end]
     return ff.sort_index()
 
-# ----------------------------------------------------------------------
-# funzione principale
-# ----------------------------------------------------------------------
+
+# -------------------------------------------------------
+# Fama-French 3-Factor Model — Portfolio VaR and CVaR
+# -------------------------------------------------------
 def ff3_var_cvar(
     *,
     returns: pd.DataFrame | None = None,
@@ -128,72 +110,71 @@ def ff3_var_cvar(
     factors: pd.DataFrame | None = None,
 ) -> tuple[float, float]:
     """
-    VaR e CVaR di portafoglio con modello Fama–French 3-fattori.
+    Computes portfolio VaR and CVaR using the Fama–French 3-factor model.
 
-    Parametri
+    Parameters
     ----------
-    returns | prices
-        O rendimenti (% frazione) DAILY oppure prezzi (in valuta-base).
-    weights | shares
-        Pesi di portafoglio (sommatoria = 1) **oppure** numero titoli posseduti.
-    alpha
-        Livello di confidenza (es. 0.95 → VaR al 95 %).
-    factors
-        DataFrame di fattori FF3 già pronto; se None lo scarica da Ken French.
+    returns | prices : pd.DataFrame
+        Daily fractional returns or price series in base currency.
+    weights | shares : pd.Series
+        Portfolio weights (sum to 1) or position sizes (number of shares).
+    alpha : float
+        Confidence level (e.g. 0.95 for 95% VaR).
+    factors : pd.DataFrame, optional
+        Preloaded FF3 factor data; if None, downloads from Ken French.
 
-    Ritorna
+    Returns
     -------
-    (VaR, CVaR) in unità monetarie della valuta-base.
+    (VaR, CVaR) in monetary units of the base currency.
     """
     if returns is None and prices is None:
-        raise ValueError("devi passare `returns` o `prices`")
+        raise ValueError("must pass `returns` or `prices`")
 
     if prices is not None and returns is None:
         returns = prices.pct_change().dropna()
 
     if weights is None and shares is None:
-        raise ValueError("devi passare `weights` o `shares`")
+        raise ValueError("must pass `weights` or `shares`")
     if shares is not None:
         latest_price = prices.iloc[-1] if prices is not None else None
         if latest_price is None:
-            raise ValueError("per usare `shares` servono anche i `prices`")
+            raise ValueError("to use `shares`, `prices` must be provided")
         port_val = (latest_price * shares).sum()
-        weights  = (latest_price * shares) / port_val
+        weights = (latest_price * shares) / port_val
     else:
-        port_val = 1.0  # scala neutra – il VaR verrà poi scalato
-        weights  = weights / weights.sum()
+        port_val = 1.0
+        weights = weights / weights.sum()
 
-    # fattori FF3
     if factors is None:
         factors = load_ff3_factors(start=returns.index[0])
     factors = factors.reindex(returns.index).ffill()
 
-    # regressione multipla per ogni asset
-    X      = sm.add_constant(factors[["Mkt_RF", "SMB", "HML"]])
+    X = sm.add_constant(factors[["Mkt_RF", "SMB", "HML"]])
     excess = returns.sub(factors["RF"], axis=0)
 
     betas, resid_var = {}, {}
     for tkr in returns:
-        yx  = pd.concat([excess[tkr], X], axis=1).dropna()
+        yx = pd.concat([excess[tkr], X], axis=1).dropna()
         res = sm.OLS(yx.iloc[:, 0], yx.iloc[:, 1:]).fit()
-        betas[tkr]     = res.params.drop("const")
+        betas[tkr] = res.params.drop("const")
         resid_var[tkr] = res.resid.var(ddof=0)
 
-    B   = pd.DataFrame(betas).T.values            # n_assets × 3
-    Σf  = factors[["Mkt_RF", "SMB", "HML"]].cov().values  # 3 × 3
-    Σ   = B @ Σf @ B.T + np.diag(pd.Series(resid_var).values)
+    B = pd.DataFrame(betas).T.values
+    Σf = factors[["Mkt_RF", "SMB", "HML"]].cov().values
+    Σ = B @ Σf @ B.T + np.diag(pd.Series(resid_var).values)
 
-    # varianza portafoglio
     σ_p = np.sqrt(weights.values @ Σ @ weights.values)
 
-    z     = norm.ppf(alpha)
-    VaR   = z * σ_p * port_val
-    tail  = 1 - alpha
-    CVaR  = σ_p * norm.pdf(norm.ppf(tail)) / tail * port_val
+    z = norm.ppf(alpha)
+    VaR = z * σ_p * port_val
+    tail = 1 - alpha
+    CVaR = σ_p * norm.pdf(norm.ppf(tail)) / tail * port_val
+
     return VaR, CVaR
 
 
 '''
+# Example usage:
 import pandas as pd
 from ff3_var import ff3_var_cvar
 
