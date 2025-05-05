@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-import statsmodels.api as sm  # Imported but unused in this script
+
 
 # ───────────── Black-Scholes + Monte Carlo for Equities and Options ─────────────
 
@@ -106,4 +106,76 @@ def mc_var_portfolio(S0, mu, cov, shares_eq, options,
     var = -np.percentile(pnl, alpha * 100)
     cvar = -pnl[pnl <= -var].mean()
 
+    return var, cvar, pnl
+
+
+
+# ────────── Historical-Simulation VaR/CVaR for Equity+Options ──────────
+def hist_var_portfolio(returns_hist, S0, shares_eq, options,
+                       alpha=0.05, horizon=1/252, seed=42):
+    """
+    Historical‐Simulation VaR & CVaR for an equity + option portfolio.
+    """
+    # 1. Ensure reproducibility
+    np.random.seed(seed)
+
+    # 2. Convert input returns to a NumPy array (T × n_assets)
+    R = returns_hist.values if hasattr(returns_hist, "values") else np.asarray(returns_hist)
+    T, _ = R.shape  # T = number of historical observations
+
+    # 3. Sample T scenarios with replacement from historical returns
+    idx = np.random.choice(T, size=T, replace=True)
+    R_sim = R[idx]               # shape (T, n_assets)
+    S_sim = S0 * (1 + R_sim)     # simulate prices after one horizon step
+
+    # 4. Compute initial option prices at time 0
+    init_prices = [
+        bs_price(
+            S0[op['idx']],      # current spot for this option
+            op['K'],            # strike
+            op['T'],            # time to maturity
+            op['r'],            # risk-free rate
+            op['sigma'],        # volatility
+            op['type']          # "call" or "put"
+        )
+        for op in options
+    ]
+
+    # 5. Allocate array for profit & loss of each scenario
+    pnl = np.empty(T)
+
+    # 6. Loop over each sampled scenario
+    for i in range(T):
+        # 6a. Equity P&L: shares × (simulated price – current price)
+        pl_eq = shares_eq.dot(S_sim[i] - S0)
+
+        # 6b. Options P&L: reprice each option under simulated spot and time decay
+        pl_opt = 0.0
+        for j, op in enumerate(options):
+            # remaining time to maturity after one horizon
+            tau = max(op['T'] - horizon, 0)
+
+            # price the option in scenario i
+            new_price = bs_price(
+                S_sim[i, op['idx']],  # simulated spot for this option
+                op['K'],              # strike
+                tau,                  # updated time to maturity
+                op['r'],              # risk-free rate
+                op['sigma'],          # volatility
+                op['type']            # option type
+            )
+
+            # accumulate P&L = quantity × (new price – initial price)
+            pl_opt += op['qty'] * (new_price - init_prices[j])
+
+        # 6c. Total P&L for scenario i
+        pnl[i] = pl_eq + pl_opt
+
+    # 7. Value-at-Risk: negative of the α-quantile of the P&L distribution
+    var = -np.percentile(pnl, alpha * 100)
+
+    # 8. Conditional VaR: average loss beyond the VaR threshold
+    cvar = -pnl[pnl <= -var].mean()
+
+    # 9. Return VaR, CVaR, and the full P&L series
     return var, cvar, pnl
