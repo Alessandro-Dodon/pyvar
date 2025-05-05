@@ -23,7 +23,7 @@ def bs_price(S, K, tau, r, sigma, opt_type="call"):
 
 
 # ────────── Parametric Monte Carlo VaR/CVaR ──────────
-def mc_var_portfolio(S0, mu, cov, shares_eq, options,
+def mc_simulation_var_es(S0, mu, cov, shares_eq, options,
                      horizon=1/252, alpha=0.05,
                      Nsim=50_000, seed=42):
     """
@@ -77,7 +77,7 @@ def mc_var_portfolio(S0, mu, cov, shares_eq, options,
 
 
 # ────────── Historical-Simulation VaR/CVaR ──────────
-def hist_var_portfolio(returns_hist, S0, shares_eq, options,
+def hist_simulations_var_es(returns_hist, S0, shares_eq, options,
                        alpha=0.05, horizon=1/252, seed=42):
     """
     Unified Historical Simulation VaR & CVaR for equity + options.
