@@ -13,3 +13,5 @@
 - Plots (make portfolio plots larger, and ES plot fix the bug when going too long of a period)
 
 - Once finished, make tutorial
+
+- Check Nick's function, it should download also returns, this would make it compatible with my functions also for VaR
