@@ -1,10 +1,10 @@
 import yfinance as yf
 import pandas as pd
 
-
+# Download raw closing prices for given tickers
 def get_raw_prices(tickers, start="2024-01-01") -> pd.DataFrame:
     """
-    Scarica i prezzi di chiusura raw dei ticker specificati.
+    Downloads raw (unadjusted) closing prices for specified tickers.
     """
     prices = (
         yf.download(" ".join(tickers), start=start,
@@ -13,10 +13,10 @@ def get_raw_prices(tickers, start="2024-01-01") -> pd.DataFrame:
     )
     return prices
 
-
+# Convert raw prices from various currencies to a single base currency
 def convert_to_base(raw: pd.DataFrame, cur_map: dict, base: str = "EUR") -> pd.DataFrame:
     """
-    Converte i prezzi raw da valute miste a una valuta base.
+    Converts raw prices from multiple currencies into a single base currency.
     """
     needed = {cur_map[t] for t in raw.columns if cur_map[t] not in {base, "UNKNOWN"}}
     fx_pairs = [f"{base}{cur}=X" for cur in needed]
@@ -33,7 +33,7 @@ def convert_to_base(raw: pd.DataFrame, cur_map: dict, base: str = "EUR") -> pd.D
     out = pd.DataFrame(index=raw.index)
     for t in raw.columns:
         p = raw[t].copy()
-        if cur_map[t] in {"GBp","GBX","ZAc"}:
+        if cur_map[t] in {"GBp", "GBX", "ZAc"}:
             p *= 0.01
         cur = cur_map[t]
         if cur not in {base, "UNKNOWN"}:
@@ -43,10 +43,10 @@ def convert_to_base(raw: pd.DataFrame, cur_map: dict, base: str = "EUR") -> pd.D
         out[t] = p
     return out
 
-
+# Compute returns, mean returns, and covariance matrix
 def compute_returns_stats(prices: pd.DataFrame):
     """
-    Calcola rendimenti, media e matrice di covarianza.
+    Computes daily returns, mean returns, and covariance matrix.
     """
     returns = prices.pct_change().dropna()
-    return returns, rets.mean(), rets.cov()
+    return returns, returns.mean(), returns.cov()
