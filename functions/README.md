@@ -15,3 +15,5 @@
 - Once finished, make tutorial
 
 - Check Nick's function, it should download also returns, this would make it compatible with my functions also for VaR
+
+- Copula functions for dynamic corr models? Is that in python?
