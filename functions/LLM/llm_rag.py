@@ -10,7 +10,7 @@ from langchain_community.embeddings import GPT4AllEmbeddings
 import os
 
 # --- CONFIGURATION --------------------------
-LMSTUDIO_ENDPOINT = "http://xxx.xxx.x.xxx:xxxx"  # Find this on the right side of the LM Studio Developer tab
+LMSTUDIO_ENDPOINT = "http://172.20.10.3:1234"  # Find this on the right side of the LM Studio Developer tab
 API_PATH = "/v1/completions"
 MODEL_NAME = "qwen-3-4b-instruct"                # Name of the installed model in LM Studio
 # ---------------------------------------------
