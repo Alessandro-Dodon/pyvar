@@ -10,9 +10,9 @@ from langchain_community.embeddings import GPT4AllEmbeddings
 import os
 
 # --- CONFIGURATION --------------------------
-LMSTUDIO_ENDPOINT = "http://172.20.10.3:1234"  # Find this on the right side of the LM Studio Developer tab
+LMSTUDIO_ENDPOINT = "http://xxx.xxx.x.xxx:xxxx"  # Your LM Studio server URL, you can find this on the right side of the LM Studio Developer tab
 API_PATH = "/v1/completions"
-MODEL_NAME = "qwen-3-4b-instruct"                # Name of the installed model in LM Studio
+MODEL_NAME = "qwen-3-4b-instruct"                # Installed model name
 # ---------------------------------------------
 
 # Function to send a prompt to the local LLM and get a response
@@ -31,14 +31,7 @@ def ask_llm(prompt: str,
     data = resp.json()
     return data["choices"][0]["text"]
 
-# Simple example prompt
-test_prompt = "Explain the meaning of life"
-print("=== Prompt ===\n", test_prompt, "\n")
-try:
-    answer = ask_llm(test_prompt)
-    print("=== Qwen-3-4B-Instruct Response ===\n", answer)
-except Exception as e:
-    print("Error during LLM call:", e)
+
 
 # ----- RAG (Retrieval-Augmented Generation) -----
 # Function to build or load a Chroma vector database from a PDF
