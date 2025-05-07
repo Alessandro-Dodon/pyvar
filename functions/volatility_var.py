@@ -10,8 +10,6 @@ import warnings
 #################################################
 # Note: double check all formulas 
 #################################################
-# Note2: remove formulas from docstrings
-#################################################
 
 #----------------------------------------------------------
 # Garch Forecast (Analytical Formula, for Variance or VaR)
@@ -22,45 +20,32 @@ def garch_forecast(
     cumulative=False,
     compute_var=False,
     confidence_level=0.99,
-    distribution="normal",
     wealth=None
 ):
     """
-    GARCH(1,1) Variance or Value-at-Risk Forecast.
+    Forecast future variance or Value-at-Risk (VaR) using a GARCH(1,1) model with normal innovations.
 
-    Forecasts future variance or Value-at-Risk (VaR) using an analytical formula from a fitted GARCH(1,1) model.
-
-    Description:
-    - Variance is forecasted recursively via:
-        σ²_{t+h} = ω / (1 - φ) + φ^h × (σ²_t - ω / (1 - φ)), where φ = α + β.
-    - Optionally, cumulative variance over the forecast horizon is returned.
-    - If compute_var=True, transforms forecasted variance into a Value-at-Risk (VaR) estimate.
-
-    Formulas:
-    - Single-step variance:  
-        σ²_{t+h} = ω / (1 - φ) + φ^h × (σ²_t - ω / (1 - φ))
-    - Cumulative variance over h steps:  
-        Var_cum = sum of σ²_{t+i} from i = 1 to h
-    - VaR:
-        VaR = -Quantile × √(Variance)
+    This function fits a GARCH(1,1) model under the assumption of normally distributed residuals
+    and computes variance forecasts using the closed-form analytical formula. It supports both
+    step-ahead and cumulative variance forecasting over a user-defined horizon. Optionally, it
+    converts the forecasted variance into a fully parametric VaR estimate using the Normal distribution.
 
     Parameters:
     - returns (pd.Series): Daily return series in decimal format (e.g., 0.01 for 1%).
     - steps_ahead (int): Forecast horizon in days.
-    - cumulative (bool): If True, returns cumulative variance over horizon.
-    - compute_var (bool): If True, returns VaR instead of variance.
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99 for 99% VaR).
-    - distribution (str): Distribution for standardized residuals: {"normal", "t", "ged"}.
+    - cumulative (bool): If True, returns cumulative variance over the forecast horizon.
+    - compute_var (bool): If True, returns parametric VaR instead of variance.
+    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
+    - wealth (float, optional): Portfolio value. If set, VaR is returned in monetary units.
 
     Returns:
     - float:
-        - If compute_var=False: forecasted variance in decimal units (e.g., 0.0001).
-        - If compute_var=True: forecasted VaR in decimal loss magnitude (e.g., 0.015 for 1.5%).
+        - If compute_var=False: forecasted variance (in decimal squared returns).
+        - If compute_var=True and wealth is None: parametric VaR (in decimal loss magnitude).
+        - If compute_var=True and wealth is set: parametric VaR (in monetary units).
 
-    Notes:
-    - Assumes input returns are in decimals.
-    - Output VaR is a positive scalar representing potential loss.
-    - Stability condition φ = α + β < 1 is enforced.
+    Raises:
+    - ValueError: If the model is unstable (α + β ≥ 1), or if `wealth` is set without `compute_var=True`.
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -92,22 +77,7 @@ def garch_forecast(
     if not compute_var:
         return variance  # plain decimal variance
 
-    # VaR calculation
-    innovations = fit.resid / fit.conditional_volatility
-    innovations = innovations.dropna()
-
-    distribution = distribution.lower()
-    if distribution == "normal":
-        z = norm.ppf(1 - confidence_level)
-    elif distribution == "t":
-        df, loc, scale = t.fit(innovations)
-        z = t.ppf(1 - confidence_level, df, loc=loc, scale=scale)
-    elif distribution == "ged":
-        beta_ged, loc, scale = gennorm.fit(innovations)
-        z = gennorm.ppf(1 - confidence_level, beta_ged, loc=loc, scale=scale)
-    else:
-        raise ValueError("Supported distributions: 'normal', 't', 'ged'")
-
+    z = norm.ppf(1 - confidence_level)
     var_result = -z * np.sqrt(variance)
 
     if wealth is not None:
@@ -121,40 +91,39 @@ def garch_forecast(
 #----------------------------------------------------------
 def var_garch(returns, confidence_level=0.99, p=1, q=1, vol_model="GARCH", distribution="normal", wealth=None):
     """
-    GARCH-type Value-at-Risk (VaR) Estimation.
+    Estimate Value-at-Risk (VaR) using a semi-parametric GARCH-family model with flexible specification.
 
-    Fits a GARCH-type volatility model to daily return data and estimates one-step-ahead and time series Value-at-Risk (VaR)
-    using standardized residual quantiles.
+    This function fits a GARCH-type volatility model to a return series using maximum likelihood, 
+    where the user can choose both the volatility specification (e.g., GARCH, EGARCH, APARCH) and 
+    the innovation distribution (e.g., Normal, Student-t, GED, Skewed-t). The fitted model is used 
+    to filter conditional volatilities and standardized residuals.
 
-    Model:
-    - Standard GARCH(1,1) variance recursion:
-        σ²ₜ = ω + α * ε²ₜ₋₁ + β * σ²ₜ₋₁
-    - Supported extensions:
-        - EGARCH: models log-volatility to capture asymmetry.
-        - GJR-GARCH: includes a leverage effect via threshold terms.
-        - APARCH: allows asymmetric power transformation of returns.
+    VaR is then computed semi-parametrically by applying empirical quantiles to the standardized 
+    residuals, allowing for flexible tail behavior without fully relying on a parametric distribution.
+
+    The function returns both a time series of in-sample VaR values and a one-step-ahead forecast.
 
     Parameters:
-    - returns (pd.Series): Daily returns in decimal format (e.g., 0.01 for 1 percent).
-    - confidence_level (float): VaR confidence level (e.g., 0.99 for 99 percent).
-    - p (int): GARCH lag order (default is 1).
-    - q (int): ARCH lag order (default is 1).
-    - vol_model (str): Volatility model, one of "GARCH", "EGARCH", "GJR", or "APARCH".
-    - distribution (str): Distribution of standardized residuals, one of "normal", "t", "ged", or "skewt".
+    - returns (pd.Series): Daily return series in decimal format (e.g., 0.01 for 1%).
+    - confidence_level (float): Confidence level for VaR (e.g., 0.99 for 99%).
+    - p (int): Lag order for the GARCH term (default: 1).
+    - q (int): Lag order for the ARCH term (default: 1).
+    - vol_model (str): One of {"GARCH", "EGARCH", "GJR", "APARCH"}.
+    - distribution (str): One of {"normal", "t", "ged", "skewt"}.
+    - wealth (float, optional): Portfolio value. If set, VaR outputs are in monetary units.
 
     Returns:
-    - result_data (pd.DataFrame): DataFrame with columns:
-        - 'Returns': original returns in decimals
-        - 'Volatility': model-implied conditional standard deviation (in decimals)
-        - 'Innovations': standardized residuals
-        - 'VaR': estimated VaR at each time point (in decimals, positive loss magnitude)
-        - 'VaR Violation': True where Return < -VaR
-    - next_day_var (float): One-step-ahead VaR forecast (absolute value, in decimals)
+    - result_data (pd.DataFrame): With columns:
+        - 'Returns' (decimal)
+        - 'Volatility' (conditional standard deviation in decimals)
+        - 'Innovations' (standardized residuals)
+        - 'VaR' (decimal loss magnitude)
+        - 'VaR Violation' (bool)
+        - 'VaR_monetary' (if wealth is provided, in currency units)
+    - next_day_var (float): One-step-ahead forecasted VaR (decimal or currency if scaled by wealth)
 
-    Notes:
-    - Input returns are scaled to percentages internally for model fitting and then scaled back.
-    - Output VaR values are in decimal units (e.g., 0.012 means a 1.2 percent potential loss).
-    - The function drops rows with missing values before returning the result.
+    Raises:
+    - ValueError: If an unsupported model or distribution is specified.
     """
     # Validate model and distribution
     vol_model = vol_model.upper()
@@ -211,38 +180,32 @@ def var_garch(returns, confidence_level=0.99, p=1, q=1, vol_model="GARCH", distr
     return result_data.dropna(), next_day_var
 
 
-
 #----------------------------------------------------------
 # Arch VaR
 #----------------------------------------------------------
 def var_arch(returns, confidence_level=0.99, p=1, wealth=None):
     """
-    ARCH-type Value-at-Risk (VaR) Estimation.
+    Estimate Value-at-Risk (VaR) using a semi-parametric ARCH model.
 
-    Fits an ARCH(p) volatility model to daily return data and estimates Value-at-Risk (VaR)
-    based on the empirical quantiles of standardized residuals.
-
-    Model:
-    - ARCH(p) variance recursion:
-        σ²ₜ = ω + α₁ * ε²ₜ₋₁ + α₂ * ε²ₜ₋₂ + ... + αₚ * ε²ₜ₋ₚ
+    This function fits an ARCH(p) volatility model to a return series using maximum likelihood,
+    then computes Value-at-Risk (VaR) using empirical quantiles of the standardized residuals.
+    The approach allows for flexible tail estimation while using a parametric volatility filter.
 
     Parameters:
-    - returns (pd.Series): Daily returns in decimal format (e.g., 0.01 for 1 percent).
-    - confidence_level (float): VaR confidence level (e.g., 0.99 for 99 percent).
-    - p (int): ARCH order (default is 1).
+    - returns (pd.Series): Daily return series in decimal format (e.g., 0.01 for 1%).
+    - confidence_level (float): Confidence level for VaR (e.g., 0.99 for 99%).
+    - p (int): Order of the ARCH model (default: 1).
+    - wealth (float, optional): Portfolio value. If set, VaR outputs are returned in monetary units.
 
     Returns:
-    - result_data (pd.DataFrame): DataFrame with columns:
-        - 'Returns': original return series (in decimals)
-        - 'Volatility': model-implied conditional standard deviation (in decimals)
-        - 'Innovations': standardized residuals
-        - 'VaR': Value-at-Risk at each time point (positive loss magnitude, in decimals)
-        - 'VaR Violation': Boolean flag indicating if return < -VaR
-    - next_day_var (float): One-step-ahead VaR forecast (absolute value, in decimals)
-
-    Notes:
-    - Input returns are internally scaled to percentages during model fitting and scaled back in the output.
-    - All volatility and VaR values are returned in decimal units (e.g., 0.012 means 1.2 percent potential loss).
+    - result_data (pd.DataFrame): With columns:
+        - 'Returns' (decimal)
+        - 'Volatility' (conditional standard deviation in decimals)
+        - 'Innovations' (standardized residuals)
+        - 'VaR' (semi-parametric VaR in decimal loss magnitude)
+        - 'VaR Violation' (bool)
+        - 'VaR_monetary' (if wealth is provided, in currency units)
+    - next_day_var (float): One-step-ahead forecasted VaR (decimal or monetary if wealth is set)
     """
     returns_scaled = returns * 100
 
@@ -277,35 +240,27 @@ def var_arch(returns, confidence_level=0.99, p=1, wealth=None):
 #----------------------------------------------------------
 def var_ewma(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
     """
-    EWMA-based Value-at-Risk (VaR) Estimation.
+    Estimate Value-at-Risk (VaR) using a semi-parametric EWMA volatility model.
 
-    Estimates daily Value-at-Risk (VaR) using an Exponentially Weighted Moving Average (EWMA) model 
-    for volatility and empirical quantiles of standardized residuals.
-
-    Model:
-    - EWMA volatility recursion:
-        σ²ₜ = λ * σ²ₜ₋₁ + (1 - λ) * ε²ₜ₋₁²
-    where:
-        - λ = decay_factor (e.g., 0.94)
-        - εₜ = return at time t
+    This function estimates conditional volatility using an Exponentially Weighted Moving Average (EWMA)
+    model, then computes Value-at-Risk (VaR) using empirical quantiles of the standardized residuals.
+    The final volatility value is used for the one-step-ahead VaR forecast.
 
     Parameters:
-    - returns (pd.Series): Daily returns in decimal format (e.g., 0.01 for 1 percent).
+    - returns (pd.Series): Daily return series in decimal format (e.g., 0.01 for 1%).
     - confidence_level (float): Confidence level for VaR (e.g., 0.99).
-    - decay_factor (float): Smoothing parameter for EWMA (default is 0.94).
+    - decay_factor (float): EWMA smoothing parameter (e.g., 0.94).
+    - wealth (float, optional): Portfolio value. If set, VaR outputs are returned in monetary units.
 
     Returns:
-    - result_data (pd.DataFrame): DataFrame with:
-        - 'Returns': input return series (in decimals)
-        - 'Volatility': EWMA volatility estimate (in decimals)
-        - 'Innovations': returns standardized by volatility
-        - 'VaR': daily VaR estimates (positive loss magnitude, in decimals)
-        - 'VaR Violation': Boolean flag where return < -VaR
-    - next_day_var (float): One-step-ahead VaR forecast (decimal format)
-
-    Notes:
-    - All outputs are in decimal units. For example, a VaR of 0.012 means a 1.2 percent loss.
-    - The last volatility value is used to compute the 1-day ahead VaR.
+    - result_data (pd.DataFrame): With columns:
+        - 'Returns' (decimal)
+        - 'Volatility' (EWMA standard deviation in decimals)
+        - 'Innovations' (standardized residuals)
+        - 'VaR' (semi-parametric VaR in decimal loss magnitude)
+        - 'VaR Violation' (bool)
+        - 'VaR_monetary' (if wealth is provided, in currency units)
+    - next_day_var (float): One-step-ahead forecasted VaR (decimal or monetary if wealth is set)
     """
     squared = returns ** 2
     ewma_var = squared.ewm(alpha=1 - decay_factor).mean()
@@ -339,32 +294,27 @@ def var_ewma(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
 #----------------------------------------------------------
 def var_moving_average(returns, confidence_level=0.99, window=20, wealth=None):
     """
-    Moving Average-based Value-at-Risk (VaR) Estimation.
+    Estimate Value-at-Risk (VaR) using a semi-parametric moving average volatility model.
 
-    Estimate daily Value-at-Risk (VaR) using a simple rolling window standard deviation model for volatility 
-    and empirical quantiles of standardized residuals.
-
-    Model:
-    - Volatility is computed as the rolling standard deviation over a fixed-size window:
-        σₜ = std(returnsₜ₋₍window₋₁₎ to returnsₜ)
+    This function estimates conditional volatility using a rolling standard deviation over a fixed window,
+    then computes Value-at-Risk (VaR) using empirical quantiles of the standardized residuals.
+    The final rolling volatility is used for the one-step-ahead VaR forecast.
 
     Parameters:
-    - returns (pd.Series): Daily returns in decimal format (e.g., 0.01 for 1 percent).
+    - returns (pd.Series): Daily return series in decimal format (e.g., 0.01 for 1%).
     - confidence_level (float): Confidence level for VaR (e.g., 0.99).
-    - window (int): Window size for rolling volatility estimation (default = 20).
+    - window (int): Size of the moving average window (default: 20).
+    - wealth (float, optional): Portfolio value. If set, VaR outputs are returned in monetary units.
 
     Returns:
-    - result_data (pd.DataFrame): DataFrame containing:
-        - 'Returns': input return series (in decimals)
-        - 'Volatility': rolling standard deviation (in decimals)
-        - 'Innovations': standardized residuals (return divided by volatility)
-        - 'VaR': estimated daily VaR (positive loss magnitude, in decimals)
-        - 'VaR Violation': Boolean flag where return < -VaR
-    - next_day_var (float): One-step-ahead VaR estimate based on the last available volatility (in decimals)
-
-    Notes:
-    - All outputs are expressed in decimal units. For example, a VaR of 0.012 indicates a 1.2 percent loss.
-    - Volatility is backward-looking and constant across each rolling window.
+    - result_data (pd.DataFrame): With columns:
+        - 'Returns' (decimal)
+        - 'Volatility' (rolling standard deviation in decimals)
+        - 'Innovations' (standardized residuals)
+        - 'VaR' (semi-parametric VaR in decimal loss magnitude)
+        - 'VaR Violation' (bool)
+        - 'VaR_monetary' (if wealth is provided, in currency units)
+    - next_day_var (float): One-step-ahead forecasted VaR (decimal or monetary if wealth is set)
     """
     volatility = returns.rolling(window=window).std()
     innovations = returns / volatility
