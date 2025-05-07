@@ -14,6 +14,9 @@ from IPython.display import display
 #################################################
 # Note2: backtesting VaR AN? good idea or not?
 #################################################
+# Note3: when using VCV and x and x' (with z from normal)
+# the VaR is already in monetary terms
+#################################################
 
 #----------------------------------------------------------
 # Asset Normal VaR with Diversification Table

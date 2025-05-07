@@ -11,6 +11,11 @@ from arch.univariate import ConstantMean, GARCH, StudentsT
 # Note: double check all formulas 
 #       check normalization
 #################################################
+# Note2: can use z from the normal (parametric) to make it much easier.
+# Then the volatility is the same, just z changes. ES would be the classic ES formula
+# for normal, but the volatility from this VaR with dynamic correlations makes it time-
+# varying. 
+# Note3: when using VCV and x and x', with z from normal, the VaR is already in monetary terms.
 
 #----------------------------------------------------------
 # MA Correlation VaR 
