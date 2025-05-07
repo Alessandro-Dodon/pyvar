@@ -16,4 +16,6 @@
 
 - Check Nick's function, it should download also returns, this would make it compatible with my functions also for VaR
 
-- Copula functions for dynamic corr models? Is that in python?
+- Copula functions for dynamic corr models? Is that in python? Or rolling PCA? (features in K.Sheppard's book). Or leidot wolf shrinkage?
+
+- Check the corr models and how they handle the z (innovations) and the calculation with the VCV matrix. Is it right? Otherwise just assume a distribution.
