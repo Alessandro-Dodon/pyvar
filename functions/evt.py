@@ -22,74 +22,31 @@ def evt(
     wealth=None
 ):
     """
-    EVT-Based VaR and ES Estimation.
+    Estimate VaR, ES, and exceedance probabilities using Extreme Value Theory (EVT).
 
-    Estimate Value-at-Risk (VaR), Expected Shortfall (ES), and exceedance probabilities
-    using Extreme Value Theory (EVT) applied to the right tail of the loss distribution.
+    Applies the Peaks Over Threshold (POT) approach with a Generalized Pareto Distribution (GPD) 
+    to model the extreme right tail of the loss distribution. This method captures rare, high-impact 
+    events beyond a high quantile threshold.
 
-    Description:
-    - Uses the Peaks Over Threshold (POT) method with a Generalized Pareto Distribution (GPD)
-    fitted to excess losses above a high threshold.
-    - Suitable for univariate daily return series in decimal format.
-
-    Formulas:
-    Let u be the threshold (e.g., 99th percentile of losses), and y = loss - u.
-
-    - GPD density for exceedances:
-        y ∼ GPD(ξ, β), where y = loss − u
-
-    - Value-at-Risk at level q:
-        VaR_q = u + (β / ξ) × [ (N / nu × (1 - q))^(−ξ) − 1 ]
-
-    - Expected Shortfall at level q:
-        ES_q = [VaR_q + (β - ξ × u)] / (1 - ξ)
-
-    - Probability of loss exceeding a given level x > u:
-        P(X > x) = (nu / N) × [1 + ξ × (x - u) / β]^(−1/ξ)
+    Both VaR and ES estimates are derived from the same fitted GPD parameters, making it efficient 
+    to compute them jointly in a single function call.
 
     Parameters:
-    - returns (pd.Series): 
-        Daily log or simple returns (in decimals, e.g., 0.01 = 1%).
-
-    - confidence_level (float, optional): 
-        Confidence level for VaR and ES (default = 0.99).
-
-    - threshold_percentile (float, optional): 
-        Percentile (0–100) to define the threshold u (default = 99).
-
-    - exceedance_level (float, optional): 
-        Loss level to estimate exceedance probability (must be > u).
-
-    - diagnostics (bool, optional): 
-        If True, returns diagnostic info for the tail fit.
+    - returns (pd.Series): Daily returns in decimal format (e.g., 0.01 = 1%).
+    - confidence_level (float): Confidence level for VaR/ES (default: 0.99).
+    - threshold_percentile (float): Quantile for defining tail threshold (default: 99).
+    - exceedance_level (float, optional): Loss level to estimate exceedance probability.
+    - diagnostics (bool): Return GPD parameters and diagnostics if True.
+    - wealth (float, optional): Scale VaR/ES to monetary values if specified.
 
     Returns:
-    - result_data (pd.DataFrame):
-        - 'Returns': original returns
-        - 'VaR': constant daily EVT VaR (positive, in decimals)
-        - 'ES': constant daily EVT ES (positive, in decimals)
-        - 'VaR Violation': True if return < -VaR
-
-    - var_estimate (float): 
-        EVT-based VaR estimate (absolute %, e.g., 3.24).
-
-    - es_estimate (float): 
-        EVT-based ES estimate (absolute %, e.g., 4.71).
-
-    - prob_exceedance (float or None): 
-        Probability of exceeding `exceedance_level` (decimal), or None.
-
-    - diagnostics_dict (dict, if diagnostics=True):
-        - 'xi': GPD shape parameter
-        - 'beta': GPD scale parameter
-        - 'threshold_u': Estimated threshold
-        - 'max_support': GPD domain max (∞ if ξ ≥ 0)
-        - 'num_exceedances': Number of exceedances above u
-
-    Notes:
-    - All inputs and loss levels must be in decimal format (e.g., 0.025 = 2.5%).
-    - VaR and ES outputs are returned as positive percentages.
-    - This method captures heavy tails and rare events in return distributions.
+    - result_data (pd.DataFrame): Columns include:
+        - 'Returns', 'VaR', 'ES', 'VaR Violation'
+        - Optionally: 'VaR_monetary', 'ES_monetary'
+    - var_estimate (float): Estimated VaR (in % or monetary units).
+    - es_estimate (float): Estimated ES (in % or monetary units).
+    - prob_exceedance (float or None): Probability of exceeding `exceedance_level`, if provided.
+    - diagnostics_dict (optional): Dictionary with GPD parameters and fit stats.
     """
     returns = pd.Series(returns).dropna()
     losses = -returns

@@ -12,7 +12,7 @@ import warnings
 #################################################
 
 #----------------------------------------------------------
-# Garch Forecast (Analytical Formula, for Variance or VaR)
+# Garch Forecast (Empirical VaR, for Variance or VaR)
 #----------------------------------------------------------
 def garch_forecast(
     returns,
@@ -23,26 +23,28 @@ def garch_forecast(
     wealth=None
 ):
     """
-    Forecast future variance or Value-at-Risk (VaR) using a GARCH(1,1) model with normal innovations.
+    Forecast future variance or Value-at-Risk (VaR) using a GARCH(1,1) model.
 
     This function fits a GARCH(1,1) model under the assumption of normally distributed residuals
     and computes variance forecasts using the closed-form analytical formula. It supports both
     step-ahead and cumulative variance forecasting over a user-defined horizon. Optionally, it
-    converts the forecasted variance into a fully parametric VaR estimate using the Normal distribution.
+    computes VaR by scaling the forecasted volatility using the empirical quantile of standardized
+    residuals instead of the theoretical normal quantile, offering a semi-parametric estimation
+    that better accounts for fat tails.
 
     Parameters:
     - returns (pd.Series): Daily return series in decimal format (e.g., 0.01 for 1%).
     - steps_ahead (int): Forecast horizon in days.
     - cumulative (bool): If True, returns cumulative variance over the forecast horizon.
-    - compute_var (bool): If True, returns parametric VaR instead of variance.
+    - compute_var (bool): If True, returns empirical VaR instead of variance.
     - confidence_level (float): Confidence level for VaR (e.g., 0.99).
     - wealth (float, optional): Portfolio value. If set, VaR is returned in monetary units.
 
     Returns:
     - float:
         - If compute_var=False: forecasted variance (in decimal squared returns).
-        - If compute_var=True and wealth is None: parametric VaR (in decimal loss magnitude).
-        - If compute_var=True and wealth is set: parametric VaR (in monetary units).
+        - If compute_var=True and wealth is None: empirical VaR (in decimal loss magnitude).
+        - If compute_var=True and wealth is set: empirical VaR (in monetary units).
 
     Raises:
     - ValueError: If the model is unstable (α + β ≥ 1), or if `wealth` is set without `compute_var=True`.
@@ -75,10 +77,14 @@ def garch_forecast(
         raise ValueError("Wealth can only be used when compute_var=True")
 
     if not compute_var:
-        return variance  # plain decimal variance
+        return variance
 
-    z = norm.ppf(1 - confidence_level)
-    var_result = -z * np.sqrt(variance)
+    # Use empirical quantile of standardized residuals
+    volatility = fit.conditional_volatility
+    standardized_residuals = returns / volatility
+    empirical_quantile = np.percentile(standardized_residuals.dropna(), 100 * (1 - confidence_level))
+
+    var_result = -empirical_quantile * np.sqrt(variance)
 
     if wealth is not None:
         return var_result * wealth
@@ -279,7 +285,12 @@ def var_ewma(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
     result_data["VaR Violation"] = result_data["Returns"] < -result_data["VaR"]
     result_data.dropna(inplace=True)
 
-    next_day_vol = volatility.iloc[-1]
+    # Manual 1-step-ahead forecast for EWMA volatility
+    last_return = returns.iloc[-1]
+    last_vol = volatility.iloc[-1]
+    last_var = last_vol ** 2
+    next_var = decay_factor * last_var + (1 - decay_factor) * last_return**2
+    next_day_vol = np.sqrt(next_var)
     next_day_var = abs(quantile * next_day_vol)
 
     if wealth is not None:
@@ -330,7 +341,9 @@ def var_moving_average(returns, confidence_level=0.99, window=20, wealth=None):
     result_data["VaR Violation"] = result_data["Returns"] < -result_data["VaR"]
     result_data.dropna(inplace=True)
 
-    next_day_vol = volatility.iloc[-1]
+    # Manual 1-step-ahead forecast for MA volatility
+    recent_returns = returns.iloc[-window:]
+    next_day_vol = recent_returns.std()
     next_day_var = abs(quantile * next_day_vol)
 
     if wealth is not None:
@@ -338,5 +351,3 @@ def var_moving_average(returns, confidence_level=0.99, window=20, wealth=None):
         next_day_var *= wealth
 
     return result_data, next_day_var
-
-
