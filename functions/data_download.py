@@ -4,7 +4,7 @@ import pandas as pd
 
 def get_raw_prices(tickers, start="2024-01-01") -> pd.DataFrame:
     '''
-    Downloads raw (unadjusted) closing prices for a list of tickers.
+    Downloads raw (adjusted) closing prices for a list of tickers.
 
     Parameters:
     - tickers (list of str): List of ticker symbols (e.g. ['MSFT', 'AAPL', 'BMW.DE'])
@@ -15,13 +15,18 @@ def get_raw_prices(tickers, start="2024-01-01") -> pd.DataFrame:
     '''
     prices = (
         yf.download(" ".join(tickers), start=start,
-                    auto_adjust=False, progress=False)["Close"]
+                    auto_adjust=True, progress=False)["Close"]
         .ffill()
     )
     return prices
 
 
-def convert_to_base(raw: pd.DataFrame, cur_map: dict = None, base: str = "EUR") -> pd.DataFrame:
+def convert_to_base(
+    raw: pd.DataFrame,
+    cur_map: dict = None,
+    base: str = "EUR",
+    show_currency_detection: bool = True
+) -> pd.DataFrame:
     '''
     Converts prices from their native currencies into a single base currency.
 
@@ -30,15 +35,20 @@ def convert_to_base(raw: pd.DataFrame, cur_map: dict = None, base: str = "EUR") 
     - cur_map (dict, optional): Mapping of tickers to their currencies (e.g. {'AAPL': 'USD'}).
                                 If None, currencies are auto-detected using yfinance's fast_info.
     - base (str): Target base currency (e.g. 'EUR', 'USD'). Defaults to 'EUR'.
+    - show_currency_detection (bool): If True, prints detected currencies and conversion steps.
 
     Returns:
     - pd.DataFrame: A DataFrame of prices converted to the base currency. Same shape and index as input.
     
     Notes:
     - FX rates are fetched from Yahoo Finance using synthetic tickers like 'EURUSD=X'.
-    - Minor currency units like GBp or ZAc are automatically scaled by 0.01.
-    - If a ticker's currency is unknown or the FX rate is unavailable, that column remains unconverted.
+    - Minor currency units like GBp or ZAc are automatically scaled by 0.01,
+      and their codes are replaced with GBP or ZAR to ensure correct FX conversion.
+    - Prices are converted using the daily closing FX rate for each corresponding date.
     '''
+    import yfinance as yf
+
+    # Step 1: Detect currencies if not provided
     if cur_map is None:
         cur_map = {}
         for t in raw.columns:
@@ -47,12 +57,16 @@ def convert_to_base(raw: pd.DataFrame, cur_map: dict = None, base: str = "EUR") 
             except Exception:
                 cur = "UNKNOWN"
             cur_map[t] = cur
-            print(f"[currency detection] {t}: {cur}")
+            if show_currency_detection:
+                print(f"[currency detection] {t}: {cur}")
 
+    # Step 2: Determine which FX pairs are needed
     needed = {cur_map[t] for t in raw.columns if cur_map[t] not in {base, "UNKNOWN"}}
     fx_pairs = [f"{base}{cur}=X" for cur in needed]
 
     if fx_pairs:
+        if show_currency_detection:
+            print(f"[fx download] Downloading FX pairs: {', '.join(fx_pairs)}")
         fx = (
             yf.download(" ".join(fx_pairs), start=raw.index[0],
                         auto_adjust=True, progress=False)["Close"]
@@ -62,19 +76,34 @@ def convert_to_base(raw: pd.DataFrame, cur_map: dict = None, base: str = "EUR") 
     else:
         fx = pd.DataFrame(index=raw.index)
 
+    # Step 3: Convert all tickers to base currency
     out = pd.DataFrame(index=raw.index)
     for t in raw.columns:
         p = raw[t].copy()
         cur = cur_map[t]
+
         if cur in {"GBp", "GBX", "ZAc"}:
+            if show_currency_detection:
+                print(f"[unit conversion] {t}: converting from {cur} to major unit")
             p *= 0.01
+            cur = "GBP" if cur in {"GBp", "GBX"} else "ZAR"
+
         if cur not in {base, "UNKNOWN"}:
             pair = f"{base}{cur}=X"
+            if pair not in fx.columns:
+                if show_currency_detection:
+                    print(f"[warning] {t}: FX pair {pair} not found — skipping")
+                out[t] = p
+                continue
             rate = fx[pair]
             p = p / rate
+            if show_currency_detection:
+                print(f"[conversion] {t}: {cur} → {base} via {pair}")
+
         out[t] = p
 
     return out
+
 
 
 def compute_returns_stats(prices: pd.DataFrame):
@@ -94,12 +123,10 @@ def compute_returns_stats(prices: pd.DataFrame):
 
 
 
-raw = get_raw_prices(["MSFT", "NVDA", "ISP.MI", "NESN.SW"])
-converted = convert_to_base(raw, base="EUR")
-returns, mu, cov = compute_returns_stats(converted)
-print(">>> Raw prices:")
-print(raw.head())
-print(">>> Converted to EUR:")
-print(converted.head())
-print(">>> Returns:")
-print(returns.head())
+#Get prices in the native currency
+ticker = ["MSFT", "ISP.MI", "NESN.SW", "HSBA.L", "7203.T", "RY.TO", "CBA.AX", "0005.HK"]     # (7203.T is Toyota and 0005.HK is HSBC)
+raw = get_raw_prices(ticker, start = "2025-01-01")
+base = "EUR"
+converted = convert_to_base(raw, base = base, show_currency_detection = False)
+print(f"\n\n>>> Converted Prices in {base} (last 5 rows):")
+print(converted.tail())
