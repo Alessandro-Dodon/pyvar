@@ -7,7 +7,6 @@ from scipy.stats import genpareto
 
 #################################################
 # Note: double check all formulas 
-#       check probability of exceedance and diagnostics
 #################################################
 
 #----------------------------------------------------------

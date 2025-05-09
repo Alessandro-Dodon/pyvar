@@ -54,11 +54,11 @@ def var_historical(returns, confidence_level=0.99, holding_period=1, wealth=None
 
 
 #----------------------------------------------------------
-# Parametric VaR (i.i.d. assumption)
+# Parametric VaR 
 #----------------------------------------------------------
 def var_parametric_iid(returns, confidence_level=0.99, holding_period=1, distribution="normal", wealth=None):
     """
-    Estimate Value-at-Risk (VaR) under the i.i.d. assumption using a parametric distribution.
+    Estimate Value-at-Risk (VaR) using a parametric distribution.
 
     Fits a specified distribution (Normal, Student-t, or GED) to the return series, 
     then computes VaR as the corresponding quantile scaled by volatility and the 
