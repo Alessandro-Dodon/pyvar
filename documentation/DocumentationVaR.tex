@@ -1,0 +1,261 @@
+% !TEX TS-program = pdflatex
+\documentclass[12pt]{article}
+\usepackage{amsmath, amssymb, bm, geometry, graphicx}
+\usepackage{hyperref}
+\geometry{margin=1in}
+\title{\textbf{\huge Programming in Economics \& Finance II, Final Project}}
+\author{Niccol\`o Lecce, Marco Gasparetti, Alessandro Dodon}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\textbf{Python Package for Efficient VaR Estimation}
+
+This document presents the theoretical foundations, implementation overview, and risk estimation models behind our Python package for Value-at-Risk (VaR) and Expected Shortfall (ES). All code, deployment steps, and documentation are published on GitHub.
+
+
+\textbf{Project Plan}
+
+xxx
+
+% [Fill in the details of your plan here.]
+
+\textbf{Project Diary}
+
+xxx
+
+% [Describe your steps, tool choices, and implementation chronology here.]
+
+\textbf{Theoretical Foundation}
+
+\vspace{1em}
+\underline{\text{Basic VaR Models}}
+
+\vspace{0.6em}
+
+We implement two main approaches for Value-at-Risk (VaR) estimation. The first is non-parametric historical VaR, which computes the empirical quantile of past returns at a given confidence level $\alpha$. The second is parametric VaR, which assumes a specific distribution for returns. We support the normal, Student-$t$, and generalized error distribution (GED), and estimate the critical value $z_\alpha$ accordingly.
+
+To complement VaR, we compute expected shortfall (ES), defined as the average loss beyond the VaR threshold. For the historical method:
+\[
+\text{ES}_{\mathrm{hist}} = -\mathbb{E}[r_t \mid r_t < -\text{VaR}_\alpha].
+\]
+
+For the parametric case, we use analytical formulas for the normal and Student-$t$ distributions:
+
+Normal:
+\[
+\text{ES}_{\mathrm{normal}} = \sigma \cdot \frac{\phi(z_\alpha)}{1 - \alpha},
+\]
+
+Student-$t$:
+\[
+\text{ES}_{t,\alpha} = \sigma \cdot \frac{f_{t_\nu}(t_\alpha)}{1 - \alpha} \cdot \frac{\nu + t_\alpha^2}{\nu - 1},
+\]
+
+where $\phi(\cdot)$ and $f_{t_\nu}(\cdot)$ denote the corresponding density functions. ES values are scaled by $\sqrt{h}$ for a holding period of $h$ days.
+
+
+
+\vspace{1em}
+\underline{\text{Volatility Models}}
+
+\vspace{0.6em}
+
+We have implemented the four most popular univariate volatility models.
+
+The GARCH(1,1) model is specified as:
+\[
+  \sigma_t^2 = \omega + \alpha r_{t-1}^2 + \beta \sigma_{t-1}^2, \qquad r_t = \sigma_t z_t,
+\]
+where $z_t$ are i.i.d.\ standardized shocks. Value-at-Risk is then computed as:
+\[
+  \text{VaR}_{t,\alpha} = -\hat{\sigma}_t \; z_\alpha.
+\]
+
+
+Expected Shortfall (ES) here becomes:
+\[
+  \text{ES}_{t,\alpha} = -\hat{\sigma}_t \,\mathbb{E}[z_t \mid z_t < z_\alpha].
+\]
+
+Future volatility can be forecasted analytically using GARCH(1,1). 
+
+The $\tau$-step ahead forecast and cumulative $T$-step forecast are:
+\begin{align*}
+  \mathbb{E}[\sigma_{t+\tau}^2] &= \mathrm{VL} + (\alpha+\beta)^\tau(\sigma_t^2 - \mathrm{VL}),  \\  
+  \mathbb{E}[\sigma_{t,T}^2] &= \mathrm{VL}\left(T-1 - \frac{(\alpha+\beta)(1-(\alpha+\beta)^{T-1})}{1-(\alpha+\beta)}\right)
+    + \sigma_t^2\,\frac{1-(\alpha+\beta)^T}{1-(\alpha+\beta)},
+\end{align*}
+leading to multi-period VaR:
+\[
+  \text{VaR}_{t,T} = -\,z_\alpha \,\sqrt{\mathbb{E}[\sigma_{t,T}^2]}.
+\]
+
+In our implementation, we also support advanced GARCH-type models including EGARCH, GJR-GARCH, and APARCH. Additionally, we allow maximum likelihood estimation under various distributional assumptions such as Normal, Student-$t$, GED, and Skewed-$t$.
+
+We also include the basic ARCH($p$) model:
+\[
+  \sigma_t^2 = \omega + \sum_{i=1}^p \alpha_i \varepsilon_{t-i}^2.
+\]
+
+For simpler estimators, we implement a Moving Average (MA) volatility model:
+\[
+  \sigma_t^2 = \frac{1}{n} \sum_{i=1}^n r_{t-i}^2.
+\]
+
+And an Exponentially Weighted Moving Average (EWMA) model:
+\[
+  \sigma_t^2 = \lambda \sigma_{t-1}^2 + (1 - \lambda) r_{t-1}^2,
+\]
+where $\lambda \in (0,1)$ controls the decay rate of past observations.
+All our volatility models use a semi-empirical approach for the VaR computation, first calculating the empirical distribution of innovations with their respective volatility estimate and then using the required percentile of those innovations as z.
+
+\vspace{1em}
+\underline{\text{Time-Varying Correlation Models}}
+
+\vspace{0.6em}
+
+We implement the two simplest time-varying correlation models: moving average (MA) and exponentially weighted moving average (EWMA). These serve as natural multivariate extensions of the corresponding univariate volatility models.
+
+Portfolio VaR is computed using the parametric normal assumption. Given the monetary position vector $x_t$ and the time-varying covariance matrix $\Sigma_t$ estimated by the model, VaR is calculated as:
+\[
+\text{VaR}_t = z_\alpha \cdot \sqrt{x_t^\top \Sigma_t x_t}.
+\]
+
+More advanced models like DCC-GARCH or VEC(1,1) are not easily supported in Python and are therefore not included.
+
+Expected Shortfall in this setting is computed using the analytical formula under the normal distribution assumption.
+
+
+\vspace{1em}
+\underline{\text{Portfolio Metrics}}
+
+\vspace{0.6em}
+
+We compute several portfolio-level Value-at-Risk (VaR) measures using monetary positions $x_t = (x_{1,t}, \dots, x_{N,t})^\top$, the return covariance matrix $\Sigma$, and a time horizon of $h$ days. Note that there is no distinct parametric VaR function for a normally distributed portfolio—standard parametric normal VaR applies directly, where total portfolio risk is computed using the aggregate monetary exposure.
+
+The quantile $z_\alpha$ corresponds to the desired confidence level and is always derived from the standard normal distribution, as the underlying assumption is that asset returns (or their innovations) are normally distributed.
+
+The asset-normal parametric portfolio VaR is defined as:
+\[
+  \text{VaR}_t = z_\alpha \cdot \sqrt{x_t^\top \Sigma x_t} \cdot \sqrt{h}.
+\]
+
+Assuming all asset returns are perfectly correlated ($\rho = 1$) and there are no short positions, the undiversified portfolio VaR is simply the sum of the individual asset VaRs:
+\[
+  \text{UVaR}_t = \sum_{i=1}^N \text{VaR}_{i,t}.
+\]
+
+The marginal VaR, representing the sensitivity of portfolio VaR to a small change in position $x_{i,t}$, is given by:
+\[
+  \Delta \text{VaR}_{i,t} = \text{VaR}_t \cdot \frac{(\Sigma x_t)_i}{x_t^\top \Sigma x_t}.
+\]
+It measures the change in total VaR from adding one extra unit of asset $i$.
+
+The component VaR is:
+\[
+  \text{CVaR}_{i,t} = x_{i,t} \cdot \Delta \text{VaR}_{i,t},
+\]
+which captures the absolute contribution of asset $i$ to total portfolio VaR.
+
+The relative component VaR is:
+\[
+  \text{RCVaR}_{i,t} = \frac{\text{CVaR}_{i,t}}{\text{VaR}_t},
+\]
+interpreted as the percentage share of total VaR attributable to asset $i$.
+
+For a vector $a$ representing changes in the portfolio allocation, the incremental VaR is:
+\[
+  \text{IVaR}_t = \Delta \text{VaR}_t^\top \cdot a,
+\]
+which estimates the change in total VaR resulting from shifting the portfolio by $a$.
+
+Each of these portfolio-level VaR metrics can be complemented with a corresponding Expected Shortfall (ES), computed under the normality assumption.
+
+
+\vspace{1em}
+\underline{\text{Extreme Value Theory}}
+
+\vspace{0.6em}
+
+We implement Extreme Value Theory (EVT) using the Peaks Over Threshold (POT) approach to estimate risk in the far tail of the loss distribution. Once a high threshold $u$ is selected (e.g., the 99th percentile of losses), we fit a Generalized Pareto Distribution (GPD) to the excesses above $u$.
+
+VaR and ES are then derived analytically from the fitted GPD parameters. This allows for more accurate estimation of rare, extreme losses compared to historical simulation. The formulas used are:
+
+\[
+\widehat{\text{VaR}}_\alpha = u + \frac{\hat{\beta}}{\hat{\xi}} \left[ \left( \frac{n}{n_u}(1 - \alpha) \right)^{-\hat{\xi}} - 1 \right],
+\]
+\[
+\widehat{\text{ES}}_\alpha = \frac{\widehat{\text{VaR}}_\alpha + \hat{\beta} - \hat{\xi} u}{1 - \hat{\xi}},
+\]
+
+where $\hat{\xi}$ and $\hat{\beta}$ are the estimated shape and scale parameters, $n$ is the sample size, and $n_u$ is the number of exceedances.
+
+We also allow computing the probability of exceeding a specified extreme loss. EVT complements our other risk models by focusing explicitly on the behavior of the tail.
+
+For EVT, basic VaR methods and volatility models, as well as their corresponding ES measures, it is always possible to use wealth as additional input to receive a monetary measure and not in percentage.
+
+\vspace{1em}
+\underline{\text{Factor Models}}
+
+\vspace{0.6em}
+
+xxx
+
+\vspace{1em}
+\underline{\text{Simulation Methods}}
+
+\vspace{0.6em}
+
+xxx
+
+\vspace{1em}
+\underline{\text{Backtesting}}
+
+\vspace{0.6em}
+
+Backtesting assesses whether the observed losses are consistent with the Value-at-Risk (VaR) predictions by checking the frequency and structure of violations (exceptions). The objective is to test whether the model is correctly calibrated.
+
+We implement three standard tests.
+
+The \textit{Kupiec test} (unconditional coverage) evaluates if the number of observed exceptions $N$ over $T$ days matches the expected number under the model. If $p$ is the failure probability, then under the null $N$ follows a binomial distribution. The likelihood ratio test statistic is:
+\[
+\text{LR}_{\text{uc}} = -2 \left\{ \ln\left[(1 - p)^{T - N} p^N \right] - \ln\left[(1 - \hat{p})^{T - N} \hat{p}^N \right] \right\}, \quad \hat{p} = \frac{N}{T}, \quad \text{LR}_{\text{uc}} \sim \chi^2_1.
+\]
+
+The \textit{Christoffersen test} (conditional coverage) tests the independence of exceptions by modeling their dynamics as a first-order Markov chain. It compares the likelihoods of transition counts under the null (independence) and alternative. The statistic is:
+\[
+\text{LR}_{\text{c}} = -2 (\ln L_0 - \ln L_1), \quad \text{LR}_{\text{c}} \sim \chi^2_1,
+\]
+where $L_0$ is the likelihood under independence and $L_1$ under the alternative.
+
+The \textit{joint test} combines both:
+\[
+\text{LR} = \text{LR}_{\text{uc}} + \text{LR}_{\text{c}} \sim \chi^2_2.
+\]
+
+Rejecting the null in any of the tests suggests that the VaR model is either miscalibrated (too many or too few violations) or fails to capture time dependence in risk (e.g., volatility clustering).
+
+
+
+\textbf{Results and Applications}
+
+xxx
+% [Add your outputs, charts, application examples, interpretations.]
+
+\textbf{Lessons Learned}
+
+xxx
+% [Write your reflections here.]
+
+\textbf{AI Acknowledgement}
+
+xxx
+
+\textbf{Link to GitHub Repository}
+
+xxx
+
+\end{document}
