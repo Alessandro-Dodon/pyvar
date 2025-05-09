@@ -1,1 +1,1 @@
-PyVaR
+py_var_package

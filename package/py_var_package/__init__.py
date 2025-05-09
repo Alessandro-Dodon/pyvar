@@ -16,12 +16,12 @@ Authors: Alessandro Dodon, Niccolò Lecce, Marco Gasparetti
 Version: 0.1
 """
 
-from .BasicVaR import (
+from .basic_var import (
     var_historical,
-    var_parametric_iid
+    var_parametric
 )
 
-from .VolatilityVaR import (
+from .volatility_var import (
     garch_forecast,
     var_ewma,
     var_garch,
@@ -29,29 +29,45 @@ from .VolatilityVaR import (
     var_moving_average,
 )
 
-from .ExpectedShortfall import (
-    compute_es_historical,
-    compute_expected_shortfall_volatility
+from .expected_shortfall import (
+    es_historical,
+    es_parametric,
+    es_volatility,
+    es_correlation,
+    marginal_es,
+    component_es,
+    relative_component_es,
+    incremental_es
 )
 
-from .Backtesting import (
-    backtest_var,
-    subset_backtest_var
+from .backtesting import (
+    count_violations,
+    kupiec_test,
+    christoffersen_test,
+    joint_lr_test
 )
 
-from .InteractivePlots import (
-    interactive_plot_var,
-    interactive_plot_es,
-    interactive_plot_volatility,
+from .evt import (
+    evt
+)
+
+from .dynamic_correlations import (
+    var_corr_moving_average,
+    var_corr_ewma
+)
+
+from .plots import (
+    plot_backtest,
+    plot_volatility,
     get_asset_color_map,
-    interactive_plot_var_series,
-    interactive_plot_risk_contribution_pie,
-    interactive_plot_risk_contribution_lines,
-    interactive_plot_correlation_matrix,
+    plot_var_series,
+    plot_risk_contribution_bar,
+    plot_risk_contribution_lines,
+    plot_correlation_matrix,
     
 )
 
-from .PortfolioVaR import (
+from .portfolio_var import (
     var_asset_normal,
     marginal_var,
     component_var,
