@@ -14,15 +14,12 @@ import base64
 
 #################################################
 # Note: double check all names/ titles
-#       check corr and shorting
-#       make portflio plots larger
 #################################################
-# Note: check ES plot, when static and long period
-#       it gets ligtht blue again
+# Note: output path should work only with static images
 #################################################
 
 #----------------------------------------------------------
-# Display helper (only define once in your script)
+# Display helper 
 #----------------------------------------------------------
 def display_high_dpi_inline(png_bytes, width):
     encoded = base64.b64encode(png_bytes).decode("utf-8")
@@ -30,52 +27,82 @@ def display_high_dpi_inline(png_bytes, width):
 
 
 #----------------------------------------------------------
-# VaR Plot Backtesting
+# Backtesting Plot for VaR (and optionally ES)
 #----------------------------------------------------------
-def plot_var(data, subset=None, interactive=True, output_path=None):
+def plot_backtest(data, subset=None, interactive=True, output_path=None):
     """
-    Interactive or Static VaR Backtest Plot.
+    Adaptive backtest plot for Value-at-Risk and optionally Expected Shortfall.
 
-    Create a Plotly figure showing returns, VaR level, and VaR violations.
+    Automatically chooses bar or line plots for returns based on data length.
+    Adds VaR line and violations. If 'ES' column exists, includes ES line.
+    Zero line is shown only when bars are used.
 
     Parameters:
-    - data (pd.DataFrame): Must contain 'Returns', 'VaR', and 'VaR Violation' columns.
-    - subset (tuple, optional): (start_date, end_date) to zoom into a specific time range.
-    - interactive (bool): If True, show plot interactively. If False, export or show static PNG.
-    - output_path (str, optional): File path to save static PNG (if interactive=False).
+    - data (pd.DataFrame): Must contain 'Returns', 'VaR', and 'VaR Violation'. 
+                           Optionally can contain 'ES'.
+    - subset (tuple, optional): (start_date, end_date) for time window selection.
+    - interactive (bool): Show interactive plot (True) or export static PNG (False).
+    - output_path (str, optional): File path to save PNG if interactive=False.
 
     Returns:
     - fig (plotly.graph_objs.Figure): Plotly figure object.
-
-    Notes:
-    - Uses high-DPI export (scale=4) for static plots.
     """
     if subset is not None:
         data = data.loc[subset[0]:subset[1]]
 
+    use_bars = len(data) <= 504
     violations = data["VaR Violation"]
+    has_es = "ES" in data.columns
+
+    # Set title dynamically
+    title = "Backtesting Value-at-Risk and Expected Shortfall" if has_es else "Backtesting Value-at-Risk"
 
     fig = go.Figure()
 
-    fig.add_trace(go.Scatter(
-        x=data.index,
-        y=100 * data["Returns"],
-        mode="lines",
-        name="Log Returns",
-        line=dict(color="blue", width=0.8),
-        hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
-    ))
+    # Plot returns
+    if use_bars:
+        fig.add_trace(go.Bar(
+            x=data.index,
+            y=100 * data["Returns"],
+            name="Returns",
+            marker=dict(color="blue", line=dict(color="black", width=0)),
+            opacity=1.0,
+            hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
+        ))
+    else:
+        fig.add_trace(go.Scatter(
+            x=data.index,
+            y=100 * data["Returns"],
+            mode="lines",
+            name="Returns",
+            line=dict(color="blue", width=0.8),
+            hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
+        ))
 
+    # Plot VaR line
     fig.add_trace(go.Scatter(
         x=data.index,
         y=-100 * data["VaR"],
         mode="lines",
-        name="VaR Level",
+        name="VaR",
         line=dict(color="black", width=0.8),
         hovertemplate="Date: %{x}<br>VaR: %{customdata:.2f}%",
         customdata=100 * data["VaR"].abs()
     ))
 
+    # Plot ES line if present
+    if has_es:
+        fig.add_trace(go.Scatter(
+            x=data.index,
+            y=-100 * data["ES"],
+            mode="lines",
+            name="ES",
+            line=dict(color="red", dash="dash", width=0.8),
+            hovertemplate="Date: %{x}<br>ES: %{customdata:.2f}%",
+            customdata=100 * data["ES"].abs()
+        ))
+
+    # Plot violations
     fig.add_trace(go.Scatter(
         x=data.index[violations],
         y=100 * data["Returns"][violations],
@@ -85,12 +112,25 @@ def plot_var(data, subset=None, interactive=True, output_path=None):
         hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
     ))
 
+    # Add zero line only if bars are used
+    if use_bars:
+        fig.add_shape(
+            type="line",
+            x0=data.index.min(), x1=data.index.max(),
+            y0=0, y1=0,
+            line=dict(color="black", width=0.5),
+            xref="x", yref="y"
+        )
+
+    # Layout
     fig.update_layout(
-        title="Backtesting Value-at-Risk",
+        title=title,
         yaxis_title="Returns (%)",
         hovermode="x unified",
         height=500,
         width=1000,
+        barmode="overlay",
+        bargap=0.025,
         plot_bgcolor="white",
         paper_bgcolor="white",
         margin=dict(l=60, r=60, t=50, b=50),
@@ -98,123 +138,7 @@ def plot_var(data, subset=None, interactive=True, output_path=None):
         yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
     )
 
-    width = fig.layout.width or 1000
-    height = fig.layout.height or 500
-    scale = 4
-
-    if interactive:
-        fig.show()
-        return fig  # only return in interactive mode
-
-    elif output_path:
-        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
-    else:
-        png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
-        display(display_high_dpi_inline(png_bytes, width))
-
-
-#----------------------------------------------------------
-# ES Plot Backtesting
-#----------------------------------------------------------
-def plot_es(data, subset=None, interactive=True, output_path=None):
-    """
-    Interactive ES Backtest Plot.
-
-    Create an interactive Plotly figure showing returns, VaR, ES level, and VaR violations.
-
-    Parameters:
-    - data (pd.DataFrame):
-        Must contain 'Returns', 'VaR', 'ES', and 'VaR Violation' columns.
-    - subset (tuple, optional):
-        (start_date, end_date) to zoom into a specific time range.
-
-    Returns:
-    - plotly.graph_objs.Figure:
-        Interactive backtest plot with clean formatting.
-
-    Notes:
-    - VaR is plotted as a solid black line.
-    - ES is plotted as a dashed red line.
-    - Violations are shown as red open circles.
-    - A zero-return line is added for reference.
-    """
-    if subset is not None:
-        data = data.loc[subset[0]:subset[1]]
-
-    violations = data["VaR Violation"]
-
-    fig = go.Figure()
-
-    fig.add_trace(go.Bar(
-    x=data.index,
-    y=100 * data["Returns"],
-    name="Log Returns",
-    marker=dict(
-        color="blue",  # strong consistent blue
-        line=dict(color="black", width=0)  # optional for definition
-    ),
-    opacity=1.0,  # force full opacity
-    hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
-    ))
-
-    fig.add_trace(go.Scatter(
-    x=data.index,
-    y=-100 * data["VaR"],
-    mode="lines",
-    name="VaR",
-    line=dict(color="black", width=0.8),
-    hovertemplate="Date: %{x}<br>VaR: %{customdata:.2f}%",
-    customdata=100 * data["VaR"].abs()
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=data.index,
-        y=-100 * data["ES"],
-        mode="lines",
-        name="ES",
-        line=dict(color="red", dash="dash", width=0.8),
-        hovertemplate="Date: %{x}<br>ES: %{customdata:.2f}%",
-        customdata=100 * data["ES"].abs()
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=data.index[violations],
-        y=100 * data["Returns"][violations],
-        mode="markers",
-        name="VaR Violation",
-        marker=dict(color="red", symbol="circle-open", size=8),
-        hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
-    ))
-
-    fig.add_shape(
-        type="line",
-        x0=data.index.min(), x1=data.index.max(),
-        y0=0, y1=0,
-        line=dict(color="black", width=0.5),
-        xref="x", yref="y"
-    )
-
-    fig.update_layout(
-    title="Backtesting Expected Shortfall",
-    yaxis_title="Returns (%)",
-    hovermode="x unified",
-    height=500,
-    width=1000,
-    barmode="overlay",  
-    bargap=0.025,  # small gap = visually thicker bars
-    plot_bgcolor="white",
-    paper_bgcolor="white",
-    margin=dict(l=60, r=60, t=50, b=50),
-    xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
-    yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
-    )
-
-    fig.update_traces(
-    selector=dict(type="bar"),
-    selected=dict(marker=dict(opacity=1)),
-    unselected=dict(marker=dict(opacity=1))
-)
-
+    # Export
     width = fig.layout.width or 1000
     height = fig.layout.height or 500
     scale = 4
@@ -222,7 +146,6 @@ def plot_es(data, subset=None, interactive=True, output_path=None):
     if interactive:
         fig.show()
         return fig
-
     elif output_path:
         fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
     else:
@@ -230,7 +153,6 @@ def plot_es(data, subset=None, interactive=True, output_path=None):
         display(display_high_dpi_inline(png_bytes, width))
 
     return fig
-
 
 
 #----------------------------------------------------------

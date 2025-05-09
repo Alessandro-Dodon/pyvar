@@ -14,40 +14,25 @@ import pandas as pd
 #----------------------------------------------------------
 def var_historical(returns, confidence_level=0.99, holding_period=1, wealth=None):
     """
-    Historical VaR Estimation (Non-Parametric).
+    Estimate Value-at-Risk (VaR) using historical (non-parametric) simulation.
 
-    Estimate Value-at-Risk (VaR) directly from the empirical distribution of returns without assuming any parametric model.
-
-    Description:
-    - VaR is computed as the empirical quantile at the specified confidence level.
-    - Scaling for multi-day holding periods is done by multiplying by sqrt(holding_period).
-
-    Formulas:
-    - Historical VaR:
-        VaR = - Quantile(returns, 1 - confidence_level) × sqrt(holding_period)
+    Computes VaR directly from the empirical distribution of past returns without 
+    assuming a specific distribution. The result is scaled for the holding period 
+    using the square-root-of-time rule.
 
     Parameters:
-    - returns (pd.Series):
-        Time series of returns (decimal format, e.g., 0.01 = 1%).
-
-    - confidence_level (float):
-        Confidence level for VaR (default = 0.99).
-
-    - holding_period (int, optional):
-        Holding period in days (default = 1).
+    - returns (pd.Series): Daily return series in decimal format (e.g., 0.01 = 1%).
+    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
+    - holding_period (int): VaR horizon in days (default: 1).
+    - wealth (float, optional): Portfolio value. If set, VaR outputs are in monetary units.
 
     Returns:
-    - result_data (pd.DataFrame):
-        - 'Returns': original returns
-        - 'VaR': estimated constant VaR series
-        - 'VaR Violation': boolean flag where return < -VaR
-
-    - var_estimate (float):
-        Estimated Historical VaR (positive % loss magnitude).
-
-    Notes:
-    - Assumes i.i.d. returns when scaling by sqrt(holding_period).
-    - The VaR estimate is reported as an absolute positive percentage.
+    - result_data (pd.DataFrame): With columns:
+        - 'Returns' (decimal)
+        - 'VaR' (estimated constant VaR, decimal loss magnitude)
+        - 'VaR Violation' (bool)
+        - 'VaR_monetary' (optional, if wealth is provided)
+    - var_estimate (float): Final historical VaR (in percent or monetary units).
     """
     var_cutoff = np.percentile(returns.dropna(), 100 * (1 - confidence_level))
     scaled_var = np.sqrt(holding_period) * var_cutoff
@@ -73,47 +58,29 @@ def var_historical(returns, confidence_level=0.99, holding_period=1, wealth=None
 #----------------------------------------------------------
 def var_parametric_iid(returns, confidence_level=0.99, holding_period=1, distribution="normal", wealth=None):
     """
-    Parametric i.i.d. VaR Estimation.
+    Estimate Value-at-Risk (VaR) under the i.i.d. assumption using a parametric distribution.
 
-    Estimate Value-at-Risk (VaR) under the assumption that returns are i.i.d. 
-    and follow a specified parametric distribution (Normal, Student-t, or GED).
-
-    Description:
-    - Fits the chosen distribution to historical returns.
-    - Computes VaR using the corresponding quantile.
-    - Scales volatility for multi-day holding periods by sqrt(holding_period).
-
-    Formulas:
-    - Parametric VaR:
-        VaR = - Quantile(distribution, 1 - confidence_level) × σ × sqrt(holding_period)
-    where:
-        - σ: standard deviation or scale parameter depending on distribution
+    Fits a specified distribution (Normal, Student-t, or GED) to the return series, 
+    then computes VaR as the corresponding quantile scaled by volatility and the 
+    square-root-of-time adjustment.
 
     Parameters:
-    - returns (pd.Series):
-        Time series of returns (decimal format, e.g., 0.01 = 1%).
-
-    - confidence_level (float):
-        Confidence level for VaR (default = 0.99).
-
-    - holding_period (int, optional):
-        Holding period in days (default = 1).
-
-    - distribution (str, optional):
-        Distribution assumed for returns ("normal", "t", or "ged").
+    - returns (pd.Series): Daily return series in decimal format (e.g., 0.01 = 1%).
+    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
+    - holding_period (int): VaR horizon in days (default: 1).
+    - distribution (str): Distribution assumed for returns ("normal", "t", or "ged").
+    - wealth (float, optional): Portfolio value. If set, VaR outputs are in monetary units.
 
     Returns:
-    - result_data (pd.DataFrame):
-        - 'Returns': original returns
-        - 'VaR': estimated constant VaR series
-        - 'VaR Violation': boolean flag where return < -VaR
+    - result_data (pd.DataFrame): With columns:
+        - 'Returns' (decimal)
+        - 'VaR' (estimated constant VaR, decimal loss magnitude)
+        - 'VaR Violation' (bool)
+        - 'VaR_monetary' (optional, if wealth is provided)
+    - var_estimate (float): Final VaR estimate (in percent or monetary units).
 
-    - var_estimate (float):
-        Estimated Parametric VaR (positive % loss magnitude).
-
-    Notes:
-    - For Student-t and GED, scale and shape parameters are estimated by MLE.
-    - Assumes returns are independent and identically distributed (i.i.d.).
+    Raises:
+    - ValueError: If an unsupported distribution is passed.
     """
     returns_clean = returns.dropna()
 
