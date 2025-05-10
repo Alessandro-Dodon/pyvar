@@ -12,6 +12,9 @@ from IPython.display import display # for new ES functions
 #       and ES for vol should also
 #       return the ES for the next day? 
 #################################################
+# Note2: for the portfolio metrics merge
+#         the ES and VaR functions into one?
+#################################################
 
 #----------------------------------------------------------
 # Historical Expected Shortfall (Tail Mean)

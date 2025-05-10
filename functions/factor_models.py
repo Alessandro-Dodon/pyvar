@@ -1,3 +1,6 @@
+#----------------------------------------------------------
+# Packages
+# ----------------------------------------------------------
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
@@ -6,8 +9,16 @@ from io import BytesIO
 from zipfile import ZipFile
 import requests
 
+#########################################################
+# Note: use x monetary positions to simplify the inputs?
+#       or not? returns and weights can be derived from it
+#########################################################
+# Note2: plotting and backtesting? ES should be separated
+#        from those functions or not? Check logic
+#########################################################
+
 # -------------------------------------------------------
-# Single-Factor (Sharpe) VaR and ES estimation
+# Single-Factor (Sharpe) — Portfolio VaR and ES
 # -------------------------------------------------------
 def single_factor_var_es(
     returns: pd.DataFrame,
@@ -20,8 +31,7 @@ def single_factor_var_es(
     Computes portfolio Value-at-Risk (VaR) and Expected Shortfall (ES) 
     using a single-factor (Sharpe) model.
 
-    Parameters
-    ----------
+    Parameters:
     returns : pd.DataFrame
         Asset return time series (columns = tickers).
     benchmark : pd.Series
@@ -33,8 +43,7 @@ def single_factor_var_es(
     confidence_level : float
         Confidence level (default = 0.99).
 
-    Returns
-    -------
+    Returns:
     var : float
         Value-at-Risk at given confidence level.
     es : float
@@ -63,7 +72,7 @@ def single_factor_var_es(
     tail_prob = 1 - confidence_level
     es = (port_vol * norm.pdf(norm.ppf(tail_prob)) / tail_prob) * port_val
 
-    return var, es, Sigma, betas, idiosyncratic_var
+    return var, es, Sigma, betas, idiosyncratic_var # Why those?
 
 
 # -------------------------------------------------------
@@ -96,9 +105,9 @@ def load_ff3_factors(start=None, end=None) -> pd.DataFrame:
 
 
 # -------------------------------------------------------
-# Fama-French 3-Factor Model — Portfolio VaR and CVaR
+# Fama-French 3-Factor Model — Portfolio VaR and ES
 # -------------------------------------------------------
-def ff3_var_cvar(
+def ff3_var_es(
     *,
     returns: pd.DataFrame | None = None,
     prices : pd.DataFrame | None = None,
@@ -108,12 +117,12 @@ def ff3_var_cvar(
     factors: pd.DataFrame | None = None,
 ) -> tuple[float, float, pd.DataFrame, pd.Series, np.ndarray]:
     """
-    Computes portfolio VaR and CVaR using the Fama–French 3-factor model,
+    Computes portfolio VaR and ES using the Fama–French 3-factor model,
     and returns all internal components for inspection.
 
     Returns:
     - VaR (float)
-    - CVaR (float)
+    - ES (float)
     - betas (pd.DataFrame)
     - idiosyncratic variances (pd.Series)
     - full covariance matrix Σ (np.ndarray)
@@ -159,23 +168,8 @@ def ff3_var_cvar(
     z = norm.ppf(alpha)
     VaR = z * σ_p * port_val
     tail = 1 - alpha
-    CVaR = σ_p * norm.pdf(norm.ppf(tail)) / tail * port_val
+    ES = σ_p * norm.pdf(norm.ppf(tail)) / tail * port_val
 
-    return VaR, CVaR, B, pd.Series(resid_var), Σ
+    return VaR, ES, B, pd.Series(resid_var), Σ
 
 
-'''
-# Example usage:
-import pandas as pd
-from ff3_var import ff3_var_cvar
-
-prices = pd.read_csv("prices_eur.csv", index_col=0, parse_dates=True)
-shares = pd.Series({"MSFT": 4, "NVDA": 3})
-
-var, cvar = ff3_var_cvar(prices=prices,
-                         shares=shares,
-                         alpha=0.95)
-
-print(f"VaR95  : {var:,.2f}")
-print(f"CVaR95 : {cvar:,.2f}")
-'''

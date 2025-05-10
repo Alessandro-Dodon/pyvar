@@ -1,7 +1,16 @@
+#----------------------------------------------------------
+# Packages
+# ----------------------------------------------------------
 import yfinance as yf
 import pandas as pd
 
+####################################################
+# Note: add a vector of shares owned for each Asset?
+####################################################
 
+#----------------------------------------------------------
+# Downloading Price Data
+# ----------------------------------------------------------
 def get_raw_prices(tickers, start="2024-01-01") -> pd.DataFrame:
     '''
     Downloads raw (adjusted) closing prices for a list of tickers.
@@ -21,6 +30,9 @@ def get_raw_prices(tickers, start="2024-01-01") -> pd.DataFrame:
     return prices
 
 
+#----------------------------------------------------------
+# Currency Conversion
+# ----------------------------------------------------------
 def convert_to_base(
     raw: pd.DataFrame,
     cur_map: dict = None,
@@ -48,7 +60,7 @@ def convert_to_base(
     '''
     import yfinance as yf
 
-    # Step 1: Detect currencies if not provided
+    # Detect currencies if not provided
     if cur_map is None:
         cur_map = {}
         for t in raw.columns:
@@ -60,7 +72,7 @@ def convert_to_base(
             if show_currency_detection:
                 print(f"[currency detection] {t}: {cur}")
 
-    # Step 2: Determine which FX pairs are needed
+    # Determine which FX pairs are needed
     needed = {cur_map[t] for t in raw.columns if cur_map[t] not in {base, "UNKNOWN"}}
     fx_pairs = [f"{base}{cur}=X" for cur in needed]
 
@@ -76,7 +88,7 @@ def convert_to_base(
     else:
         fx = pd.DataFrame(index=raw.index)
 
-    # Step 3: Convert all tickers to base currency
+    # Convert all tickers to base currency
     out = pd.DataFrame(index=raw.index)
     for t in raw.columns:
         p = raw[t].copy()
@@ -105,7 +117,9 @@ def convert_to_base(
     return out
 
 
-
+#----------------------------------------------------------
+# Returns and Summary Statistics
+# ----------------------------------------------------------
 def compute_returns_stats(prices: pd.DataFrame):
     '''
     Computes daily returns, mean returns, and the covariance matrix for a price DataFrame.
