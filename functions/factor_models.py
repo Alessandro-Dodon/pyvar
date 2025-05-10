@@ -1,5 +1,3 @@
-# ff3_var.py — can be included in your `riskmetrics` package
-
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
@@ -108,24 +106,17 @@ def ff3_var_cvar(
     shares : pd.Series    | None = None,
     alpha: float = 0.95,
     factors: pd.DataFrame | None = None,
-) -> tuple[float, float]:
+) -> tuple[float, float, pd.DataFrame, pd.Series, np.ndarray]:
     """
-    Computes portfolio VaR and CVaR using the Fama–French 3-factor model.
+    Computes portfolio VaR and CVaR using the Fama–French 3-factor model,
+    and returns all internal components for inspection.
 
-    Parameters
-    ----------
-    returns | prices : pd.DataFrame
-        Daily fractional returns or price series in base currency.
-    weights | shares : pd.Series
-        Portfolio weights (sum to 1) or position sizes (number of shares).
-    alpha : float
-        Confidence level (e.g. 0.95 for 95% VaR).
-    factors : pd.DataFrame, optional
-        Preloaded FF3 factor data; if None, downloads from Ken French.
-
-    Returns
-    -------
-    (VaR, CVaR) in monetary units of the base currency.
+    Returns:
+    - VaR (float)
+    - CVaR (float)
+    - betas (pd.DataFrame)
+    - idiosyncratic variances (pd.Series)
+    - full covariance matrix Σ (np.ndarray)
     """
     if returns is None and prices is None:
         raise ValueError("must pass `returns` or `prices`")
@@ -159,9 +150,9 @@ def ff3_var_cvar(
         betas[tkr] = res.params.drop("const")
         resid_var[tkr] = res.resid.var(ddof=0)
 
-    B = pd.DataFrame(betas).T.values
+    B = pd.DataFrame(betas).T
     Σf = factors[["Mkt_RF", "SMB", "HML"]].cov().values
-    Σ = B @ Σf @ B.T + np.diag(pd.Series(resid_var).values)
+    Σ = B.values @ Σf @ B.values.T + np.diag(pd.Series(resid_var).values)
 
     σ_p = np.sqrt(weights.values @ Σ @ weights.values)
 
@@ -170,7 +161,7 @@ def ff3_var_cvar(
     tail = 1 - alpha
     CVaR = σ_p * norm.pdf(norm.ppf(tail)) / tail * port_val
 
-    return VaR, CVaR
+    return VaR, CVaR, B, pd.Series(resid_var), Σ
 
 
 '''
