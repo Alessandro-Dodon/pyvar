@@ -11,6 +11,9 @@ from arch.univariate import ConstantMean, GARCH, StudentsT
 # Note: double check all formulas 
 #       check normalization
 #################################################
+# Note2: when crazy short positions happen the plots
+#        have VaR and ES upside down
+#################################################
 
 #----------------------------------------------------------
 # MA Correlation VaR (Parametric)
