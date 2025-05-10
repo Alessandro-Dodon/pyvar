@@ -30,7 +30,7 @@ def mc_simulation_var_es(S0, mu, cov, shares_eq, options,
     Monte Carlo (parametric) VaR & CVaR for equity + options.
     - S0         : array of current spot prices, length n_assets
     - mu         : pd.Series of expected returns (daily), length n_assets
-    - cov        : covariance matrix of returns (n×n)
+    - cov        : covariance matrix of returns (nxn)
     - shares_eq  : array of share counts, length n_assets
     - options    : list of dicts {idx,K,T,r,sigma,type,qty}
                    (empty list for equity-only)
@@ -74,6 +74,40 @@ def mc_simulation_var_es(S0, mu, cov, shares_eq, options,
     # 4) CVaR: average loss beyond VaR threshold
     cvar = -pnl[pnl <= -var].mean()
     return var, cvar, pnl
+
+
+def simulate_price_paths(S0, mu, cov, T_days=100, Nsim=1000, seed=42):
+    """
+    Simulate multi-day price trajectories using GBM with Cholesky.
+
+    Parameters:
+    - S0: initial prices (np.array, len = n_assets)
+    - mu: expected daily returns (pd.Series or np.array, len = n_assets)
+    - cov: daily return covariance matrix (n x n)
+    - T_days: time horizon in trading days
+    - Nsim: number of Monte Carlo paths
+    - seed: random seed
+
+    Returns:
+    - paths: np.array of shape (T_days+1, Nsim, n_assets)
+    """
+    np.random.seed(seed)
+    n_assets = len(S0)
+    dt = 1 / 252
+
+    # Cholesky factorization
+    L = np.linalg.cholesky(cov)
+
+    # Pre-allocate path array
+    paths = np.zeros((T_days + 1, Nsim, n_assets))
+    paths[0] = S0  # initial prices
+
+    for t in range(1, T_days + 1):
+        Z = np.random.randn(Nsim, n_assets)
+        rets = mu + Z @ L.T
+        paths[t] = paths[t - 1] * (1 + rets)
+
+    return paths
 
 
 # ────────── Historical-Simulation VaR/CVaR ──────────
