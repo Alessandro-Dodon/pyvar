@@ -110,6 +110,14 @@ def simulate_price_paths(S0, mu, cov, T_days=100, Nsim=1000, seed=42):
     return paths
 
 
+def var_from_simulated_paths(paths, shares_eq, alpha=0.01):
+    portf_value_paths = (paths * shares_eq).sum(axis=2)
+    pnl = portf_value_paths[-1] - portf_value_paths[0]
+    var = -np.percentile(pnl, alpha * 100)
+    cvar = -pnl[pnl <= -var].mean()
+    return var, cvar, pnl
+
+
 # ────────── Historical-Simulation VaR/CVaR ──────────
 def hist_simulations_var_es(returns_hist, S0, shares_eq, options,
                        alpha=0.05, horizon=1/252, seed=42):
