@@ -123,10 +123,3 @@ def compute_returns_stats(prices: pd.DataFrame):
 
 
 
-#Get prices in the native currency
-ticker = ["MSFT", "ISP.MI", "NESN.SW", "HSBA.L", "7203.T", "RY.TO", "CBA.AX", "0005.HK"]     # (7203.T is Toyota and 0005.HK is HSBC)
-raw = get_raw_prices(ticker, start = "2025-01-01")
-base = "EUR"
-converted = convert_to_base(raw, base = base, show_currency_detection = False)
-print(f"\n\n>>> Converted Prices in {base} (last 5 rows):")
-print(converted.tail())
