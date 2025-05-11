@@ -17,7 +17,6 @@ def evt(
     confidence_level=0.99,
     threshold_percentile=99,
     exceedance_level=None,
-    diagnostics=False,
     wealth=None
 ):
     """
@@ -35,7 +34,6 @@ def evt(
     - confidence_level (float): Confidence level for VaR/ES (default: 0.99).
     - threshold_percentile (float): Quantile for defining tail threshold (default: 99).
     - exceedance_level (float, optional): Loss level to estimate exceedance probability.
-    - diagnostics (bool): Return GPD parameters and diagnostics if True.
     - wealth (float, optional): Scale VaR/ES to monetary values if specified.
 
     Returns:
@@ -45,7 +43,6 @@ def evt(
     - var_estimate (float): Estimated VaR (in % or monetary units).
     - es_estimate (float): Estimated ES (in % or monetary units).
     - prob_exceedance (float or None): Probability of exceeding `exceedance_level`, if provided.
-    - diagnostics_dict (optional): Dictionary with GPD parameters and fit stats.
     """
     returns = pd.Series(returns).dropna()
     losses = -returns
@@ -86,23 +83,10 @@ def evt(
     })
     result_data["VaR Violation"] = returns < -var_series
 
-    # Apply wealth scaling if requested
     if wealth is not None:
         result_data["VaR_monetary"] = result_data["VaR"] * wealth
         result_data["ES_monetary"] = result_data["ES"] * wealth
         var_estimate = var_evt_value * wealth
         es_estimate = es_evt_value * wealth
 
-    if diagnostics:
-        x_max = threshold_u - beta_hat / xi_hat if xi_hat < 0 else np.inf
-        diagnostics_dict = {
-            "xi": xi_hat,
-            "beta": beta_hat,
-            "threshold_u": threshold_u,
-            "max_support": x_max,
-            "num_exceedances": num_exceedances
-        }
-        return result_data, var_estimate, es_estimate, prob_exceedance, diagnostics_dict
-
     return result_data, var_estimate, es_estimate, prob_exceedance
-

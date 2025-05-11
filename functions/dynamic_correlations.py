@@ -38,9 +38,19 @@ def var_corr_moving_average(x_matrix, confidence_level=0.99, window_size=20):
         - 'VaR': portfolio VaR as a decimal loss
         - 'VaR Monetary': portfolio VaR in monetary units
         - 'VaR Violation': True if actual loss exceeds VaR
+
+    Notes:
+    - Requires strictly positive total portfolio value on all dates.
+    - If any row sum of `x_matrix` is ≤ 0, the function will raise an error.
     """
     returns = x_matrix.pct_change().dropna()
     portfolio_returns = (x_matrix * returns).sum(axis=1) / x_matrix.sum(axis=1)
+
+    # Defensive check for invalid portfolio value
+    portfolio_value_series = x_matrix.sum(axis=1)
+    if (portfolio_value_series <= 0).any():
+        raise ValueError("Portfolio has zero or negative total value on some dates. Adjust positions before risk analysis.")
+
     rolling_covs = returns.rolling(window=window_size).cov()
 
     z = norm.ppf(1 - confidence_level)
@@ -96,9 +106,18 @@ def var_corr_ewma(x_matrix, confidence_level=0.99, lambda_decay=0.94):
         - 'VaR': VaR as a decimal loss
         - 'VaR Monetary': VaR in monetary units
         - 'VaR Violation': True if actual loss exceeds VaR
+
+    Notes:
+    - Requires strictly positive total portfolio value on all dates.
+    - If any row sum of `x_matrix` is ≤ 0, the function will raise an error.
     """
     returns = x_matrix.pct_change().dropna()
     portfolio_returns = (x_matrix * returns).sum(axis=1) / x_matrix.sum(axis=1)
+
+    # Defensive check for invalid portfolio value
+    portfolio_value_series = x_matrix.sum(axis=1)
+    if (portfolio_value_series <= 0).any():
+        raise ValueError("Portfolio has zero or negative total value on some dates. Adjust positions before risk analysis.")
 
     # EWMA covariance matrices
     ewma_cov = returns.cov().values
