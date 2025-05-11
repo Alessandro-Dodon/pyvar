@@ -15,3 +15,5 @@
 - Plots for MC and HS? Graphs from tests look weird
 
 - Uniform across all models and py files the params names (z, etc)
+
+- Add NaN checker/ blocker in each function
