@@ -11,3 +11,5 @@
 - Some ES/ VaR functions should be merged toghether or not? Review them
 
 - Backtesting for the factor models and simulations?
+
+- Plots for MC and HS? Graphs from tests look weird

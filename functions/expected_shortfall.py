@@ -112,7 +112,7 @@ def es_parametric(
         es_raw = std_dev * norm.pdf(z) / (1 - alpha)
         es_value = es_raw * np.sqrt(holding_period)
 
-    elif distribution == "t":
+    elif distribution == "t": # Where is the volatility here?
         df, loc, scale = t.fit(returns_clean)
         t_alpha = t.ppf(alpha, df)
         pdf_val = t.pdf(t_alpha, df)
