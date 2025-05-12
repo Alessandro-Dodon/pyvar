@@ -59,8 +59,6 @@ def convert_to_base(
       and their codes are replaced with GBP or ZAR to ensure correct FX conversion.
     - Prices are converted using the daily closing FX rate for each corresponding date.
     '''
-    import yfinance as yf
-
     # Detect currencies if not provided
     if cur_map is None:
         cur_map = {}

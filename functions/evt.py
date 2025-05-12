@@ -40,8 +40,6 @@ def evt(
     - result_data (pd.DataFrame): Columns include:
         - 'Returns', 'VaR', 'ES', 'VaR Violation'
         - Optionally: 'VaR_monetary', 'ES_monetary'
-    - var_estimate (float): Estimated VaR (in % or monetary units).
-    - es_estimate (float): Estimated ES (in % or monetary units).
     - prob_exceedance (float or None): Probability of exceeding `exceedance_level`, if provided.
     """
     returns = pd.Series(returns).dropna()
@@ -70,9 +68,6 @@ def evt(
     )
     es_evt_value = (var_evt_value + (beta_hat - xi_hat * threshold_u)) / (1 - xi_hat)
 
-    var_estimate = 100 * var_evt_value
-    es_estimate = 100 * es_evt_value
-
     var_series = pd.Series(var_evt_value, index=returns.index)
     es_series = pd.Series(es_evt_value, index=returns.index)
 
@@ -86,7 +81,5 @@ def evt(
     if wealth is not None:
         result_data["VaR_monetary"] = result_data["VaR"] * wealth
         result_data["ES_monetary"] = result_data["ES"] * wealth
-        var_estimate = var_evt_value * wealth
-        es_estimate = es_evt_value * wealth
 
-    return result_data, var_estimate, es_estimate, prob_exceedance
+    return result_data, prob_exceedance 

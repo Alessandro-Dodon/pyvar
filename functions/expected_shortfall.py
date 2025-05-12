@@ -41,9 +41,6 @@ def es_historical(result_data, wealth=None):
         Original DataFrame extended with:
             - 'ES': constant Expected Shortfall (decimal loss).
             - 'ES_monetary' (optional): if wealth is provided.
-
-    - es_estimate (float):
-        Scalar ES estimate (positive value, e.g., 0.015 for 1.5%).
     """
     var_threshold = result_data["VaR"].iloc[0]
     tail_returns = result_data["Returns"][result_data["Returns"] < -var_threshold]
@@ -56,13 +53,10 @@ def es_historical(result_data, wealth=None):
     es_series = pd.Series(-es_value, index=result_data.index)
     result_data["ES"] = es_series
 
-    es_estimate = -es_value
-
     if wealth is not None:
         result_data["ES_monetary"] = es_series * wealth
-        es_estimate *= wealth
 
-    return result_data, es_estimate
+    return result_data
 
 
 #----------------------------------------------------------
@@ -100,8 +94,7 @@ def es_parametric(
     Returns:
     - result_data (pd.DataFrame): 
         Updated with 'ES' (decimal) and optionally 'ES_monetary'.
-    - es_estimate (float): 
-        Scalar ES value (positive loss magnitude).
+
     """
     returns_clean = returns.dropna()
     alpha = confidence_level
@@ -124,13 +117,11 @@ def es_parametric(
         raise ValueError("Supported distributions: 'normal', 't'")
 
     result_data["ES"] = pd.Series(es_value, index=result_data.index)
-    es_estimate = es_value
 
     if wealth is not None:
         result_data["ES_monetary"] = result_data["ES"] * wealth
-        es_estimate *= wealth
 
-    return result_data, es_estimate
+    return result_data
 
 
 #----------------------------------------------------------

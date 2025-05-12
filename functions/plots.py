@@ -18,6 +18,9 @@ import base64
 # Note: output path should work only with static images
 #################################################
 
+# TODO: if there is the output to the plot, make another plot with
+# interactive = False or force False and export
+
 #----------------------------------------------------------
 # Display helper 
 #----------------------------------------------------------

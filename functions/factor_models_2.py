@@ -20,6 +20,8 @@ import requests
 #         inputs? (like portfolio value or weigts)
 #########################################################
 
+# TODO: why not loading the 3 factors silently and directly?
+
 # -------------------------------------------------------
 # Single-Factor (Sharpe) — Portfolio VaR and ES 
 # -------------------------------------------------------
@@ -29,7 +31,7 @@ def sharpe_model(
     weights: pd.Series,
     portfolio_value: float,
     confidence_level: float = 0.99
-) -> tuple[pd.DataFrame, float, float]:
+) -> pd.DataFrame:
     """
     Computes portfolio Value-at-Risk (VaR) and Expected Shortfall (ES) 
     using a single-factor (Sharpe) model. 
@@ -54,10 +56,6 @@ def sharpe_model(
         - 'VaR Violation': boolean flag per day
         - 'VaR_monetary': VaR in monetary units
         - 'ES_monetary': ES in monetary units
-    - var : float
-        Scalar VaR in monetary units.
-    - es : float
-        Scalar ES in monetary units.
 
     Raises:
     - ValueError: If index alignment between returns and benchmark fails.
@@ -95,9 +93,6 @@ def sharpe_model(
     var_pct = z * port_vol
     es_pct = (port_vol * norm.pdf(z) / tail_prob)
 
-    var = var_pct * portfolio_value
-    es = es_pct * portfolio_value
-
     # Create backtestable result DataFrame
     portf_returns = returns @ weights
     result_df = pd.DataFrame({
@@ -109,7 +104,7 @@ def sharpe_model(
     result_df["VaR_monetary"] = result_df["VaR"] * portfolio_value
     result_df["ES_monetary"] = result_df["ES"] * portfolio_value
 
-    return result_df, var, es
+    return result_df
 
 
 # -------------------------------------------------------
@@ -149,8 +144,8 @@ def fama_french_model(
     weights: pd.Series,
     portfolio_value: float,
     confidence_level: float = 0.99,
-    factors: pd.DataFrame | None = None
-) -> tuple[pd.DataFrame, float, float]:
+    factors: pd.DataFrame | None = None # Why this? Double check if there are more versions!
+) -> pd.DataFrame:
     """
     Computes portfolio Value-at-Risk (VaR) and Expected Shortfall (ES) 
     using the Fama–French 3-factor model.
@@ -171,10 +166,6 @@ def fama_french_model(
     - result_df : pd.DataFrame
         Time series with columns:
         - 'Returns', 'VaR', 'ES', 'VaR Violation', 'VaR_monetary', 'ES_monetary'
-    - var : float
-        Scalar VaR in monetary units.
-    - es : float
-        Scalar ES in monetary units.
     
     Raises:
     Large negative weight values (e.g., < -1) trigger a warning.
@@ -190,7 +181,12 @@ def fama_french_model(
         raise ValueError("weights must sum to 1.")
 
     if factors is None:
-        factors = load_ff3_factors(start=returns.index[0])
+        factors = load_ff3_factors(
+            start=returns.index.min(),
+            end=returns.index.max()
+        )
+
+    # Align to return dates with forward fill in case of market holidays
     factors = factors.reindex(returns.index).ffill()
 
     # Build regression matrix and excess returns
@@ -221,9 +217,6 @@ def fama_french_model(
     var_pct = z * port_vol
     es_pct = port_vol * norm.pdf(z) / tail_prob
 
-    var = var_pct * portfolio_value
-    es = es_pct * portfolio_value
-
     portf_returns = returns @ weights
     result_df = pd.DataFrame({
         "Returns": portf_returns,
@@ -234,5 +227,5 @@ def fama_french_model(
     result_df["VaR_monetary"] = result_df["VaR"] * portfolio_value
     result_df["ES_monetary"] = result_df["ES"] * portfolio_value
 
-    return result_df.dropna(), var, es
+    return result_df.dropna()
 

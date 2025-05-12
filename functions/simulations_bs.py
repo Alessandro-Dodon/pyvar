@@ -2,6 +2,13 @@ import numpy as np                      # numerical operations
 import pandas as pd                     # data handling (for DataFrame inputs)
 from scipy.stats import norm            # cumulative distribution for normals
 
+
+###################################################################
+# Note: add a function specifically for backtesting, repeating the
+#       simulations in a loop? or build that into the simulations 
+#       directly?
+###################################################################
+
 # ────────── Black-Scholes Price ──────────
 def bs_price(S, K, tau, r, sigma, opt_type="call"):
     """
@@ -76,6 +83,8 @@ def mc_simulation_var_es(S0, mu, cov, shares_eq, options,
     return var, cvar, pnl
 
 
+# This works with "var_from_simulated_paths" to compute the VaR/CVaR
+# It is the multiday MC simulation    
 def simulate_price_paths(S0, mu, cov, T_days=100, Nsim=1000, seed=42):
     """
     Simulate multi-day price trajectories using GBM with Cholesky.

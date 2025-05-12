@@ -4,7 +4,6 @@
 import yfinance as yf
 import pandas as pd
 
-
 #----------------------------------------------------------
 # Downloading Price Data
 # ----------------------------------------------------------
@@ -170,7 +169,7 @@ def create_portfolio(prices: pd.DataFrame, shares: pd.Series) -> pd.DataFrame:
 #----------------------------------------------------------
 # Returns and Summary Statistics
 # ----------------------------------------------------------
-def compute_returns_stats(prices: pd.DataFrame):
+def summary_statistics(prices: pd.DataFrame): 
     '''
     Computes daily returns, mean returns, and the covariance matrix for a price DataFrame.
 

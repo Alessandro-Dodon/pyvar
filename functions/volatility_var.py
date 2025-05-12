@@ -11,6 +11,8 @@ import warnings
 # Note: double check all formulas 
 #################################################
 
+# TODO: write docstrings for all functions WELL
+
 #----------------------------------------------------------
 # Garch Forecast (Empirical VaR, for Variance or VaR)
 #----------------------------------------------------------

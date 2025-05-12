@@ -9,6 +9,8 @@ import pandas as pd
 # Note: double check all formulas 
 #################################################
 
+# TODO: violations is not needed! can be put into the graph directly!
+
 #----------------------------------------------------------
 # Historical VaR (Non-Parametric)
 #----------------------------------------------------------
@@ -32,7 +34,6 @@ def var_historical(returns, confidence_level=0.99, holding_period=1, wealth=None
         - 'VaR' (estimated constant VaR, decimal loss magnitude)
         - 'VaR Violation' (bool)
         - 'VaR_monetary' (optional, if wealth is provided)
-    - var_estimate (float): Final historical VaR (in percent or monetary units).
     """
     var_cutoff = np.percentile(returns.dropna(), 100 * (1 - confidence_level))
     scaled_var = np.sqrt(holding_period) * var_cutoff
@@ -46,11 +47,8 @@ def var_historical(returns, confidence_level=0.99, holding_period=1, wealth=None
 
     if wealth is not None:
         result_data["VaR_monetary"] = result_data["VaR"] * wealth
-        var_estimate = abs(scaled_var) * wealth
-    else:
-        var_estimate = 100 * abs(scaled_var)
 
-    return result_data.dropna(), var_estimate
+    return result_data.dropna()
 
 
 #----------------------------------------------------------
@@ -77,33 +75,29 @@ def var_parametric(returns, confidence_level=0.99, holding_period=1, distributio
         - 'VaR' (estimated constant VaR, decimal loss magnitude)
         - 'VaR Violation' (bool)
         - 'VaR_monetary' (optional, if wealth is provided)
-    - var_estimate (float): Final VaR estimate (in percent or monetary units).
 
     Raises:
     - ValueError: If an unsupported distribution is passed.
     """
     returns_clean = returns.dropna()
 
-    if distribution == "normal":
-        std_dev = returns_clean.std()
-        quantile = norm.ppf(1 - confidence_level)
-        scaled_std = std_dev * np.sqrt(holding_period)
-
-    elif distribution == "t":
-        df, loc, scale = t.fit(returns_clean)
-        quantile = t.ppf(1 - confidence_level, df)
-        scaled_std = scale * np.sqrt(holding_period)
-
-    elif distribution == "ged":
-        beta, loc, scale = gennorm.fit(returns_clean)
-        quantile = gennorm.ppf(1 - confidence_level, beta)
-        scaled_std = scale * np.sqrt(holding_period)
-
-    else:
-        raise ValueError("Supported distributions: 'normal', 't', 'ged'")
+    match distribution:
+        case "normal":
+            std_dev = returns_clean.std()
+            quantile = norm.ppf(1 - confidence_level)
+            scaled_std = std_dev * np.sqrt(holding_period)
+        case "t":
+            df, loc, scale = t.fit(returns_clean)
+            quantile = t.ppf(1 - confidence_level, df)
+            scaled_std = scale * np.sqrt(holding_period)
+        case "ged":
+            beta, loc, scale = gennorm.fit(returns_clean)
+            quantile = gennorm.ppf(1 - confidence_level, beta)
+            scaled_std = scale * np.sqrt(holding_period)
+        case _:
+            raise ValueError("Supported distributions: 'normal', 't', 'ged'")
 
     var_value = -quantile * scaled_std
-
     var_series = pd.Series(var_value, index=returns.index)
     result_data = pd.DataFrame({
         "Returns": returns,
@@ -113,8 +107,5 @@ def var_parametric(returns, confidence_level=0.99, holding_period=1, distributio
 
     if wealth is not None:
         result_data["VaR_monetary"] = result_data["VaR"] * wealth
-        var_estimate = abs(var_value) * wealth
-    else:
-        var_estimate = 100 * abs(var_value)
 
-    return result_data.dropna(), var_estimate
+    return result_data.dropna()
