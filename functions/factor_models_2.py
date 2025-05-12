@@ -10,11 +10,14 @@ from zipfile import ZipFile
 import requests
 
 #########################################################
-# Note: use x monetary positions to simplify the inputs?
-#       or not? returns and weights can be derived from it
+# Note: weights are constant? Check logic and compare it
+#       with the other models that use x
+#       it seems to me that the weights should be fixed
 #########################################################
-# Note2: plotting and backtesting? ES should be separated
-#        from those functions or not? Check logic
+# Note2: ban short positions?
+#########################################################
+# Note 3: add a function on data download for those added
+#         inputs? (like portfolio value or weigts)
 #########################################################
 
 # -------------------------------------------------------
@@ -24,7 +27,7 @@ def sharpe_model(
     returns: pd.DataFrame,
     benchmark: pd.Series,
     weights: pd.Series,
-    port_val: float,
+    portfolio_value: float,
     confidence_level: float = 0.99
 ) -> tuple[pd.DataFrame, float, float]:
     """
@@ -37,7 +40,7 @@ def sharpe_model(
         Market return series (same index as returns).
     - weights : pd.Series
         Portfolio weights (must sum to 1).
-    - port_val : float
+    - portfolio_value : float
         Total current value of the portfolio.
     - confidence_level : float
         VaR/ES confidence level (e.g., 0.99).
@@ -86,8 +89,8 @@ def sharpe_model(
     var_pct = z * port_vol
     es_pct = (port_vol * norm.pdf(z) / tail_prob)
 
-    var = var_pct * port_val
-    es = es_pct * port_val
+    var = var_pct * portfolio_value
+    es = es_pct * portfolio_value
 
     # Create backtestable result DataFrame
     portf_returns = returns @ weights
@@ -97,8 +100,8 @@ def sharpe_model(
         "ES": pd.Series(es_pct, index=portf_returns.index),
     })
     result_df["VaR Violation"] = result_df["Returns"] < -result_df["VaR"]
-    result_df["VaR_monetary"] = result_df["VaR"] * port_val
-    result_df["ES_monetary"] = result_df["ES"] * port_val
+    result_df["VaR_monetary"] = result_df["VaR"] * portfolio_value
+    result_df["ES_monetary"] = result_df["ES"] * portfolio_value
 
     return result_df, var, es
 
@@ -136,64 +139,45 @@ def load_ff3_factors(start=None, end=None) -> pd.DataFrame:
 # Fama-French 3-Factor Model — Portfolio VaR and ES 
 # -------------------------------------------------------
 def fama_french_model(
-    *,
-    returns: pd.DataFrame | None = None,
-    prices : pd.DataFrame | None = None,
-    weights: pd.Series    | None = None,
-    shares : pd.Series    | None = None,
+    returns: pd.DataFrame,
+    weights: pd.Series,
+    portfolio_value: float,
     confidence_level: float = 0.99,
-    factors: pd.DataFrame | None = None,
+    factors: pd.DataFrame | None = None
 ) -> tuple[pd.DataFrame, float, float]:
     """
     Computes portfolio Value-at-Risk (VaR) and Expected Shortfall (ES) 
-    using the Fama–French 3-factor model. 
+    using the Fama–French 3-factor model.
 
     Parameters:
-    - returns : pd.DataFrame or None
-    - prices : pd.DataFrame or None
-    - weights : pd.Series or None
-    - shares : pd.Series or None
-    - confidence_level : float (e.g., 0.99)
+    - returns : pd.DataFrame
+        Asset return time series (columns = tickers).
+    - weights : pd.Series
+        Portfolio weights (must sum to 1).
+    - portfolio_value : float
+        Total value of the portfolio.
+    - confidence_level : float
+        VaR/ES confidence level (e.g., 0.99).
     - factors : pd.DataFrame or None
+        Optional preloaded Fama-French factors. If None, data is auto-downloaded.
 
     Returns:
     - result_df : pd.DataFrame
-        Contains:
-        - 'Returns': portfolio return series (decimal)
-        - 'VaR': constant VaR threshold (decimal loss)
-        - 'ES': constant ES threshold (decimal loss)
-        - 'VaR Violation': boolean flag per day
-        - 'VaR_monetary': VaR in monetary units
-        - 'ES_monetary': ES in monetary units
+        Time series with columns:
+        - 'Returns', 'VaR', 'ES', 'VaR Violation', 'VaR_monetary', 'ES_monetary'
     - var : float
-        VaR in monetary units.
+        Scalar VaR in monetary units.
     - es : float
-        ES in monetary units.
+        Scalar ES in monetary units.
     """
-    if returns is None and prices is None:
-        raise ValueError("must pass `returns` or `prices`")
-
-    if prices is not None and returns is None:
-        returns = prices.pct_change().dropna()
-
-    if weights is None and shares is None:
-        raise ValueError("must pass `weights` or `shares`")
-
-    if shares is not None:
-        if prices is None:
-            raise ValueError("to use `shares`, `prices` must be provided")
-        latest_price = prices.iloc[-1]
-        port_val = (latest_price * shares).sum()
-        weights = (latest_price * shares) / port_val
-    else:
-        port_val = 1.0
-        weights = weights / weights.sum()
+    if returns.isnull().values.any():
+        raise ValueError("Missing values detected in returns. Handle NaNs before passing.")
 
     if factors is None:
         factors = load_ff3_factors(start=returns.index[0])
     factors = factors.reindex(returns.index).ffill()
 
-    # Excess returns and design matrix
+    # Build regression matrix and excess returns
     X = sm.add_constant(factors[["Mkt_RF", "SMB", "HML"]])
     excess = returns.sub(factors["RF"], axis=0)
 
@@ -215,8 +199,8 @@ def fama_french_model(
     var_pct = z * port_vol
     es_pct = port_vol * norm.pdf(z) / tail_prob
 
-    var = var_pct * port_val
-    es = es_pct * port_val
+    var = var_pct * portfolio_value
+    es = es_pct * portfolio_value
 
     portf_returns = returns @ weights
     result_df = pd.DataFrame({
@@ -225,7 +209,7 @@ def fama_french_model(
         "ES": pd.Series(es_pct, index=portf_returns.index),
     })
     result_df["VaR Violation"] = result_df["Returns"] < -result_df["VaR"]
-    result_df["VaR_monetary"] = result_df["VaR"] * port_val
-    result_df["ES_monetary"] = result_df["ES"] * port_val
+    result_df["VaR_monetary"] = result_df["VaR"] * portfolio_value
+    result_df["ES_monetary"] = result_df["ES"] * portfolio_value
 
     return result_df.dropna(), var, es

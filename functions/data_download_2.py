@@ -4,10 +4,6 @@
 import yfinance as yf
 import pandas as pd
 
-####################################################
-# Note: add a vector of shares owned for each Asset?
-#       currency conversion works on the x df or not?
-####################################################
 
 #----------------------------------------------------------
 # Downloading Price Data
