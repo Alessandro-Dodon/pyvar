@@ -39,7 +39,7 @@ def sharpe_model(
     - benchmark : pd.Series
         Market return series (same index as returns).
     - weights : pd.Series
-        Portfolio weights (must sum to 1).
+        Portfolio weights (must sum to 1). Large negative values (e.g., < -1) trigger a warning.
     - portfolio_value : float
         Total current value of the portfolio.
     - confidence_level : float
@@ -79,6 +79,12 @@ def sharpe_model(
     Sigma = pd.DataFrame(factor_cov, index=tickers, columns=tickers)
     for t in tickers:
         Sigma.at[t, t] += idiosyncratic_var[t]
+
+    # Check for extreme short exposures
+    min_weight = weights.min()
+    if min_weight < -1:
+        print("[warning] Some weights indicate extreme short positions (e.g., weight < -100%).")
+        print("          Ensure these reflect intentional portfolio structure.")
 
     # Portfolio risk
     port_vol = np.sqrt(weights.values @ Sigma.values @ weights.values)
@@ -153,7 +159,7 @@ def fama_french_model(
     - returns : pd.DataFrame
         Asset return time series (columns = tickers).
     - weights : pd.Series
-        Portfolio weights (must sum to 1).
+        Portfolio weights (must sum to 1). Must align with returns columns.
     - portfolio_value : float
         Total value of the portfolio.
     - confidence_level : float
@@ -169,9 +175,19 @@ def fama_french_model(
         Scalar VaR in monetary units.
     - es : float
         Scalar ES in monetary units.
+    
+    Raises:
+    Large negative weight values (e.g., < -1) trigger a warning.
+    Raises ValueError if misaligned or if weights do not sum to 1.
     """
     if returns.isnull().values.any():
         raise ValueError("Missing values detected in returns. Handle NaNs before passing.")
+
+    # Input checks
+    if not weights.index.equals(returns.columns):
+        raise ValueError("weights and returns must have identical tickers in the same order.")
+    if not np.isclose(weights.sum(), 1.0):
+        raise ValueError("weights must sum to 1.")
 
     if factors is None:
         factors = load_ff3_factors(start=returns.index[0])
@@ -191,6 +207,12 @@ def fama_french_model(
     B = pd.DataFrame(betas).T
     Σf = factors[["Mkt_RF", "SMB", "HML"]].cov().values
     Σ = B.values @ Σf @ B.values.T + np.diag(pd.Series(resid_var).values)
+
+    # Check for extreme short exposures
+    min_weight = weights.min()
+    if min_weight < -1:
+        print("[warning] Some weights indicate extreme short positions (e.g., weight < -100%).")
+        print("          Ensure these reflect intentional portfolio structure.")
 
     port_vol = np.sqrt(weights.values @ Σ @ weights.values)
     z = norm.ppf(confidence_level)
@@ -213,3 +235,4 @@ def fama_french_model(
     result_df["ES_monetary"] = result_df["ES"] * portfolio_value
 
     return result_df.dropna(), var, es
+
