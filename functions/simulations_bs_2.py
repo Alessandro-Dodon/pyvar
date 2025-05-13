@@ -203,14 +203,14 @@ def multiday_monte_carlo(price_data, shares,
 # ----------------------------------------------------------
 # Historical (and Bootstrapped) Simulation VaR and ES
 # ----------------------------------------------------------
-def historical_simulation(
+def historical_simulation( # Separate or toghether?
     price_data,
     shares,
     options,
     confidence_level=0.99,
     bootstrap=False,
     simulations=None,
-    seed=None
+    seed=None # Also ignore if the HS is selected, as it makes no difference for HS (double check)
 ):
     """
     Estimate 1-day portfolio Value-at-Risk (VaR) and Expected Shortfall (ES) 

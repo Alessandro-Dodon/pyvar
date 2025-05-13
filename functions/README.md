@@ -15,3 +15,9 @@
 - Add NaN checker/ blocker in each function
 
 - Add MC and simulations graphs to the plots?
+
+- Move each ES inside its respective module (cleaner that way)
+
+- EVT is param! put it in param VaR py file (and separate the basic VaR into param and non param)
+
+- consider data check for na for downloading data function
