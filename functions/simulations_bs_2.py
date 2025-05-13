@@ -102,7 +102,7 @@ def monte_carlo(price_data, shares, options,
 
     # Initial option prices at t = 0
     init_prices = [
-        bs_price(S0[op['idx']], op['K'], op['T'], op['r'], op['sigma'], op['type'])
+        black_scholes(S0[op['idx']], op['K'], op['T'], op['r'], op['sigma'], op['type'])
         for op in options
     ]
 
@@ -115,7 +115,7 @@ def monte_carlo(price_data, shares, options,
         pl_opt = 0.0
         for j, op in enumerate(options):
             tau = max(op['T'] - 1/252, 0)  # always assumes 1-day step
-            new_p = bs_price(
+            new_p = black_scholes(
                 S_sim[i, op['idx']],
                 op['K'], tau,
                 op['r'], op['sigma'], op['type']
@@ -270,7 +270,7 @@ def historical_simulation(
     S_sim = S0 * (1 + rets_sampled)
 
     init_prices = [
-        bs_price(S0[op["idx"]], op["K"], op["T"], op["r"], op["sigma"], op["type"])
+        black_scholes(S0[op["idx"]], op["K"], op["T"], op["r"], op["sigma"], op["type"])
         for op in options
     ]
 
@@ -281,7 +281,7 @@ def historical_simulation(
         pl_opt = 0.0
         for j, op in enumerate(options):
             tau = max(op["T"] - dt, 0)
-            new_p = bs_price(
+            new_p = black_scholes(
                 S_sim[i, op["idx"]],
                 op["K"], tau,
                 op["r"], op["sigma"], op["type"]
@@ -292,3 +292,22 @@ def historical_simulation(
     var = -np.percentile(pnl, alpha * 100)
     es = -pnl[pnl <= -var].mean()
     return var, es, pnl
+
+
+######### Idea for separating functions:
+'''def compute_expected_shortfall(pnl, var_threshold):
+    """
+    Compute Expected Shortfall (ES) given a P&L array and a VaR threshold.
+
+    Parameters:
+    - pnl : np.ndarray
+        Simulated profit-and-loss array.
+    - var_threshold : float
+        VaR threshold (positive number, i.e., already -percentile value).
+
+    Returns:
+    - es : float
+        Expected Shortfall (monetary units).
+    """
+    return -pnl[pnl <= -var_threshold].mean()
+'''
