@@ -25,6 +25,7 @@ Contents
 - summary_statistics: Compute return series, means, and covariance matrix
 """
 
+# TODO: check FX conversion, I see minor differences from use to use
 
 #----------------------------------------------------------
 # Packages
@@ -36,7 +37,7 @@ import pandas as pd
 #----------------------------------------------------------
 # Downloading Price Data
 # ----------------------------------------------------------
-def get_raw_prices(tickers, start="2024-01-01") -> pd.DataFrame:
+def get_raw_prices(tickers, start="2024-01-01", end=None) -> pd.DataFrame:
     """
     Download adjusted closing prices for a list of tickers using yfinance.
 
@@ -49,6 +50,8 @@ def get_raw_prices(tickers, start="2024-01-01") -> pd.DataFrame:
         Ticker symbols (e.g., ['AAPL', 'MSFT', 'BMW.DE']).
     start : str, optional
         Start date in 'YYYY-MM-DD' format. Default is '2024-01-01'.
+    end : str, optional
+        End date in 'YYYY-MM-DD' format. If None, fetches data up to the most recent available.
 
     Returns
     -------
@@ -61,7 +64,7 @@ def get_raw_prices(tickers, start="2024-01-01") -> pd.DataFrame:
         If missing values (NaNs) are detected in the downloaded price data.
     """
     prices = (
-        yf.download(" ".join(tickers), start=start,
+        yf.download(" ".join(tickers), start=start, end=end,
                     auto_adjust=True, progress=False)["Close"]
         .ffill()
     )

@@ -1,3 +1,35 @@
+"""
+Risk Decomposition Module: VaR and ES Attribution
+--------------------------------------------------
+
+Implements risk attribution and decomposition tools for Value-at-Risk (VaR) and 
+Expected Shortfall (ES), based on Euler’s theorem and the asset-normal approach. 
+
+Each measure is decomposed into marginal, component, relative, and incremental 
+contributions, using portfolio positions and the return covariance structure.
+
+Assumes normally distributed returns and a static covariance matrix over time.
+
+Authors
+-------
+Alessandro Dodon, Niccolò Lecce, Marco Gasparetti
+
+Created
+-------
+May 2025
+
+Contents
+---------
+- var_asset_normal: Diversified and undiversified VaR with diversification benefit
+- marginal_var / marginal_es: Marginal contributions to VaR or ES
+- component_var / component_es: Component contributions (position × marginal)
+- relative_component_var / relative_component_es: Share of total VaR or ES per asset
+- incremental_var / incremental_es: Impact of hypothetical changes in position size
+"""
+
+# TODO: double check all formulas and inputs (x)
+# TODO: take away ES metrics?
+
 #----------------------------------------------------------
 # Packages
 #----------------------------------------------------------
@@ -7,32 +39,40 @@ from scipy.stats import norm
 import warnings
 from IPython.display import display
 
-#################################################
-# Note: double check all formulas and inputs (x)
-#################################################
-# Note2: backtesting VaR AN? good idea or not?
-#################################################
 
 #----------------------------------------------------------
 # Asset-Normal VaR with Diversification Benefit
 #----------------------------------------------------------
 def var_asset_normal(position_data, confidence_level=0.99, holding_period=1):
     """
-    Estimate Value-at-Risk (VaR) using the asset-normal approach with diversification.
+    Estimate portfolio Value-at-Risk (VaR) using the asset-normal approach.
 
-    Computes diversified and undiversified portfolio VaR under the normality assumption.
-    Returns a DataFrame with time series of both measures and the diversification benefit.
+    Computes both diversified and undiversified portfolio VaR under the normality assumption. 
+    Diversified VaR uses the full covariance matrix of asset returns, while undiversified VaR 
+    assumes perfect positive correlation between all assets (ρ = 1). The diversification benefit 
+    is the difference between the two.
 
-    Parameters:
-    - position_data (pd.DataFrame or np.ndarray): Monetary positions (T × N).
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
-    - holding_period (int): VaR horizon in days (default = 1).
+    Parameters
+    ----------
+    position_data : pd.DataFrame or np.ndarray
+        Monetary positions over time (T × N).
+    confidence_level : float, optional
+        Confidence level for VaR (e.g., 0.99). Default is 0.99.
+    holding_period : int, optional
+        Holding period in days. Default is 1.
 
-    Returns:
-    - result_data (pd.DataFrame): With columns:
-        - 'Diversified_VaR' (decimal)
-        - 'Undiversified_VaR' (decimal)
-        - 'Diversification_Benefit' (decimal)
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame indexed by date, with columns:
+        - 'Diversified_VaR': Portfolio VaR using correlations (decimal loss)
+        - 'Undiversified_VaR': VaR assuming full correlation (decimal loss)
+        - 'Diversification_Benefit': Difference between undiversified and diversified VaR
+
+    Raises
+    ------
+    ValueError
+        If fewer than two observations are available after cleaning.
     """
     position_data = pd.DataFrame(position_data).dropna()
 
@@ -70,18 +110,30 @@ def var_asset_normal(position_data, confidence_level=0.99, holding_period=1):
 #----------------------------------------------------------
 def marginal_var(position_data, confidence_level=0.99, holding_period=1):
     """
-    Estimate Marginal Value-at-Risk (VaR) for each asset using the asset-normal approach.
+    Estimate Marginal Value-at-Risk (VaR) for each asset in a portfolio.
 
-    Computes time-varying marginal contributions of each asset to the total portfolio VaR 
-    based on the full covariance matrix and a buy-and-hold portfolio strategy.
+    Computes the marginal contribution of each asset to the total diversified 
+    portfolio VaR using Euler decomposition. Assumes normally distributed returns 
+    and a buy-and-hold portfolio strategy.
 
-    Parameters:
-    - position_data (pd.DataFrame or np.ndarray): Monetary positions (T × N).
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
-    - holding_period (int): VaR horizon in days (default = 1).
+    Parameters
+    ----------
+    position_data : pd.DataFrame or np.ndarray
+        Monetary positions over time (T × N).
+    confidence_level : float, optional
+        Confidence level for VaR (e.g., 0.99). Default is 0.99.
+    holding_period : int, optional
+        Holding period in days. Default is 1.
 
-    Returns:
-    - result_data (pd.DataFrame): Marginal VaR contributions (T × N), in monetary units.
+    Returns
+    -------
+    pd.DataFrame
+        Time series of marginal VaR values (T × N), in monetary units.
+
+    Raises
+    ------
+    ValueError
+        If fewer than two time steps are available.
     """
     position_data = pd.DataFrame(position_data).dropna()
 
@@ -127,19 +179,24 @@ def marginal_var(position_data, confidence_level=0.99, holding_period=1):
 #----------------------------------------------------------
 def component_var(position_data, confidence_level=0.99, holding_period=1):
     """
-    Estimate Component Value-at-Risk (VaR) using marginal VaR decomposition.
+    Estimate Component Value-at-Risk (VaR) for each asset in a portfolio.
 
-    Computes the contribution of each asset to the total diversified portfolio VaR 
-    using Euler decomposition. This equals the product of each asset's position 
-    and its marginal VaR.
+    Computes the contribution of each asset to total diversified VaR using 
+    Euler decomposition: Component VaR = position × marginal VaR.
 
-    Parameters:
-    - position_data (pd.DataFrame): Monetary positions per asset (T × N).
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
-    - holding_period (int): Holding period in days (default: 1).
+    Parameters
+    ----------
+    position_data : pd.DataFrame
+        Monetary positions over time (T × N).
+    confidence_level : float, optional
+        Confidence level for VaR (e.g., 0.99). Default is 0.99.
+    holding_period : int, optional
+        Holding period in days. Default is 1.
 
-    Returns:
-    - pd.DataFrame: Time series of Component VaRs (T × N), in monetary units.
+    Returns
+    -------
+    pd.DataFrame
+        Time series of Component VaR values (T × N), in monetary units.
     """
     position_data = pd.DataFrame(position_data)
 
@@ -164,18 +221,24 @@ def component_var(position_data, confidence_level=0.99, holding_period=1):
 #----------------------------------------------------------
 def relative_component_var(position_data, confidence_level=0.99, holding_period=1):
     """
-    Estimate Relative Component Value-at-Risk (VaR).
+    Estimate Relative Component Value-at-Risk (VaR) for each asset.
 
-    Computes the proportionate contribution of each asset to the total diversified portfolio VaR,
-    based on the Euler decomposition. Values sum to 1 across assets at each time step.
+    Computes the share of total diversified VaR contributed by each asset at 
+    each time step using Euler decomposition. Row-wise values sum to 1.
 
-    Parameters:
-    - position_data (pd.DataFrame): Monetary positions per asset (T × N).
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
-    - holding_period (int): Holding period in days (default: 1).
+    Parameters
+    ----------
+    position_data : pd.DataFrame
+        Monetary positions over time (T × N).
+    confidence_level : float, optional
+        Confidence level for VaR (e.g., 0.99). Default is 0.99.
+    holding_period : int, optional
+        Holding period in days. Default is 1.
 
-    Returns:
-    - pd.DataFrame: Time series of Relative Component VaRs (T × N), as percentages of total VaR.
+    Returns
+    -------
+    pd.DataFrame
+        Time series of relative Component VaR values (T × N).
     """
     position_data = pd.DataFrame(position_data)
 
@@ -202,18 +265,31 @@ def relative_component_var(position_data, confidence_level=0.99, holding_period=
 #----------------------------------------------------------
 def incremental_var(position_data, change_vector, confidence_level=0.99, holding_period=1):
     """
-    Estimate Incremental Value-at-Risk (VaR).
+    Estimate Incremental Value-at-Risk (VaR) from a position change.
 
-    Computes the impact on total portfolio VaR from a change in asset positions using Marginal VaR.
+    Computes the daily impact on total diversified VaR from a proposed change 
+    in asset positions using first-order approximation via Marginal VaR.
 
-    Parameters:
-    - position_data (pd.DataFrame): Monetary positions per asset (T × N).
-    - change_vector (array-like): Change in positions (length N).
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
-    - holding_period (int): Holding period in days (default: 1).
+    Parameters
+    ----------
+    position_data : pd.DataFrame
+        Monetary positions over time (T × N).
+    change_vector : array-like
+        Change in asset positions (length N).
+    confidence_level : float, optional
+        Confidence level for VaR (e.g., 0.99). Default is 0.99.
+    holding_period : int, optional
+        Holding period in days. Default is 1.
 
-    Returns:
-    - pd.Series: Time series of Incremental VaR (1 per day), in monetary units.
+    Returns
+    -------
+    pd.Series
+        Time series of Incremental VaR values in monetary units.
+    
+    Raises
+    ------
+    ValueError
+        If length of change_vector does not match number of assets.
     """
     position_data = pd.DataFrame(position_data)
     marginal_df = marginal_var(
@@ -229,60 +305,66 @@ def incremental_var(position_data, change_vector, confidence_level=0.99, holding
     return marginal_df @ a
 
 
-
-
-
 #----------------------------------------------------------
-# Marginal Expected Shortfall (ES)
+# Marginal Expected Shortfall (Delta ES per Asset)
 #----------------------------------------------------------
 def marginal_es(position_data, confidence_level=0.99, holding_period=1):
     """
     Estimate Marginal Expected Shortfall (ES) for each asset in a portfolio.
 
-    Computes marginal ES using Euler decomposition under a normal distribution 
-    assumption. Reflects each asset's sensitivity to portfolio tail risk.
+    Computes the marginal contribution of each asset to the total diversified 
+    portfolio Expected Shortfall using Euler decomposition. Assumes normally 
+    distributed returns and a buy-and-hold portfolio strategy.
 
-    Parameters:
-    - position_data (pd.DataFrame): Monetary positions per asset (T × N).
-    - confidence_level (float): Confidence level for ES (e.g., 0.99).
-    - holding_period (int): Holding period in days (default: 1).
+    Parameters
+    ----------
+    position_data : pd.DataFrame or np.ndarray
+        Monetary positions over time (T × N).
+    confidence_level : float, optional
+        Confidence level for ES (e.g., 0.99). Default is 0.99.
+    holding_period : int, optional
+        Holding period in days. Default is 1.
 
-    Returns:
-    - pd.DataFrame: Time series of marginal ES (T × N), in monetary units.
+    Returns
+    -------
+    pd.DataFrame
+        Time series of marginal ES values (T × N), in monetary units.
+
+    Raises
+    ------
+    ValueError
+        If fewer than two time steps are available.
     """
-    position_data = pd.DataFrame(position_data)
+    position_data = pd.DataFrame(position_data).dropna()
+
     if position_data.shape[0] < 2:
-        warnings.warn("At least two rows of data are required.")
-        return None
+        raise ValueError("At least two time steps are required.")
 
-    position_data = position_data.dropna()
-    returns_data = position_data.pct_change().dropna()
-    sigma_matrix = returns_data.cov().values
+    returns = position_data.pct_change().dropna()
+    cov_matrix = returns.cov().values
+    positions = position_data.loc[returns.index].values
 
-    alpha = confidence_level
-    z = norm.ppf(alpha)
-    es_scaling = norm.pdf(z) / (1 - alpha)
-
-    positions = position_data.loc[returns_data.index].values
+    z = norm.ppf(confidence_level)
+    scaling = norm.pdf(z) / (1 - confidence_level)
     marginal_es_list = []
 
-    for xt in positions:
-        x = xt.reshape(-1, 1)
-        variance = float(x.T @ sigma_matrix @ x)
+    for x_t in positions:
+        x = x_t.reshape(-1, 1)
+        variance = float(x.T @ cov_matrix @ x)
 
         if variance <= 1e-10:
-            marginal = np.zeros_like(x.flatten())
+            delta_es = np.zeros_like(x.flatten())
         else:
             std_dev = np.sqrt(variance)
-            portfolio_es = es_scaling * std_dev * np.sqrt(holding_period)
-            beta_vector = (sigma_matrix @ x).flatten() / variance
-            marginal = portfolio_es * beta_vector
+            portfolio_es = scaling * std_dev * np.sqrt(holding_period)
+            beta_vector = (cov_matrix @ x).flatten() / variance
+            delta_es = portfolio_es * beta_vector
 
-        marginal_es_list.append(marginal)
+        marginal_es_list.append(delta_es)
 
     return pd.DataFrame(
         marginal_es_list,
-        index=returns_data.index.strftime("%Y-%m-%d"),
+        index=returns.index,
         columns=position_data.columns
     )
 
@@ -294,16 +376,22 @@ def component_es(position_data, confidence_level=0.99, holding_period=1):
     """
     Estimate Component Expected Shortfall (ES) for each asset in a portfolio.
 
-    Computes component ES using Euler decomposition: 
-    marginal ES × monetary position.
+    Computes the contribution of each asset to total portfolio ES using 
+    Euler decomposition: Component ES = position × marginal ES.
 
-    Parameters:
-    - position_data (pd.DataFrame): Monetary positions per asset (T × N).
-    - confidence_level (float): Confidence level for ES (e.g., 0.99).
-    - holding_period (int): Holding period in days (default: 1).
+    Parameters
+    ----------
+    position_data : pd.DataFrame
+        Monetary positions over time (T × N).
+    confidence_level : float, optional
+        Confidence level for ES (e.g., 0.99). Default is 0.99.
+    holding_period : int, optional
+        Holding period in days. Default is 1.
 
-    Returns:
-    - pd.DataFrame: Time series of component ES (T × N), in monetary units.
+    Returns
+    -------
+    pd.DataFrame
+        Time series of Component ES values (T × N), in monetary units.
     """
     position_data = pd.DataFrame(position_data)
 
@@ -312,9 +400,6 @@ def component_es(position_data, confidence_level=0.99, holding_period=1):
         confidence_level=confidence_level,
         holding_period=holding_period
     )
-
-    if isinstance(position_data.index[0], pd.Timestamp):
-        position_data.index = position_data.index.strftime("%Y-%m-%d")
 
     aligned_positions = position_data.loc[marginal_df.index]
     component_df = aligned_positions * marginal_df
@@ -329,16 +414,22 @@ def relative_component_es(position_data, confidence_level=0.99, holding_period=1
     """
     Estimate Relative Component Expected Shortfall (ES) for each asset.
 
-    Computes the share of total ES each asset contributes at each time step:
-    relative ES = component ES / total ES.
+    Computes the share of total portfolio ES contributed by each asset at 
+    each time step. Row-wise values sum to 1.
 
-    Parameters:
-    - position_data (pd.DataFrame): Monetary positions per asset (T × N).
-    - confidence_level (float): Confidence level for ES (e.g., 0.99).
-    - holding_period (int): Holding period in days (default: 1).
+    Parameters
+    ----------
+    position_data : pd.DataFrame
+        Monetary positions over time (T × N).
+    confidence_level : float, optional
+        Confidence level for ES (e.g., 0.99). Default is 0.99.
+    holding_period : int, optional
+        Holding period in days. Default is 1.
 
-    Returns:
-    - pd.DataFrame: Time series of relative component ES (T × N), values sum to 1.
+    Returns
+    -------
+    pd.DataFrame
+        Time series of relative Component ES values (T × N).
     """
     position_data = pd.DataFrame(position_data)
 
@@ -359,19 +450,31 @@ def relative_component_es(position_data, confidence_level=0.99, holding_period=1
 #----------------------------------------------------------
 def incremental_es(position_data, change_vector, confidence_level=0.99, holding_period=1):
     """
-    Estimate Incremental Expected Shortfall (ES) for a portfolio.
+    Estimate Incremental Expected Shortfall (ES) from a position change.
 
-    Computes how a change in positions affects total ES using Marginal ES 
-    and a first-order approximation.
+    Computes the daily change in portfolio ES due to a change in asset positions 
+    using first-order approximation via Marginal ES.
 
-    Parameters:
-    - position_data (pd.DataFrame): Monetary positions (T × N).
-    - change_vector (list or np.ndarray): Change in positions (length N).
-    - confidence_level (float): Confidence level for ES (e.g., 0.99).
-    - holding_period (int): Horizon in days (default: 1).
+    Parameters
+    ----------
+    position_data : pd.DataFrame
+        Monetary positions over time (T × N).
+    change_vector : array-like
+        Change in asset positions (length N).
+    confidence_level : float, optional
+        Confidence level for ES (e.g., 0.99). Default is 0.99.
+    holding_period : int, optional
+        Holding period in days. Default is 1.
 
-    Returns:
-    - pd.Series: Time series of Incremental ES values in monetary units.
+    Returns
+    -------
+    pd.Series
+        Time series of Incremental ES values in monetary units.
+
+    Raises
+    ------
+    ValueError
+        If length of change_vector does not match number of assets.
     """
     position_data = pd.DataFrame(position_data)
 
@@ -385,5 +488,4 @@ def incremental_es(position_data, change_vector, confidence_level=0.99, holding_
     if a.shape[0] != marginal_df.shape[1]:
         raise ValueError("Change vector must match number of assets.")
 
-    ies_series = marginal_df @ a
-    return ies_series
+    return marginal_df @ a

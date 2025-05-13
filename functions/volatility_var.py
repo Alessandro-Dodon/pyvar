@@ -460,7 +460,7 @@ def var_moving_average(returns, confidence_level=0.99, window=20, wealth=None):
 
     volatility = returns.rolling(window=window).std()
     innovations = returns / volatility
-    quantile = np.percentile(innovations, 100 * (1 - confidence_level))
+    quantile = np.percentile(innovations.dropna(), 100 * (1 - confidence_level))
     var_series = -volatility * quantile
 
     result_data = pd.DataFrame({
@@ -470,6 +470,7 @@ def var_moving_average(returns, confidence_level=0.99, window=20, wealth=None):
         "VaR": var_series
     })
     result_data["VaR Violation"] = result_data["Returns"] < -result_data["VaR"]
+    result_data.dropna(inplace=True)
 
     # Manual 1-step-ahead forecast for MA volatility
     recent_returns = returns.iloc[-window:]

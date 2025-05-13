@@ -1,3 +1,38 @@
+"""
+Backtesting Module
+---------------------------------------------
+
+Implements statistical tests for validating Value-at-Risk (VaR) forecasts.
+
+This module provides tools to count VaR violations and to formally evaluate
+the statistical properties of those violations using likelihood ratio tests.
+Specifically, it includes:
+
+- The Kupiec test for unconditional coverage (correct frequency of exceptions)
+- The Christoffersen test for independence (no clustering of violations)
+- A joint test combining both criteria
+
+These tools help assess whether a risk model is correctly calibrated in terms
+of both the quantity and timing of its risk forecasts.
+
+Authors
+-------
+Alessandro Dodon, Niccolò Lecce, Marco Gasparetti
+
+Created
+-------
+May 2025
+
+Contents
+--------
+- count_violations: Compute number and rate of VaR violations in a time window
+- kupiec_test: Likelihood ratio test for unconditional coverage
+- christoffersen_test: Likelihood ratio test for independence of violations
+- joint_lr_test: Combined test for both coverage and independence
+"""
+
+# TODO: double check
+
 #----------------------------------------------------------
 # Packages
 # ----------------------------------------------------------
@@ -5,42 +40,46 @@ import numpy as np
 import pandas as pd
 from scipy.stats import chi2
 
-#################################################
-# Note: double check
-#################################################
 
 # ----------------------------------------------------------
 # Counting VaR Violations (General or Subset)
 # ----------------------------------------------------------
-def count_violations(data, start_date=None, end_date=None):
+def count_violations(result_data, start_date=None, end_date=None):
     """
-    Count VaR violations over a full or partial time window.
+    Count Value-at-Risk (VaR) violations over time.
 
-    This function evaluates how often actual returns exceed the Value-at-Risk 
-    threshold by summing 'VaR Violation' entries. It supports both full-sample 
-    and subset-based backtesting for flexibility in analysis.
+    Computes how often actual portfolio returns exceed the estimated VaR threshold,
+    using the binary 'VaR Violation' column. Supports full-sample or date-subset analysis.
 
-    Parameters:
-    - data (pd.DataFrame): 
+    Parameters
+    ----------
+    result_data : pd.DataFrame
         DataFrame containing a binary column 'VaR Violation'.
-        Index must be datetime-like if subsetting is used.
-    - start_date (str or pd.Timestamp, optional): 
-        Start date for subsetting (default is beginning of dataset).
-    - end_date (str or pd.Timestamp, optional): 
-        End date for subsetting (default is end of dataset).
+        Index must be datetime-like if date subsetting is used.
 
-    Returns:
-    - total_violations (int): Number of VaR violations.
-    - violation_rate (float): Violation rate as a percentage.
+    start_date : str or pd.Timestamp, optional
+        Start date for subsetting. If None, uses full range.
 
-    Raises:
-    - ValueError: If 'VaR Violation' column is missing or selected range is empty.
+    end_date : str or pd.Timestamp, optional
+        End date for subsetting. If None, uses full range.
+
+    Returns
+    -------
+    total_violations : int
+        Number of VaR violations during the selected period.
+
+    violation_rate : float
+        Violation rate as a decimal (e.g., 0.02 = 2%).
+
+    Raises
+    ------
+    ValueError
+        If 'VaR Violation' column is missing or the selected subset is empty.
     """
-    if "VaR Violation" not in data.columns:
+    if "VaR Violation" not in result_data.columns:
         raise ValueError("Data must contain 'VaR Violation' column.")
 
-    subset = data.copy()
-
+    subset = result_data.copy()
     if start_date is not None or end_date is not None:
         subset = subset.loc[start_date:end_date]
 
@@ -50,7 +89,7 @@ def count_violations(data, start_date=None, end_date=None):
     violations = subset["VaR Violation"]
     total_violations = violations.sum()
     total_days = len(violations)
-    violation_rate = 100 * total_violations / total_days
+    violation_rate = total_violations / total_days
 
     return total_violations, violation_rate
 
@@ -60,27 +99,31 @@ def count_violations(data, start_date=None, end_date=None):
 # ----------------------------------------------------------
 def kupiec_test(total_violations, total_days, confidence_level):
     """
-    Kupiec's likelihood ratio test for unconditional coverage.
+    Kupiec Unconditional Coverage Test
 
-    This test evaluates whether the observed number of Value-at-Risk (VaR) 
-    violations is consistent with the expected frequency implied by the confidence level. 
-    It assumes violations follow an independent Bernoulli process.
+    Evaluate whether the observed number of Value-at-Risk (VaR) violations is consistent 
+    with the expected frequency implied by the chosen confidence level. Assumes i.i.d. 
+    Bernoulli violations. Rejection implies miscalibrated VaR — either under- or 
+    overestimating tail risk.
 
-    A rejection of the null suggests the model under- or overestimates risk — 
-    i.e., the frequency of observed violations is statistically inconsistent with 
-    the expected failure rate.
+    Parameters
+    ----------
+    total_violations : int
+        Observed number of VaR violations.
 
-    Parameters:
-    - total_violations (int): Observed number of VaR breaches.
-    - total_days (int): Number of observations in the test period.
-    - confidence_level (float): Confidence level used to compute VaR (e.g., 0.99).
+    total_days : int
+        Total number of observations in the backtest period.
 
-    Returns:
-    - dict: {
-        'LR_uc': Likelihood ratio test statistic,
-        'p_value': Associated p-value,
-        'reject_null': True if test rejects null at 5% level
-      }
+    confidence_level : float
+        Confidence level used to compute VaR (e.g., 0.99).
+
+    Returns
+    -------
+    dict
+        Dictionary with:
+        - 'LR_uc': Likelihood ratio test statistic
+        - 'p_value': p-value under χ²(1)
+        - 'reject_null': True if null is rejected at 5% level
     """
     if total_violations == 0 or total_violations == total_days:
         return {
@@ -114,30 +157,25 @@ def kupiec_test(total_violations, total_days, confidence_level):
 # ----------------------------------------------------------
 def christoffersen_test(violations):
     """
-    Christoffersen's likelihood ratio test for independence of exceptions.
+    Christoffersen Independence Test
 
-    This test evaluates whether VaR violations are independently distributed over time 
-    using a first-order Markov transition matrix. It checks for clustering of violations, 
-    which may indicate that the risk model fails to capture time-varying volatility 
-    or other forms of dependence.
+    Test whether VaR violations are independent over time using a 2-state Markov 
+    transition matrix. Rejection indicates clustering of exceptions, suggesting 
+    model misspecification or missing dynamics (e.g., volatility persistence).
 
-    A rejection of the null suggests that violations are not independent — 
-    typically interpreted as evidence of model misspecification or missing dynamics.
+    Parameters
+    ----------
+    violations : array-like or pd.DataFrame
+        Sequence of 0/1 indicators for VaR violations. If DataFrame, must contain 
+        a column named 'VaR Violation'.
 
-    Parameters:
-    - violations (pd.DataFrame, pd.Series, list, or array):
-        If DataFrame, must include a column named 'VaR Violation'.
-        Otherwise, should be a 1D sequence of binary or boolean values.
-
-    Returns:
-    - dict: {
-        'LR_c': Likelihood ratio test statistic,
-        'p_value': Associated p-value,
-        'reject_null': True if test rejects null at 5% level
-      }
-
-    Raises:
-    - ValueError: If DataFrame lacks 'VaR Violation' column.
+    Returns
+    -------
+    dict
+        Dictionary with:
+        - 'LR_c': Likelihood ratio test statistic
+        - 'p_value': p-value under χ²(1)
+        - 'reject_null': True if null is rejected at 5% level
     """
     # Automatically extract from DataFrame if needed
     if isinstance(violations, pd.DataFrame):
@@ -190,25 +228,27 @@ def christoffersen_test(violations):
 # ----------------------------------------------------------
 def joint_lr_test(LR_uc, LR_c):
     """
-    Joint likelihood ratio test for coverage and independence of VaR violations.
+    Joint Likelihood Ratio Test (Kupiec + Christoffersen)
 
-    This test combines the Kupiec test for correct violation frequency (unconditional coverage) 
-    and the Christoffersen test for independence of violations (no clustering). It provides 
-    a unified assessment of whether a risk model is correctly calibrated in both dimensions.
+    Combine unconditional coverage and independence tests to assess whether a 
+    VaR model produces both the correct number and timing of violations. 
+    Rejection suggests the model fails on at least one of the two dimensions.
 
-    A rejection of the null indicates that either the number or the timing of exceptions — 
-    or both — are statistically inconsistent with the model's assumptions.
+    Parameters
+    ----------
+    LR_uc : float
+        Likelihood ratio from the unconditional coverage test (Kupiec).
 
-    Parameters:
-    - LR_uc (float): Likelihood ratio from the unconditional coverage test.
-    - LR_c (float): Likelihood ratio from the independence test.
+    LR_c : float
+        Likelihood ratio from the independence test (Christoffersen).
 
-    Returns:
-    - dict: {
-        'LR_total': Combined LR statistic (χ² with 2 degrees of freedom),
-        'p_value': Associated p-value,
-        'reject_null': True if joint test rejects null at 5% level
-      }
+    Returns
+    -------
+    dict
+        Dictionary with:
+        - 'LR_total': Combined LR statistic (χ² with 2 df)
+        - 'p_value': p-value under χ²(2)
+        - 'reject_null': True if null is rejected at 5% level
     """
     LR_total = LR_uc + LR_c
     p_value = 1 - chi2.cdf(LR_total, df=2)
