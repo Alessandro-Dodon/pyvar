@@ -114,6 +114,24 @@ All our volatility models use a semi-empirical approach for the VaR computation,
 
 \vspace{1em}
 \underline{\text{Time-Varying Correlation Models}}
+\vspace{1em}
+\underline{\text{Correlation-Based VaR Implementation}}
+
+\vspace{0.6em}
+
+We implemented two correlation-based portfolio Value-at-Risk (VaR) models using time-varying covariance matrices estimated from historical returns. Both models assume normally distributed asset returns and rely on daily monetary position data to compute risk metrics under a buy-and-hold strategy.
+
+\textit{Moving Average (MA) Covariance:}  
+We use a rolling window approach to compute the empirical covariance matrix of returns over the past $n$ days. At each time $t$, the portfolio variance is calculated as $x_t^\top \Sigma_t x_t$, where $x_t$ represents the vector of monetary positions and $\Sigma_t$ is the sample covariance. Volatility is scaled by total portfolio value, and VaR is computed analytically using the Gaussian quantile $z_\alpha$.
+
+\textit{Exponentially Weighted Moving Average (EWMA):}  
+Following the RiskMetrics approach, we recursively update the covariance matrix using the formula:
+\[
+\Sigma_t = \lambda \Sigma_{t-1} + (1 - \lambda) r_{t-1} r_{t-1}^\top,
+\]
+where $\lambda$ is the decay factor (typically 0.94). This method gives more weight to recent returns and captures time-varying volatility and correlation. The final VaR expression is identical, but based on the EWMA covariance matrix at each point in time.
+
+Both implementations also compute monetary VaR and identify violations when actual losses exceed the estimated VaR. These functions ensure a strictly positive portfolio value and are robust to asset-level fluctuations.
 
 \vspace{0.6em}
 
@@ -202,16 +220,122 @@ For EVT, basic VaR methods and volatility models, as well as their corresponding
 
 \vspace{0.6em}
 
-xxx
+We implement two standard linear factor models to estimate portfolio Value-at-Risk (VaR) and Expected Shortfall (ES). These models use asset betas with respect to systematic risk factors, allowing us to infer portfolio-level risk from exposures to common sources of variation.
+
+\textit{Sharpe Single-Factor Model:}  
+We assume that each asset’s return $r_i$ follows the linear factor structure:
+\[
+r_i = \alpha_i + \beta_i r_m + \varepsilon_i,
+\]
+where $r_m$ is the return on the market portfolio, $\beta_i$ is the asset's sensitivity to the market factor, and $\varepsilon_i$ is a zero-mean idiosyncratic shock uncorrelated with $r_m$ and other residuals. The market return $r_m$ has variance $\sigma_m^2$, and $\mathrm{Var}(\varepsilon_i) = \sigma_{\varepsilon_i}^2$.
+
+Let $w = (w_1, \dots, w_N)^\top$ be the vector of monetary portfolio weights. Then the total portfolio variance becomes:
+\[
+\sigma_p^2 = \left(\sum_{i=1}^N w_i \beta_i\right)^2 \sigma_m^2 + \sum_{i=1}^N w_i^2 \sigma_{\varepsilon_i}^2.
+\]
+
+VaR and ES are computed under the normality assumption:
+\[
+\text{VaR}_{t,\alpha} = z_\alpha \cdot \sigma_p, \qquad
+\text{ES}_{t,\alpha} = \sigma_p \cdot \frac{\phi(z_\alpha)}{1 - \alpha},
+\]
+where $\phi(z)$ is the standard normal PDF.
+
+\textit{Fama-French 3-Factor Model:}  
+We extend the previous model by considering three risk factors: market excess return (Mkt-RF), size (SMB), and value (HML). Each asset’s excess return is modeled as:
+\[
+r_i - r_f = \alpha_i + \beta_{i,1} \cdot \text{Mkt-RF} + \beta_{i,2} \cdot \text{SMB} + \beta_{i,3} \cdot \text{HML} + \varepsilon_i,
+\]
+where $r_f$ is the risk-free rate, and $\varepsilon_i$ is the idiosyncratic error. We estimate factor loadings $\beta_{i,k}$ through OLS regression.
+
+Let $\mathbf{B}$ be the $N \times 3$ matrix of estimated factor loadings, $\Sigma_f$ the $3 \times 3$ sample covariance matrix of the factors, and $\Sigma_\varepsilon$ the diagonal matrix of residual variances $\sigma_{\varepsilon_i}^2$. The total portfolio variance is:
+\[
+\sigma_p^2 = w^\top (\mathbf{B} \Sigma_f \mathbf{B}^\top + \Sigma_\varepsilon) w.
+\]
+
+Once the portfolio variance is known, we compute:
+\[
+\text{VaR}_{t,\alpha} = z_\alpha \cdot \sigma_p, \qquad
+\text{ES}_{t,\alpha} = \sigma_p \cdot \frac{\phi(z_\alpha)}{1 - \alpha}.
+\]
+
+The Fama-French model implementation includes automatic download and alignment of factor data from Kenneth French’s online library. The routine supports time-series generation of both VaR and ES and flags violations. Negative exposures and short positions are highlighted for interpretability and consistency with the risk management framework.
+
+\vspace{0.6em}
 
 \vspace{1em}
 \underline{\text{Simulation Methods}}
 
 \vspace{0.6em}
+\underline{\text{Parametric Monte Carlo (Equities \& Options)}}
 
-xxx
+\vspace{0.6em}
+We implement a one-day parametric Monte Carlo simulation approach to estimate VaR and ES. Under the assumption of multivariate normality, we simulate future returns as:
+\[
+\boldsymbol{\mu} = \mathbb{E}[r_t], \quad \Sigma = \text{Cov}(r_t), \quad L = \text{Cholesky}(\Sigma),
+\]
+\[
+\mathbf{r}^{(i)} = \boldsymbol{\mu} + L \mathbf{z}^{(i)}, \quad \mathbf{z}^{(i)} \sim \mathcal{N}(\mathbf{0}, I),
+\]
+\[
+\mathbf{S}^{(i)} = \mathbf{S}_0 \circ (1 + \mathbf{r}^{(i)}),
+\]
+where $\circ$ denotes element-wise multiplication.
+
+The simulated P\&L of the portfolio is calculated as:
+\[
+\Delta P^{(i)} = \mathbf{w}^\top(\mathbf{S}^{(i)} - \mathbf{S}_0) + \sum_{j=1}^{N_{\mathrm{opt}}} q_j \left(C(S_j^{(i)}, \tau_j') - C_{j,0}\right),
+\]
+where $q_j$ is the number of contracts for option $j$, $C(\cdot)$ is the Black-Scholes option price, and $\tau_j' = \max(T_j - \frac{1}{252}, 0)$ is the adjusted time to maturity.
+
+From the empirical distribution of $\{\Delta P^{(i)}\}_{i=1}^N$, we compute:
+\[
+\text{VaR}_\alpha = -\text{Quantile}_\alpha(\Delta P), \qquad
+\text{ES}_\alpha = -\mathbb{E}[\Delta P \mid \Delta P \le -\text{VaR}_\alpha].
+\]
 
 \vspace{1em}
+\underline{\text{Multiday Monte Carlo (Equity-only)}}
+
+\vspace{0.6em}
+To simulate risk over multiple days ($h$-day horizon) for pure equity portfolios, we model prices as following a geometric Brownian motion:
+\[
+S_{t+1}^{(i)} = S_t^{(i)} \cdot \exp\left(\mu - \frac{1}{2} \sigma^2 + L z_t^{(i)}\right), \quad z_t^{(i)} \sim \mathcal{N}(0, I),
+\]
+for $t = 0, \dots, h-1$, where $L$ is the Cholesky factor of the covariance matrix.
+
+The final P\&L is:
+\[
+\Delta P^{(i)} = \sum_{k=1}^N w_k (S_{h,k}^{(i)} - S_{0,k}).
+\]
+
+The VaR and ES are computed from the empirical distribution of simulated $\Delta P^{(i)}$.
+
+\vspace{1em}
+\underline{\text{Historical \& Bootstrapped Simulation}}
+
+\vspace{0.6em}
+We simulate alternative return paths by re-applying historical return vectors to the current portfolio composition. For each scenario $i$, we define:
+\[
+\mathbf{S}^{(i)} = \mathbf{S}_0 \circ (1 + r_{\pi(i)}),
+\]
+where $r_{\pi(i)}$ is the $i$-th sampled return vector from the historical dataset, and $\pi(i)$ is either a fixed ordering (historical simulation) or a random draw (bootstrap simulation).
+
+The corresponding P\&L is:
+\[
+\Delta P^{(i)} = \mathbf{w}^\top (\mathbf{S}^{(i)} - \mathbf{S}_0).
+\]
+
+Risk measures are then computed as:
+\[
+\text{VaR}_\alpha = -\text{Quantile}_\alpha(\Delta P), \qquad
+\text{ES}_\alpha = -\mathbb{E}[\Delta P \mid \Delta P \le -\text{VaR}_\alpha].
+\]
+
+This approach is fully non-parametric and accounts for fat tails and nonlinear dependence in historical returns. When bootstrap is enabled, multiple resamples ensure robustness to limited data windows.
+
+\vspace{0.6em}
+
 \underline{\text{Backtesting}}
 
 \vspace{0.6em}
@@ -259,3 +383,4 @@ xxx
 xxx
 
 \end{document}
+
