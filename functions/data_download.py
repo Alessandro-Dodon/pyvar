@@ -1,27 +1,65 @@
+"""
+Price Data and Portfolio Construction Module
+-----------------------------------------------
+
+Provides utility functions to download and process financial time series data.
+These functions are intended for use with the portfolio, factor model,
+simulation, and time-varying correlation modules.
+
+For single-asset analysis (e.g., VaR/ES with univariate models), these tools
+are not required, since the input can be a single price or return series.
+
+Authors
+-------
+Alessandro Dodon, Niccolò Lecce, Marco Gasparetti
+
+Created
+-------
+May 2025
+
+Contents
+--------
+- get_raw_prices: Download adjusted closing prices using yfinance
+- convert_to_base: Convert raw prices to a common base currency
+- create_portfolio: Convert prices into monetary exposures using share quantities
+- summary_statistics: Compute return series, means, and covariance matrix
+"""
+
+
 #----------------------------------------------------------
 # Packages
 # ----------------------------------------------------------
 import yfinance as yf
 import pandas as pd
 
+
 #----------------------------------------------------------
 # Downloading Price Data
 # ----------------------------------------------------------
 def get_raw_prices(tickers, start="2024-01-01") -> pd.DataFrame:
-    '''
-    Downloads raw (adjusted) closing prices for a list of tickers.
+    """
+    Download adjusted closing prices for a list of tickers using yfinance.
 
-    Parameters:
-    - tickers (list of str): List of ticker symbols (e.g. ['MSFT', 'AAPL', 'BMW.DE']).
-    - start (str): Start date in 'YYYY-MM-DD' format.
+    Returns a DataFrame with tickers as columns and dates as index.
+    Designed for multi-asset use cases and portfolio modeling.
 
-    Returns:
-    - pd.DataFrame: Adjusted closing prices (tickers as columns, dates as index).
+    Parameters
+    ----------
+    tickers : list of str
+        Ticker symbols (e.g., ['AAPL', 'MSFT', 'BMW.DE']).
+    start : str, optional
+        Start date in 'YYYY-MM-DD' format. Default is '2024-01-01'.
 
-    Notes:
-    - Issues a warning if any missing values are detected in the returned data.
-    - Users are advised to inspect or handle missing data before downstream analysis.
-    '''
+    Returns
+    -------
+    pd.DataFrame
+        Adjusted closing prices with rows as dates and columns as tickers.
+
+    Raises
+    ------
+    Warning
+        If missing values (NaNs) are detected in the downloaded price data.
+    """
     prices = (
         yf.download(" ".join(tickers), start=start,
                     auto_adjust=True, progress=False)["Close"]
@@ -45,25 +83,34 @@ def convert_to_base(
     base: str = "EUR",
     show_currency_detection: bool = True
 ) -> pd.DataFrame:
-    '''
-    Converts prices from their native currencies into a single base currency.
+    """
+    Convert raw prices to a common base currency using FX rates from Yahoo Finance.
 
-    Parameters:
-    - raw (pd.DataFrame): DataFrame of raw prices with tickers as columns and dates as index.
-    - cur_map (dict, optional): Mapping of tickers to their currencies (e.g. {'AAPL': 'USD'}).
-                                If None, currencies are auto-detected using yfinance's fast_info.
-    - base (str): Target base currency (e.g. 'EUR', 'USD'). Defaults to 'EUR'.
-    - show_currency_detection (bool): If True, prints detected currencies and conversion steps.
+    Automatically scales minor units like GBp or ZAc and renames currencies to
+    their major equivalents. FX rates are matched by date and applied element-wise.
 
-    Returns:
-    - pd.DataFrame: A DataFrame of prices converted to the base currency. Same shape and index as input.
-    
-    Notes:
-    - FX rates are fetched from Yahoo Finance using synthetic tickers like 'EURUSD=X'.
-    - Minor currency units like GBp or ZAc are automatically scaled by 0.01,
-      and their codes are replaced with GBP or ZAR to ensure correct FX conversion.
-    - Prices are converted using the daily closing FX rate for each corresponding date.
-    '''
+    Parameters
+    ----------
+    raw : pd.DataFrame
+        Raw price data (tickers as columns, dates as index).
+    cur_map : dict, optional
+        Mapping from tickers to their native currencies.
+        If None, currencies are auto-detected via yfinance.
+    base : str, optional
+        Target base currency. Default is 'EUR'.
+    show_currency_detection : bool, optional
+        If True, prints currency detection and FX conversion steps.
+
+    Returns
+    -------
+    pd.DataFrame
+        Converted prices in base currency.
+
+    Raises
+    ------
+    Warning
+        If FX rates cannot be downloaded for some currencies or if currency detection fails.
+    """
     # Detect currencies if not provided
     if cur_map is None:
         cur_map = {}
@@ -125,30 +172,31 @@ def convert_to_base(
 # Create Portfolio from Share Quantities
 # ----------------------------------------------------------
 def create_portfolio(prices: pd.DataFrame, shares: pd.Series) -> pd.DataFrame:
-    '''
-    Multiplies prices by the number of shares held to compute monetary positions.
+    """
+    Convert asset prices to monetary portfolio exposures using share quantities.
 
-    Converts a price time series into a portfolio of monetary exposures by multiplying 
-    each asset's price by its corresponding share count. The result reflects the value 
-    of the full portfolio over time.
+    Tickers in `shares` must match the columns of the price DataFrame.
+    Supports fractional and short positions.
 
-    Parameters:
-    - prices (pd.DataFrame): Price data (tickers = columns, dates = index).
-    - shares (pd.Series): Number of shares per ticker (index = tickers).
+    Parameters
+    ----------
+    prices : pd.DataFrame
+        Price data (columns = tickers, index = dates).
+    shares : pd.Series
+        Shares held per ticker (index must match tickers in prices).
 
-    Returns:
-    - pd.DataFrame: Monetary positions (same shape as `prices`).
+    Returns
+    -------
+    pd.DataFrame
+        Monetary exposures for each asset over time.
 
-    Raises:
-    - ValueError: If tickers in `shares` do not match columns in `prices`.
-    - ValueError: If total portfolio value is zero or negative on any day.
-
-    Notes:
-    - Requires that the number of tickers in `shares` exactly matches `prices.columns`.
-    - Supports any order of tickers in `shares`, as long as names match.
-    - Short positions (negative shares) and fractional shares are allowed.
-    - Currency conversion should be applied *before* this function.
-    '''
+    Raises
+    ------
+    ValueError
+        If the tickers in `shares` do not match the price columns.
+    ValueError
+        If portfolio value is zero or negative on any day.
+    """
     if set(prices.columns) != set(shares.index):
         raise ValueError("Mismatch between tickers in 'prices' and 'shares'. "
                          "They must match exactly (names only, order doesn't matter).")
@@ -170,22 +218,26 @@ def create_portfolio(prices: pd.DataFrame, shares: pd.Series) -> pd.DataFrame:
 # Returns and Summary Statistics
 # ----------------------------------------------------------
 def summary_statistics(prices: pd.DataFrame): 
-    '''
-    Computes daily returns, mean returns, and the covariance matrix for a price DataFrame.
+    """
+    Compute daily returns, mean returns, and the return covariance matrix.
 
-    Parameters:
-    - prices (pd.DataFrame): Price data with tickers as columns and dates as index, all in the same currency.
+    Input can be either per-share prices or monetary portfolio exposures.
+    Output type (percent or monetary returns) depends on the input.
 
-    Returns:
-    - returns (pd.DataFrame): Daily percentage returns.
-    - mean_returns (pd.Series): Mean return for each asset.
-    - covariance_matrix (pd.DataFrame): Covariance matrix of the returns.
+    Parameters
+    ----------
+    prices : pd.DataFrame
+        Price matrix with tickers as columns and dates as index.
 
-    Notes:
-    - If input is raw prices from `get_raw_prices()`, the output reflects per-share returns.
-    - If input is monetary positions from `create_portfolio()`, the output reflects portfolio-scale monetary returns.
-    - Apply after currency conversion, if necessary.
-    '''
+    Returns
+    -------
+    returns : pd.DataFrame
+        Daily returns (percentage or monetary).
+    mean_returns : pd.Series
+        Mean return per asset.
+    covariance_matrix : pd.DataFrame
+        Covariance matrix of the return series.
+    """
     returns = prices.pct_change().dropna()
     return returns, returns.mean(), returns.cov()
 

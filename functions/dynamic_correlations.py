@@ -1,19 +1,46 @@
+"""
+Correlation-Based VaR and Expected Shortfall Module
+------------------------------------------------------
+
+Implements portfolio-level Value-at-Risk (VaR) and Expected Shortfall (ES) 
+estimators based on time-varying correlation models. Assumes normally 
+distributed returns and monetary positions that evolve over time in a 
+buy-and-hold portfolio setting.
+
+This module includes:
+- Moving Average covariance estimation
+- EWMA (RiskMetrics-style) covariance estimation
+- Parametric ES estimation from conditional volatility
+
+These models are designed to complement the broader framework for 
+portfolio risk modeling, particularly when working with monetary 
+positions matrices derived from multi-asset portfolios.
+
+Authors
+-------
+Alessandro Dodon, Niccolò Lecce, Marco Gasparetti
+
+Created
+-------
+May 2025
+
+Contents
+--------
+- var_corr_moving_average: Portfolio VaR using moving average covariance matrix
+- var_corr_ewma: Portfolio VaR using exponentially weighted covariance (EWMA)
+- es_correlation: Expected Shortfall based on volatility and normal quantile
+"""
+
+# TODO: check all formulas
+# TODO: check normalization
+
 #----------------------------------------------------------
 # Packages
 #----------------------------------------------------------
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-from arch.__future__ import reindexing
-from arch.univariate import ConstantMean, GARCH, StudentsT
 
-#################################################
-# Note: double check all formulas 
-#       check normalization
-#################################################
-# Note2: when crazy short positions happen the plots
-#        have VaR and ES upside down
-#################################################
 
 #----------------------------------------------------------
 # MA Correlation VaR (Parametric)
@@ -22,26 +49,39 @@ def var_corr_moving_average(x_matrix, confidence_level=0.99, window_size=20):
     """
     Estimate portfolio Value-at-Risk (VaR) using a moving average covariance matrix.
 
-    Computes daily portfolio VaR assuming normally distributed returns and 
-    a rolling sample covariance matrix for asset return correlations. Monetary 
-    positions vary over time, capturing a buy-and-hold portfolio logic.
+    Assumes normally distributed returns and computes a rolling sample covariance 
+    matrix of asset returns over a fixed window. The portfolio is represented by 
+    daily monetary positions and reflects a buy-and-hold strategy. VaR is expressed 
+    in both relative (percentage) and monetary terms. Volatility is scaled by total 
+    portfolio value at each time step.
 
-    Parameters:
-    - x_matrix (pd.DataFrame): Monetary positions per asset (T × N), one row per day.
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
-    - window_size (int): Rolling window size for covariance estimation.
+    The risk quantile is taken from the standard Normal distribution, which simplifies
+    the VaR computation and makes it directly proportional to estimated volatility.
 
-    Returns:
-    - result_data (pd.DataFrame): DataFrame with:
-        - 'Returns': portfolio return in decimal form
-        - 'Volatility': estimated portfolio volatility (decimal)
-        - 'VaR': portfolio VaR as a decimal loss
-        - 'VaR Monetary': portfolio VaR in monetary units
-        - 'VaR Violation': True if actual loss exceeds VaR
+    Parameters
+    ----------
+    x_matrix : pd.DataFrame
+        Monetary positions for each asset over time (T × N).
+        Rows are daily observations; columns are asset tickers.
+    confidence_level : float, optional
+        Confidence level for VaR (e.g., 0.99). Default is 0.99.
+    window_size : int, optional
+        Window size (in days) for rolling covariance estimation. Default is 20.
 
-    Notes:
-    - Requires strictly positive total portfolio value on all dates.
-    - If any row sum of `x_matrix` is ≤ 0, the function will raise an error.
+    Returns
+    -------
+    result_data : pd.DataFrame
+        DataFrame indexed by date, with the following columns:
+        - 'Returns': Daily portfolio return (decimal)
+        - 'Volatility': Estimated portfolio volatility (decimal)
+        - 'VaR': Relative Value-at-Risk (decimal loss)
+        - 'VaR Monetary': Absolute Value-at-Risk in monetary units
+        - 'VaR Violation': Boolean flag indicating if actual loss exceeded VaR
+
+    Raises
+    ------
+    ValueError
+        If total portfolio value is zero or negative on any date.
     """
     returns = x_matrix.pct_change().dropna()
     portfolio_returns = (x_matrix * returns).sum(axis=1) / x_matrix.sum(axis=1)
@@ -90,26 +130,36 @@ def var_corr_ewma(x_matrix, confidence_level=0.99, lambda_decay=0.94):
     """
     Estimate portfolio Value-at-Risk (VaR) using EWMA covariance and a normal quantile.
 
-    Computes daily portfolio VaR using an exponentially weighted moving average (EWMA) 
-    of the asset return covariance matrix. Assumes normally distributed returns and 
-    time-varying monetary positions under a buy-and-hold strategy.
+    Assumes normally distributed returns and computes a time-varying portfolio VaR using 
+    an exponentially weighted moving average (EWMA) covariance matrix. The portfolio is 
+    represented by daily monetary positions, capturing a buy-and-hold strategy.
 
-    Parameters:
-    - x_matrix (pd.DataFrame): Monetary positions per asset (T × N), one row per day.
-    - confidence_level (float): Confidence level for VaR (e.g., 0.99).
-    - lambda_decay (float): EWMA decay factor (e.g., 0.94).
+    The risk quantile is taken from the standard Normal distribution, which simplifies 
+    the VaR computation and ensures consistency with RiskMetrics-style modeling.
 
-    Returns:
-    - result_data (pd.DataFrame): DataFrame with:
-        - 'Returns': portfolio return in decimal form
-        - 'Volatility': estimated portfolio volatility (decimal)
-        - 'VaR': VaR as a decimal loss
-        - 'VaR Monetary': VaR in monetary units
-        - 'VaR Violation': True if actual loss exceeds VaR
+    Parameters
+    ----------
+    x_matrix : pd.DataFrame
+        Monetary positions per asset over time (T × N). Rows are daily observations.
+    confidence_level : float, optional
+        Confidence level for VaR (e.g., 0.99). Default is 0.99.
+    lambda_decay : float, optional
+        EWMA decay factor (e.g., 0.94). Default is 0.94.
 
-    Notes:
-    - Requires strictly positive total portfolio value on all dates.
-    - If any row sum of `x_matrix` is ≤ 0, the function will raise an error.
+    Returns
+    -------
+    result_data : pd.DataFrame
+        DataFrame indexed by date, with the following columns:
+        - 'Returns': Daily portfolio return (decimal)
+        - 'Volatility': Estimated portfolio volatility (decimal)
+        - 'VaR': Relative Value-at-Risk (decimal loss)
+        - 'VaR Monetary': Absolute Value-at-Risk in monetary units
+        - 'VaR Violation': Boolean flag indicating if actual loss exceeded VaR
+
+    Raises
+    ------
+    ValueError
+        If total portfolio value is zero or negative on any date.
     """
     returns = x_matrix.pct_change().dropna()
     portfolio_returns = (x_matrix * returns).sum(axis=1) / x_matrix.sum(axis=1)
@@ -154,3 +204,58 @@ def var_corr_ewma(x_matrix, confidence_level=0.99, lambda_decay=0.94):
     result_data["VaR Violation"] = result_data["Returns"] * portfolio_value_series < -result_data["VaR Monetary"]
 
     return result_data
+
+
+#----------------------------------------------------------
+# Expected Shortfall for Correlation Models (Parametric)
+#----------------------------------------------------------
+def es_correlation(data, confidence_level=0.99):
+    """
+    Estimate Expected Shortfall (ES) using a parametric normal formula.
+
+    Computes time-varying Expected Shortfall under the assumption of normally 
+    distributed returns. ES is derived from the conditional volatility and 
+    scaled by the inferred portfolio value using the ratio of VaR monetary 
+    to relative VaR. This function is designed to extend the output of 
+    correlation-based VaR models.
+
+    The ES is calculated using the standard Normal distribution, which simplifies 
+    the formula and maintains consistency with parametric VaR.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Must include the following columns:
+        - 'Volatility': Portfolio volatility in decimal units
+        - 'VaR': Relative Value-at-Risk (decimal loss)
+        - 'VaR Monetary': Absolute Value-at-Risk in monetary units
+    confidence_level : float, optional
+        Confidence level for ES estimation (e.g., 0.99). Default is 0.99.
+
+    Returns
+    -------
+    data : pd.DataFrame
+        Extended DataFrame with:
+        - 'ES': Expected Shortfall in decimal units
+        - 'ES Monetary': Expected Shortfall in monetary units
+
+    Raises
+    ------
+    ValueError
+        If any required column ('Volatility', 'VaR', or 'VaR Monetary') is missing from the input.
+    """
+    if "Volatility" not in data.columns or "VaR" not in data.columns or "VaR Monetary" not in data.columns:
+        raise ValueError("Data must contain 'Volatility', 'VaR', and 'VaR Monetary' columns.")
+
+    z = norm.ppf(1 - confidence_level)
+    pdf_z = norm.pdf(z)
+    alpha = confidence_level
+
+    # Decimal ES formula for normal: ES = σ × φ(z) / (1 - α)
+    data["ES"] = data["Volatility"] * pdf_z / (1 - alpha)
+
+    # Portfolio value inferred from VaR Monetary / VaR
+    portfolio_value = data["VaR Monetary"] / data["VaR"]
+    data["ES Monetary"] = data["ES"] * portfolio_value
+
+    return data
