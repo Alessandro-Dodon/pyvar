@@ -27,6 +27,8 @@ Contents
 
 # TODO: check FX conversion, I see minor differences from use to use
 
+# TODO: better names for currency conversion function for the output
+
 #----------------------------------------------------------
 # Packages
 # ----------------------------------------------------------
@@ -168,7 +170,7 @@ def convert_to_base(
 
         out[t] = p
 
-    return out
+    return out # WHY THIS NAME
 
 
 #----------------------------------------------------------
@@ -217,15 +219,15 @@ def create_portfolio(prices: pd.DataFrame, shares: pd.Series) -> pd.DataFrame:
     return positions
 
 
-#----------------------------------------------------------
-# Returns and Summary Statistics
+ #----------------------------------------------------------
+# Summary Statistics
 # ----------------------------------------------------------
 def summary_statistics(prices: pd.DataFrame): 
     """
     Compute daily returns, mean returns, and the return covariance matrix.
 
     Input can be either per-share prices or monetary portfolio exposures.
-    Output type (percent or monetary returns) depends on the input.
+    Output type (percentage or monetary returns) depends on the input.
 
     Parameters
     ----------
@@ -242,7 +244,7 @@ def summary_statistics(prices: pd.DataFrame):
         Covariance matrix of the return series.
     """
     returns = prices.pct_change().dropna()
-    return returns, returns.mean(), returns.cov()
+    mean_returns = returns.mean()
+    covariance_matrix = returns.cov()
 
-
-
+    return returns, mean_returns, covariance_matrix

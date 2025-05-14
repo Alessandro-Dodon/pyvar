@@ -29,6 +29,7 @@ Contents
 
 # TODO: double check all formulas and inputs (x)
 # TODO: take away ES metrics?
+# TODO: check logic, why each other function? Isn't an input output structure better?
 
 #----------------------------------------------------------
 # Packages
