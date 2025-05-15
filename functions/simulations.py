@@ -19,7 +19,7 @@ Contents
 --------
 - black_scholes: Black-Scholes option pricing function (European options only)
 - monte_carlo_var: Parametric Monte Carlo VaR for equity + options portfolios
-- multiday_monte_carlo_var: GBM-based multiday Monte Carlo VaR (equity-only)
+- multiday_monte_carlo_var: Multiday Monte Carlo VaR (equity-only)
 - historical_simulation_var: Historical or bootstrapped VaR (equity + options)
 - simulation_es: General-purpose ES from any simulated P&L array
 
@@ -173,8 +173,8 @@ def multiday_monte_carlo_var(price_data, shares,
     """
     Multiday Monte Carlo Value-at-Risk (VaR) for an equity-only portfolio.
 
-    Simulates portfolio value paths over a fixed horizon using geometric Brownian motion
-    with correlated normal shocks, and computes the terminal Value-at-Risk.
+    Simulates arithmetic portfolio value paths over a fixed horizon with 
+    correlated normal shocks, and computes the terminal Value-at-Risk.
 
     Parameters
     ----------
@@ -187,7 +187,7 @@ def multiday_monte_carlo_var(price_data, shares,
     days_ahead : int, optional
         Number of trading days to simulate. Default is 100.
     simulations : int, optional
-        Number of Monte Carlo paths. Default is 1000.
+        Number of Monte Carlo paths. Default is 50000.
     seed : int, optional
         Random seed for reproducibility.
 

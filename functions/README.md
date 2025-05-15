@@ -6,7 +6,7 @@
 
 - Check crazy short positions on the functions that use x monetary, in case add a failsafe/ warning
 
-- Backtesting for simulations?
+- Take away multiday MC?
 
 - Uniform across all models and py files the params names (z, etc)
 
