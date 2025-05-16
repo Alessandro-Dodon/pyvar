@@ -42,6 +42,7 @@ Contents
 # TODO: output path should work only with static images
 # TODO: if there is the output to the plot, make another plot with
 # interactive = False or force False and export
+# TODO: do returns only in % not log returns (same logic across modules)
 
 #----------------------------------------------------------
 # Packages
@@ -571,7 +572,7 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
     if (position_data <= 0).any().any():
         returns = position_data.pct_change().dropna()
     else:
-        returns = np.log(position_data / position_data.shift(1)).dropna()
+        returns = np.log(position_data / position_data.shift(1)).dropna() # MAKE THIS ONLY WITH % RETURNS?
 
     corr_matrix = returns.corr()
     asset_names = corr_matrix.columns.tolist()

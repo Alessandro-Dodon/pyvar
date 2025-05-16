@@ -487,7 +487,7 @@ def var_moving_average(returns, confidence_level=0.99, window=20, wealth=None):
 #----------------------------------------------------------
 # Expected Shortfall Volatility
 #----------------------------------------------------------
-def es_volatility(data, confidence_level, subset=None, wealth=None):
+def es_volatility(data, confidence_level, wealth=None):
     """
     Estimate Expected Shortfall (ES) using standardized residuals and model-implied volatility.
 
@@ -503,8 +503,6 @@ def es_volatility(data, confidence_level, subset=None, wealth=None):
         - 'Volatility': conditional standard deviation (in decimals)
     confidence_level : float
         Confidence level for ES (e.g., 0.99).
-    subset : tuple of str or pd.Timestamp, optional
-        Optional date range (start, end) to compute tail mean on a subset of the data.
     wealth : float, optional
         Portfolio value in monetary units. If provided, ES is also returned in currency.
 
@@ -523,10 +521,8 @@ def es_volatility(data, confidence_level, subset=None, wealth=None):
     if "Innovations" not in data.columns or "Volatility" not in data.columns:
         raise ValueError("Data must contain 'Innovations' and 'Volatility' columns.")
 
-    subset_data = data if subset is None else data.loc[subset[0]:subset[1]]
-
-    threshold = np.percentile(subset_data["Innovations"], 100 * (1 - confidence_level))
-    tail_mean = subset_data["Innovations"][subset_data["Innovations"] < threshold].mean()
+    threshold = np.percentile(data["Innovations"], 100 * (1 - confidence_level))
+    tail_mean = data["Innovations"][data["Innovations"] < threshold].mean()
 
     data["ES"] = -data["Volatility"] * tail_mean
 
@@ -534,3 +530,4 @@ def es_volatility(data, confidence_level, subset=None, wealth=None):
         data["ES_monetary"] = data["ES"] * wealth
 
     return data
+

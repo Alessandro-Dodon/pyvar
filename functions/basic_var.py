@@ -43,13 +43,12 @@ import warnings
 #----------------------------------------------------------
 # Historical VaR (Non-Parametric)
 #----------------------------------------------------------
-def historical_var(returns, confidence_level=0.99, holding_period=1, wealth=None):
+def historical_var(returns, confidence_level=0.99, wealth=None):
     """
     Estimate Value-at-Risk (VaR) using historical (non-parametric) simulation.
 
     Computes the VaR from the empirical distribution of past returns without assuming
-    a specific distributional form. The estimated VaR is scaled for the selected holding 
-    period using the square-root-of-time rule.
+    a specific distributional form. The method is based purely on observed daily returns.
 
     Parameters
     ----------
@@ -57,8 +56,6 @@ def historical_var(returns, confidence_level=0.99, holding_period=1, wealth=None
         Daily return series in decimal format (e.g., 0.01 = 1%).
     confidence_level : float, optional
         Confidence level for VaR (e.g., 0.99). Default is 0.99.
-    holding_period : int, optional
-        Number of days in the VaR horizon. Default is 1.
     wealth : float, optional
         Portfolio value in monetary units. If provided, a monetary VaR is also returned.
 
@@ -67,7 +64,7 @@ def historical_var(returns, confidence_level=0.99, holding_period=1, wealth=None
     result_data : pd.DataFrame
         DataFrame with the following columns:
         - 'Returns': original return series
-        - 'VaR': estimated constant VaR (decimal loss)
+        - 'VaR': constant VaR (decimal loss)
         - 'VaR Violation': True if loss exceeded VaR on a given day
         - 'VaR_monetary': optional, VaR scaled by wealth if provided
 
@@ -80,8 +77,7 @@ def historical_var(returns, confidence_level=0.99, holding_period=1, wealth=None
         warnings.warn("NaNs detected in return series. Consider handling or dropping missing values.")
 
     var_cutoff = np.percentile(returns, 100 * (1 - confidence_level))
-    scaled_var = np.sqrt(holding_period) * var_cutoff
-    var_series = pd.Series(-scaled_var, index=returns.index)
+    var_series = pd.Series(-var_cutoff, index=returns.index)
 
     result_data = pd.DataFrame({
         "Returns": returns,
