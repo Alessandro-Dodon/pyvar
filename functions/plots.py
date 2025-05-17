@@ -109,7 +109,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
     interactive : bool, optional
         Whether to display the plot interactively. Default is True.
     output_path : str, optional
-        File path to save static PNG if interactive is False.
+        File path to save static PDF if interactive is False.
 
     Returns
     -------
@@ -223,7 +223,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
         fig.show()
         return fig
     elif output_path:
-        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+        fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
@@ -239,7 +239,7 @@ def plot_volatility(volatility_series, subset=None, interactive=True, output_pat
     Plot conditional volatility over time.
 
     Generates an interactive line plot of volatility estimates (in %). 
-    Supports subsetting, export to PNG, or inline display.
+    Supports subsetting, export to PDF, or inline display.
 
     Parameters
     ----------
@@ -250,7 +250,7 @@ def plot_volatility(volatility_series, subset=None, interactive=True, output_pat
     interactive : bool, optional
         Whether to display the plot interactively. Default is True.
     output_path : str, optional
-        File path to save static PNG if interactive is False.
+        File path to save static PDF if interactive is False.
 
     Returns
     -------
@@ -293,7 +293,7 @@ def plot_volatility(volatility_series, subset=None, interactive=True, output_pat
         return fig
 
     elif output_path:
-        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+        fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
 
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
@@ -345,7 +345,7 @@ def plot_var_series(var_df, interactive=True, output_path=None):
     interactive : bool, optional
         Whether to display the plot interactively. Default is True.
     output_path : str, optional
-        File path to save static PNG if interactive is False.
+        File path to save static PDF if interactive is False.
 
     Returns
     -------
@@ -393,7 +393,7 @@ def plot_var_series(var_df, interactive=True, output_path=None):
     if interactive:
         fig.show()
     elif output_path:
-        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+        fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
@@ -418,7 +418,7 @@ def plot_risk_contribution_bar(component_df, interactive=True, output_path=None)
     interactive : bool, optional
         Whether to display the plot interactively. Default is True.
     output_path : str, optional
-        File path to save static PNG if interactive is False.
+        File path to save static PDF if interactive is False.
 
     Returns
     -------
@@ -476,7 +476,7 @@ def plot_risk_contribution_bar(component_df, interactive=True, output_path=None)
         fig.show()
         return  # Prevent double rendering
     elif output_path:
-        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+        fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
@@ -499,7 +499,7 @@ def plot_risk_contribution_lines(component_df, interactive=True, output_path=Non
     interactive : bool, optional
         Whether to display the plot interactively. Default is True.
     output_path : str, optional
-        File path to save static PNG if interactive is False.
+        File path to save static PDF if interactive is False.
 
     Returns
     -------
@@ -542,7 +542,7 @@ def plot_risk_contribution_lines(component_df, interactive=True, output_path=Non
         fig.show()
         return  # Prevent duplicate display
     elif output_path:
-        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+        fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
@@ -575,6 +575,7 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
 
     Notes
     -----
+    - This must be exported to PNG to preserve quality.
     - Always uses percentage returns (pct_change).
     - Masks the upper triangle to remove redundant values.
     """
@@ -665,7 +666,7 @@ def plot_simulated_distribution(pnl, var, es, confidence_level=0.99, output_path
     confidence_level : float, optional
         Confidence level for VaR and ES (e.g., 0.99). Default is 0.99.
     output_path : str, optional
-        File path to export PNG. If None, shows the plot inline.
+        File path to export PDF. If None, shows the plot inline.
     """
     plt.figure(figsize=(10, 5))
 
@@ -685,11 +686,11 @@ def plot_simulated_distribution(pnl, var, es, confidence_level=0.99, output_path
     plt.tight_layout()
 
     if output_path:
-        plt.savefig(output_path, dpi=300)
+        plt.savefig(output_path, dpi=300, format="pdf")
         plt.close()
     else:
         buf = BytesIO()
-        plt.savefig(buf, format='png', dpi=300)
+        plt.savefig(buf, format="png", dpi=300)
         buf.seek(0)
         display(display_high_dpi_inline(buf.read(), width=1000))
         plt.close()
@@ -712,7 +713,7 @@ def plot_simulated_paths(portfolio_paths, output_path=None):
         Simulated paths of portfolio values (T × N), where T is time steps
         and N is number of simulation paths.
     output_path : str, optional
-        File path to export PNG. If None, shows the plot inline.
+        File path to export PDF. If None, shows the plot inline.
     """
     num_days, num_paths = portfolio_paths.shape
     sample_paths = min(num_paths, 2500)
@@ -729,7 +730,7 @@ def plot_simulated_paths(portfolio_paths, output_path=None):
     plt.tight_layout()
 
     if output_path:
-        plt.savefig(output_path, dpi=300)
+        plt.savefig(output_path, format="pdf")
         plt.close()
     else:
         buf = BytesIO()
