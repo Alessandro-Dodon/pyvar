@@ -13,3 +13,5 @@
 - Specify in docstrings that options can be empty list (equity only portfolios) for simulations
 
 - Check pd series vs pd df for univariate VaR models and data download functions (maybe add in the data download function if only a ticker is selected it returns the pd series with date index so runs automatically with univariate models)
+
+- Make plots touch the borders of the black box each time (time series and portfolio paths)

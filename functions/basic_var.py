@@ -63,7 +63,6 @@ def historical_var(returns, confidence_level=0.99, wealth=None):
         - 'VaR': constant VaR (decimal loss)
         - 'VaR Violation': True if loss exceeded VaR on a given day
         - 'VaR_monetary': optional, VaR scaled by wealth if provided
-
     """
     var_cutoff = np.percentile(returns, 100 * (1 - confidence_level))
     var_series = pd.Series(-var_cutoff, index=returns.index)
@@ -162,8 +161,7 @@ def parametric_var(returns, confidence_level=0.99, distribution="normal", wealth
     Notes
     -----
     If VaR is required for a longer horizon (e.g., h days),
-    scale the reported VaR by √h:
-        VaR_h = VaR_1 * sqrt(h)
+    scale the reported VaR by √h.
     """
     match distribution:
         case "normal":
@@ -229,8 +227,7 @@ def parametric_es(result_data, confidence_level, distribution="normal", wealth=N
     Notes
     -----
     If ES is needed over a longer horizon (e.g., h days),
-    scale the reported ES by √h:
-        ES_h = ES_1 * sqrt(h)
+    scale the reported ES by √h.
     """
     returns = result_data["Returns"]
     alpha = confidence_level

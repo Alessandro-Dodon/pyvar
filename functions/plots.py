@@ -90,7 +90,7 @@ def display_high_dpi_inline(png_bytes, width):
 
 
 #----------------------------------------------------------
-# Backtesting Plot for VaR (and optionally ES)
+# Backtesting Plot for VaR and ES 
 #----------------------------------------------------------
 def plot_backtest(data, subset=None, interactive=True, output_path=None):
     """
@@ -191,7 +191,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
             xref="x", yref="y"
         )
 
-    # Layout
+        # Layout
     fig.update_layout(
         title=title,
         yaxis_title="Returns (%)",
@@ -203,9 +203,16 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
         plot_bgcolor="white",
         paper_bgcolor="white",
         margin=dict(l=60, r=60, t=50, b=50),
-        xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
+        xaxis=dict(
+            showline=True,
+            linewidth=1,
+            linecolor="black",
+            mirror=True,
+            range=[data.index.min(), data.index.max()]  # 🔧 Ensures full-width alignment
+        ),
         yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
     )
+
 
     # Export
     width = fig.layout.width or 1000
@@ -662,18 +669,16 @@ def plot_simulated_distribution(pnl, var, es, confidence_level=0.99, output_path
     """
     plt.figure(figsize=(10, 5))
 
-    # Plot histogram with KDE overlay
     sns.histplot(pnl, bins=80, kde=True, stat="density",
                  color="lightblue", edgecolor="black", linewidth=0.5)
 
-    # Plot VaR and ES lines
     plt.axvline(-var, color="black", linestyle="-", linewidth=1.5,
                 label=f"VaR ({int(confidence_level * 100)}%)")
     plt.axvline(-es, color="red", linestyle="--", linewidth=1.5,
                 label=f"ES ({int(confidence_level * 100)}%)")
 
-    # Title and labels
-    plt.title("Simulated Portfolio P&L Distribution")
+    plt.title("Simulated Portfolio P&L Distribution", loc="left", fontsize=13, fontweight="medium")
+    plt.legend(loc="upper left", frameon=True, edgecolor="black")
     plt.xlabel("Profit / Loss")
     plt.ylabel("Density")
     plt.legend()
@@ -683,7 +688,11 @@ def plot_simulated_distribution(pnl, var, es, confidence_level=0.99, output_path
         plt.savefig(output_path, dpi=300)
         plt.close()
     else:
-        plt.show()
+        buf = BytesIO()
+        plt.savefig(buf, format='png', dpi=300)
+        buf.seek(0)
+        display(display_high_dpi_inline(buf.read(), width=1000))
+        plt.close()
 
 
 # ----------------------------------------------------------
@@ -707,14 +716,14 @@ def plot_simulated_paths(portfolio_paths, output_path=None):
     """
     num_days, num_paths = portfolio_paths.shape
     sample_paths = min(num_paths, 2500)
-
     x_axis = np.arange(num_days)
 
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(10, 5))
     for i in range(sample_paths):
         plt.plot(x_axis, portfolio_paths[:, i], alpha=0.4)
 
-    plt.title(f"Simulated Portfolio Value Trajectories over {num_days - 1} Days")
+    plt.xlim(0, num_days - 1)
+    plt.title(f"Simulated Portfolio Value Trajectories over {num_days - 1} Days", loc="left", fontsize=13, fontweight="medium")
     plt.xlabel("Days")
     plt.ylabel("Portfolio Value")
     plt.tight_layout()
@@ -723,5 +732,8 @@ def plot_simulated_paths(portfolio_paths, output_path=None):
         plt.savefig(output_path, dpi=300)
         plt.close()
     else:
-        plt.show()
-
+        buf = BytesIO()
+        plt.savefig(buf, format='png', dpi=300)
+        buf.seek(0)
+        display(display_high_dpi_inline(buf.read(), width=1000))
+        plt.close()

@@ -9,6 +9,9 @@ simulation, and time-varying correlation modules.
 For single-asset analysis (e.g., VaR/ES with univariate models), these tools
 are not required, since the input can be a single price or return series.
 
+Each time we will assume daily VaR calculation, so all the data downloaded
+with this module is daily.
+
 Authors
 -------
 Alessandro Dodon, Niccolò Lecce, Marco Gasparetti

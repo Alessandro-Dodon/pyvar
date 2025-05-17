@@ -103,8 +103,7 @@ def single_factor_var(
     Notes
     -----
     If VaR is required for a longer horizon (e.g., h days),
-    scale the reported VaR by √h:
-        VaR_h = VaR_1 * sqrt(h)
+    scale the reported VaR by √h.
     """
     if not returns.index.equals(benchmark.index):
         raise ValueError("Benchmark and asset return series must have the same datetime index.")
@@ -235,8 +234,7 @@ def fama_french_var(
     Notes
     -----
     If VaR is required for a longer horizon (e.g., h days),
-    scale the reported VaR by √h:
-        VaR_h = VaR_1 * sqrt(h)
+    scale the reported VaR by √h.
     """
     if returns.isnull().values.any():
         raise ValueError("Missing values detected in returns. Handle NaNs before passing.")
@@ -331,8 +329,7 @@ def factor_models_es(
     Notes
     -----
     If ES is needed over a longer horizon (e.g., h days),
-    scale the reported ES by √h:
-        ES_h = ES_1 * sqrt(h)
+    scale the reported ES by √h.
     """
     if "VaR" not in result_data.columns or "VaR_monetary" not in result_data.columns:
         raise ValueError("Missing 'VaR' or 'VaR_monetary' columns in result_data.")
