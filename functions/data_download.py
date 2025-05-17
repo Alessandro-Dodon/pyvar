@@ -145,7 +145,7 @@ def convert_to_base(
         fx = pd.DataFrame(index=raw.index)
 
     # Convert all tickers to base currency
-    out = pd.DataFrame(index=raw.index)
+    converted_prices = pd.DataFrame(index=raw.index)
     for t in raw.columns:
         p = raw[t].copy()
         cur = cur_map[t]
@@ -161,16 +161,16 @@ def convert_to_base(
             if pair not in fx.columns:
                 if show_currency_detection:
                     print(f"[warning] {t}: FX pair {pair} not found — skipping")
-                out[t] = p
+                converted_prices[t] = p
                 continue
             rate = fx[pair]
             p = p / rate
             if show_currency_detection:
                 print(f"[conversion] {t}: {cur} → {base} via {pair}")
 
-        out[t] = p
+        converted_prices[t] = p
 
-    return out # WHY THIS NAME
+    return converted_prices 
 
 
 #----------------------------------------------------------
