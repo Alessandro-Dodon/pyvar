@@ -236,6 +236,15 @@ def var_corr_moving_average_sp(x_matrix, confidence_level=0.99, window_size=20):
     -------
     result_data : pd.DataFrame
         DataFrame with returns, volatility, VaR, VaR monetary, and violation flag.
+
+    Raises
+    ------
+    ValueError
+        If portfolio value is zero or negative on any date.
+    ValueError
+        If any asset weight is smaller (in absolute value) than the minimum allowed threshold.
+    ValueError
+        If weights do not sum to 1 on all dates (numerical consistency issue).
     """
     min_weight = 0.02
 
@@ -309,6 +318,15 @@ def var_corr_ewma_sp(x_matrix, confidence_level=0.99, lambda_decay=0.94):
     -------
     result_data : pd.DataFrame
         DataFrame with returns, volatility, VaR, VaR monetary, and violation flag.
+    
+    Raises
+    ------
+    ValueError
+        If portfolio value is zero or negative on any date.
+    ValueError
+        If any asset weight is smaller (in absolute value) than the minimum allowed threshold.
+    ValueError
+        If weights do not sum to 1 on all dates (numerical consistency issue).
     """
     min_weight = 0.02
 

@@ -24,9 +24,6 @@ Contents
 Notes
 -----
 - All returns are assumed to be daily and in decimal format (e.g., 0.01 = 1%).
-- Input series are not automatically cleaned — NaNs are preserved.
-  Users are responsible for handling missing values.
-- Warnings are issued if NaNs are detected, but no data is dropped by default.
 """
 
 # TODO: double check all formulas 
@@ -37,7 +34,6 @@ Notes
 import numpy as np
 import pandas as pd
 from scipy.stats import genpareto
-import warnings
 
 
 #----------------------------------------------------------
@@ -69,14 +65,7 @@ def fit_evt_parameters(returns, threshold_percentile=97.5):
         - 'total_observations': total number of non-NaN return observations
         - 'losses': transformed loss series (i.e., -returns)
 
-    Raises
-    ------
-    Warning
-        If NaNs are detected in the input series.
     """
-    if pd.Series(returns).isna().any():
-        warnings.warn("NaNs detected in return series. Consider handling or dropping missing values.")
-
     returns = pd.Series(returns)
     losses = -returns
 

@@ -23,9 +23,6 @@ Contents
 Notes
 -----
 - All returns are assumed to be daily and in decimal format (e.g., 0.01 = 1%).
-- Input series are not automatically cleaned — NaNs are preserved.
-  Users are responsible for handling missing values.
-- Warnings are issued if NaNs are detected, but no data is dropped by default.
 """
 
 # TODO: violations is not needed! can be put into the graph directly!
@@ -37,7 +34,6 @@ Notes
 from scipy.stats import norm, t
 import numpy as np
 import pandas as pd
-import warnings
 
 
 #----------------------------------------------------------
@@ -68,14 +64,7 @@ def historical_var(returns, confidence_level=0.99, wealth=None):
         - 'VaR Violation': True if loss exceeded VaR on a given day
         - 'VaR_monetary': optional, VaR scaled by wealth if provided
 
-    Raises
-    ------
-    Warning
-        If NaNs are detected in the input return series.
     """
-    if returns.isna().any():
-        warnings.warn("NaNs detected in return series. Consider handling or dropping missing values.")
-
     var_cutoff = np.percentile(returns, 100 * (1 - confidence_level))
     var_series = pd.Series(-var_cutoff, index=returns.index)
 
@@ -134,16 +123,16 @@ def historical_es(result_data, wealth=None):
     return result_data
 
 
-#----------------------------------------------------------
-# Parametric VaR 
-#----------------------------------------------------------
-def parametric_var(returns, confidence_level=0.99, holding_period=1, distribution="normal", wealth=None):
+# ----------------------------------------------------------
+# Parametric VaR (Normal or Student-t)
+# ----------------------------------------------------------
+def parametric_var(returns, confidence_level=0.99, distribution="normal", wealth=None):
     """
     Estimate Value-at-Risk (VaR) using a parametric distribution.
 
     Fits a Normal or Student-t distribution to the return series and computes
-    VaR as the left-tail quantile, scaled for volatility and holding period
-    using the square-root-of-time rule.
+    1-day VaR as the left-tail quantile. VaR is scaled to return volatility 
+    and optionally converted to monetary loss if portfolio value is provided.
 
     Parameters
     ----------
@@ -151,8 +140,6 @@ def parametric_var(returns, confidence_level=0.99, holding_period=1, distributio
         Daily return series in decimal format (e.g., 0.01 = 1%).
     confidence_level : float, optional
         Confidence level for VaR (e.g., 0.99). Default is 0.99.
-    holding_period : int, optional
-        Number of days in the VaR horizon. Default is 1.
     distribution : {"normal", "t"}, optional
         Distribution to fit for quantile estimation. Default is "normal".
     wealth : float, optional
@@ -163,7 +150,7 @@ def parametric_var(returns, confidence_level=0.99, holding_period=1, distributio
     result_data : pd.DataFrame
         DataFrame with the following columns:
         - 'Returns': original return series
-        - 'VaR': estimated constant VaR (decimal loss)
+        - 'VaR': estimated 1-day VaR (decimal loss)
         - 'VaR Violation': boolean flag for when returns exceed VaR
         - 'VaR_monetary': optional, monetary VaR if wealth is provided
 
@@ -171,22 +158,22 @@ def parametric_var(returns, confidence_level=0.99, holding_period=1, distributio
     ------
     ValueError
         If an unsupported distribution is specified.
-    Warning
-        If NaNs are detected in the return series.
-    """
-    if returns.isna().any():
-            warnings.warn("NaNs detected in return series. Consider handling or dropping missing values.")
 
+    Notes
+    -----
+    If VaR is required for a longer horizon (e.g., h days),
+    scale the reported VaR by √h:
+        VaR_h = VaR_1 * sqrt(h)
+    """
     match distribution:
         case "normal":
             std_dev = returns.std()
             quantile = norm.ppf(1 - confidence_level)
-            scaled_std = std_dev * np.sqrt(holding_period)
+            scaled_std = std_dev
         case "t":
             df, loc, scale = t.fit(returns)
             quantile = t.ppf(1 - confidence_level, df)
-            scaled_std = scale * np.sqrt(holding_period)
-
+            scaled_std = scale
         case _:
             raise ValueError("Supported distributions: 'normal', 't'")
 
@@ -204,16 +191,16 @@ def parametric_var(returns, confidence_level=0.99, holding_period=1, distributio
     return result_data
 
 
-#----------------------------------------------------------
-# Parametric Expected Shortfall 
-#----------------------------------------------------------
-def parametric_es(result_data, confidence_level, holding_period=1, distribution="normal", wealth=None):
+# ----------------------------------------------------------
+# Parametric Expected Shortfall (Normal or Student-t)
+# ----------------------------------------------------------
+def parametric_es(result_data, confidence_level, distribution="normal", wealth=None):
     """
     Estimate Expected Shortfall (ES) using a parametric distribution.
 
-    Computes ES as the conditional expectation of returns below the VaR threshold.
-    Supports both Normal and Student-t distributions, scaled by holding period.
-    Assumes that the input DataFrame includes the return series.
+    Computes 1-day ES as the conditional expectation of losses beyond the VaR threshold.
+    Supports both Normal and Student-t distributions. Assumes the input DataFrame
+    includes the return series (column 'Returns').
 
     Parameters
     ----------
@@ -222,8 +209,6 @@ def parametric_es(result_data, confidence_level, holding_period=1, distribution=
         containing the 'Returns' column.
     confidence_level : float
         Confidence level for ES (e.g., 0.99).
-    holding_period : int, optional
-        Number of days in the ES horizon. Default is 1.
     distribution : {"normal", "t"}, optional
         Distribution to fit for tail expectation. Default is "normal".
     wealth : float, optional
@@ -233,13 +218,19 @@ def parametric_es(result_data, confidence_level, holding_period=1, distribution=
     -------
     result_data : pd.DataFrame
         Updated DataFrame with:
-        - 'ES': constant Expected Shortfall (decimal loss)
+        - 'ES': constant 1-day Expected Shortfall (decimal loss)
         - 'ES_monetary': optional, monetary ES if wealth is provided
 
     Raises
     ------
     ValueError
         If an unsupported distribution is specified.
+
+    Notes
+    -----
+    If ES is needed over a longer horizon (e.g., h days),
+    scale the reported ES by √h:
+        ES_h = ES_1 * sqrt(h)
     """
     returns = result_data["Returns"]
     alpha = confidence_level
@@ -247,16 +238,14 @@ def parametric_es(result_data, confidence_level, holding_period=1, distribution=
     if distribution == "normal":
         std_dev = returns.std()
         z = norm.ppf(alpha)
-        es_raw = std_dev * norm.pdf(z) / (1 - alpha)
-        es_value = es_raw * np.sqrt(holding_period)
+        es_value = std_dev * norm.pdf(z) / (1 - alpha)
 
     elif distribution == "t":
         df, loc, scale = t.fit(returns)
         t_alpha = t.ppf(alpha, df)
         pdf_val = t.pdf(t_alpha, df)
         factor = (df + t_alpha**2) / (df - 1)
-        es_raw = scale * pdf_val * factor / (1 - alpha)
-        es_value = es_raw * np.sqrt(holding_period)
+        es_value = scale * pdf_val * factor / (1 - alpha)
 
     else:
         raise ValueError("Supported distributions: 'normal', 't'")

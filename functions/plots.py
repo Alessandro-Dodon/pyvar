@@ -3,9 +3,9 @@ Interactive Visualization Module for Risk and Portfolio Analysis
 -------------------------------------------------------------------
 
 Provides plotting utilities for risk metrics, portfolio contributions, 
-and correlation structures using Plotly. All plots follow a consistent 
-white-background aesthetic with black-bordered axes and support both 
-interactive display and static image export.
+and correlation structures using Plotly and Matplotlib. All Plotly-based 
+plots follow a consistent white-background aesthetic with black-bordered 
+axes and support both interactive display and static image export.
 
 Features include:
 - Backtesting plots for VaR and Expected Shortfall
@@ -13,6 +13,8 @@ Features include:
 - Diversified vs. Undiversified VaR comparison
 - Risk contribution (Component VaR) bar and line charts
 - Correlation matrix heatmaps
+- Simulated P&L distribution plots with KDE overlay (static only)
+- Simulated portfolio path plots over time (static only)
 - Consistent asset color mapping for visual coherence
 
 Static images can be exported using `output_path`. If no path is provided,
@@ -34,6 +36,8 @@ Contents
 - plot_risk_contribution_bar: Average Component VaR bar chart
 - plot_risk_contribution_lines: Component VaR evolution by asset
 - plot_correlation_matrix: Heatmap of asset return correlations
+- plot_simulated_distribution: Histogram + KDE of simulated P&L with VaR/ES (static only)
+- plot_simulated_paths: Simulated portfolio value trajectories (static only)
 - get_asset_color_map: Generate consistent color assignment for assets
 - display_high_dpi_inline: Utility for displaying PNG images inline
 """
@@ -42,7 +46,6 @@ Contents
 # TODO: output path should work only with static images
 # TODO: if there is the output to the plot, make another plot with
 # interactive = False or force False and export
-# TODO: do returns only in % not log returns (same logic across modules)
 
 #----------------------------------------------------------
 # Packages
@@ -57,6 +60,8 @@ from IPython.display import display, HTML
 from plotly.io import to_image
 from io import BytesIO
 import base64
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 #----------------------------------------------------------
@@ -563,16 +568,13 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
 
     Notes
     -----
-    - Uses log returns if all values are positive; otherwise, uses percentage returns.
+    - Always uses percentage returns (pct_change).
     - Masks the upper triangle to remove redundant values.
     """
     position_data = pd.DataFrame(position_data).dropna()
 
-    # Compute returns
-    if (position_data <= 0).any().any():
-        returns = position_data.pct_change().dropna()
-    else:
-        returns = np.log(position_data / position_data.shift(1)).dropna() # MAKE THIS ONLY WITH % RETURNS?
+    # Always use percentage returns
+    returns = position_data.pct_change().dropna()
 
     corr_matrix = returns.corr()
     asset_names = corr_matrix.columns.tolist()
@@ -600,7 +602,7 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
     ))
 
     fig.update_layout(
-        title="Correlation Matrix (Returns)",
+        title="Correlation Matrix (Percentage Returns)",
         width=900,
         height=800,
         template="simple_white",
@@ -633,4 +635,93 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
 
+
+# ----------------------------------------------------------
+# Simulated P&L Distribution Plot with KDE (Static Only)
+# ----------------------------------------------------------
+def plot_simulated_distribution(pnl, var, es, confidence_level=0.99, output_path=None):
+    """
+    Plot histogram and KDE of simulated Profit & Loss (P&L) with VaR and ES markers.
+
+    Suitable for visualizing risk from Monte Carlo, bootstrapped, or historical
+    simulations. Combines histogram and smoothed KDE, with vertical lines marking
+    Value-at-Risk and Expected Shortfall.
+
+    Parameters
+    ----------
+    pnl : np.ndarray or pd.Series
+        Simulated profit and loss values.
+    var : float
+        Value-at-Risk estimate.
+    es : float
+        Expected Shortfall estimate.
+    confidence_level : float, optional
+        Confidence level for VaR and ES (e.g., 0.99). Default is 0.99.
+    output_path : str, optional
+        File path to export PNG. If None, shows the plot inline.
+    """
+    plt.figure(figsize=(10, 5))
+
+    # Plot histogram with KDE overlay
+    sns.histplot(pnl, bins=80, kde=True, stat="density",
+                 color="lightblue", edgecolor="black", linewidth=0.5)
+
+    # Plot VaR and ES lines
+    plt.axvline(-var, color="black", linestyle="-", linewidth=1.5,
+                label=f"VaR ({int(confidence_level * 100)}%)")
+    plt.axvline(-es, color="red", linestyle="--", linewidth=1.5,
+                label=f"ES ({int(confidence_level * 100)}%)")
+
+    # Title and labels
+    plt.title("Simulated Portfolio P&L Distribution")
+    plt.xlabel("Profit / Loss")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300)
+        plt.close()
+    else:
+        plt.show()
+
+
+# ----------------------------------------------------------
+# Simulated Portfolio Path Plot (Static Only)
+# ----------------------------------------------------------
+def plot_simulated_paths(portfolio_paths, output_path=None):
+    """
+    Plot simulated portfolio value trajectories over time.
+
+    Displays individual paths generated from a Monte Carlo simulation of
+    portfolio values. Useful for assessing the dispersion and range of
+    simulated future outcomes.
+
+    Parameters
+    ----------
+    portfolio_paths : np.ndarray
+        Simulated paths of portfolio values (T × N), where T is time steps
+        and N is number of simulation paths.
+    output_path : str, optional
+        File path to export PNG. If None, shows the plot inline.
+    """
+    num_days, num_paths = portfolio_paths.shape
+    sample_paths = min(num_paths, 2500)
+
+    x_axis = np.arange(num_days)
+
+    plt.figure(figsize=(12, 6))
+    for i in range(sample_paths):
+        plt.plot(x_axis, portfolio_paths[:, i], alpha=0.4)
+
+    plt.title(f"Simulated Portfolio Value Trajectories over {num_days - 1} Days")
+    plt.xlabel("Days")
+    plt.ylabel("Portfolio Value")
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300)
+        plt.close()
+    else:
+        plt.show()
 

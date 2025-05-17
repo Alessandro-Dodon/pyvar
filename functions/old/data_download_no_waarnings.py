@@ -23,8 +23,9 @@ Contents
 - convert_to_base: Convert raw prices to a common base currency
 - create_portfolio: Convert prices into monetary exposures using share quantities
 - summary_statistics: Compute return series, means, and covariance matrix
-- validate_matrix: Run basic stability checks on matrices (e.g., prices, returns, positions)
 """
+
+# TODO: check FX conversion, I see minor differences from use to use
 
 # TODO: better names for currency conversion function for the output
 
@@ -33,50 +34,6 @@ Contents
 # ----------------------------------------------------------
 import yfinance as yf
 import pandas as pd
-import numpy as np
-
-
-#----------------------------------------------------------
-# Checks for Financial Matrices (Shared Function)
-#----------------------------------------------------------
-def validate_matrix(matrix: pd.DataFrame, context: str = ""):
-    """
-    Perform basic structural and statistical checks on any matrix 
-    used in financial modeling (e.g., prices, positions, returns).
-
-    Parameters
-    ----------
-    matrix : pd.DataFrame
-        Time-indexed matrix with assets as columns.
-    context : str, optional
-        Context label for warnings (e.g., 'raw prices', 'portfolio').
-
-    Warns
-    -----
-    - If NaNs are present.
-    - If sample size is less than number of columns.
-    - If any column has near-zero variance.
-    - If the covariance matrix is not positive semi-definite.
-    """
-    label = f"[{context}]" if context else ""
-
-    if matrix.isnull().any().any():
-        print(f"[warning] {label} NaNs detected — clean the data before analysis.")
-
-    n_obs, n_assets = matrix.shape
-    if n_obs < n_assets:
-        print(f"[warning] {label} Fewer rows ({n_obs}) than columns ({n_assets}) — covariance may be unstable.")
-
-    variances = matrix.var()
-    near_zero = variances < 1e-10
-    if near_zero.any():
-        bad_assets = matrix.columns[near_zero].tolist()
-        print(f"[warning] {label} Near-zero variance in: {bad_assets} — may cause instability.")
-
-    cov = matrix.cov().values
-    eigvals = np.linalg.eigvalsh(cov)
-    if (eigvals < -1e-8).any():
-        print(f"[warning] {label} Covariance matrix not PSD — negative eigenvalues detected.")
 
 
 #----------------------------------------------------------
@@ -106,7 +63,7 @@ def get_raw_prices(tickers, start="2024-01-01", end=None) -> pd.DataFrame:
     Raises
     ------
     Warning
-        If matrix structure is unstable or contains issues for downstream analysis.
+        If missing values (NaNs) are detected in the downloaded price data.
     """
     prices = (
         yf.download(" ".join(tickers), start=start, end=end,
@@ -114,7 +71,10 @@ def get_raw_prices(tickers, start="2024-01-01", end=None) -> pd.DataFrame:
         .ffill()
     )
 
-    validate_matrix(prices, context="raw prices")
+    if prices.isnull().any().any():
+        bad_tickers = prices.columns[prices.isnull().any()].tolist()
+        print(f"[warning] Missing values detected in: {bad_tickers}")
+        print("[info] Consider handling NaNs before using this data for risk or return analysis.")
 
     return prices
 
@@ -241,8 +201,6 @@ def create_portfolio(prices: pd.DataFrame, shares: pd.Series) -> pd.DataFrame:
         If the tickers in `shares` do not match the price columns.
     ValueError
         If portfolio value is zero or negative on any day.
-    Warning
-        If matrix structure is unstable or contains issues for downstream analysis.
     """
     if set(prices.columns) != set(shares.index):
         raise ValueError("Mismatch between tickers in 'prices' and 'shares'. "
@@ -258,13 +216,10 @@ def create_portfolio(prices: pd.DataFrame, shares: pd.Series) -> pd.DataFrame:
     if (portfolio_value <= 0).any():
         raise ValueError("Portfolio has zero or negative total value on some dates — adjust share allocations.")
 
-    # Shared validation for statistical stability
-    validate_matrix(positions, context="portfolio positions")
-
     return positions
 
 
-#----------------------------------------------------------
+ #----------------------------------------------------------
 # Summary Statistics
 # ----------------------------------------------------------
 def summary_statistics(prices: pd.DataFrame): 
@@ -287,17 +242,8 @@ def summary_statistics(prices: pd.DataFrame):
         Mean return per asset.
     covariance_matrix : pd.DataFrame
         Covariance matrix of the return series.
-
-    Raises
-    ------
-    Warning
-        If matrix structure is unstable or contains issues for downstream analysis.
     """
     returns = prices.pct_change().dropna()
-
-    # Properly validate the returns matrix now
-    validate_matrix(returns, context="summary statistics returns")
-
     mean_returns = returns.mean()
     covariance_matrix = returns.cov()
 

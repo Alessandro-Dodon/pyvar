@@ -27,9 +27,6 @@ Contents
 Notes
 -----
 - All returns are assumed to be daily and in decimal format (e.g., 0.01 = 1%).
-- Input series are not automatically cleaned — NaNs are preserved.
-  Users are responsible for handling missing values.
-- Warnings are issued if NaNs are detected, but no data is dropped by default.
 """
 
 # TODO: double check all formulas 
@@ -72,11 +69,7 @@ def forecast_garch_variance(returns, steps_ahead=10, cumulative=False):
     ------
     ValueError
         If the fitted model is unstable (alpha + beta ≥ 1).
-    Warning
-        If NaNs are detected in the return series. 
     """
-    if returns.isna().any():
-        warnings.warn("NaNs detected in return series. Consider handling or dropping missing values.")
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -132,14 +125,9 @@ def forecast_garch_var(returns, steps_ahead=10, confidence_level=0.99, cumulativ
 
     Raises
     ------
-    Warning
-        If NaNs are detected in the return series.
     ValueError
         If the GARCH model is unstable (handled internally by forecast_garch_variance).
     """
-    if returns.isna().any():
-        warnings.warn("NaNs detected in return series. Consider handling or dropping missing values.")
-
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         model = arch_model(returns, vol="GARCH", p=1, q=1, dist="normal")
@@ -205,12 +193,7 @@ def var_garch(returns, confidence_level=0.99, p=1, q=1, model="GARCH", distribut
     ------
     ValueError
         If an unsupported model or distribution is specified.
-    Warning
-        If NaNs are detected in the return series.
     """
-    if returns.isna().any():
-        warnings.warn("NaNs detected in return series. Consider handling or dropping missing values.")
-
     # Validate model and distribution
     model = model.upper()
     distribution = distribution.lower()
@@ -304,15 +287,7 @@ def var_arch(returns, confidence_level=0.99, p=1, wealth=None):
         - 'VaR_monetary': optional, monetary VaR if wealth is provided
     next_day_var : float
         One-step-ahead VaR forecast (decimal loss or monetary loss if wealth is set).
-
-    Raises
-    ------
-    Warning
-        If NaNs are detected in the return series.
     """
-    if returns.isna().any():
-        warnings.warn("NaNs detected in return series. Consider handling or dropping missing values.")
-
     returns_scaled = returns * 100
 
     model = arch_model(returns_scaled, vol="ARCH", p=p)
@@ -375,15 +350,7 @@ def var_ewma(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
         - 'VaR_monetary': optional, monetary VaR if wealth is provided
     next_day_var : float
         One-step-ahead VaR forecast (decimal loss or monetary loss if wealth is set).
-
-    Raises
-    ------
-    Warning
-        If NaNs are detected in the return series.
     """
-    if returns.isna().any():
-        warnings.warn("NaNs detected in return series. Consider handling or dropping missing values.")
-
     squared = returns ** 2
     ewma_var = squared.ewm(alpha=1 - decay_factor).mean()
     volatility = np.sqrt(ewma_var)
@@ -449,15 +416,7 @@ def var_moving_average(returns, confidence_level=0.99, window=20, wealth=None):
         - 'VaR_monetary': optional, monetary VaR if wealth is provided
     next_day_var : float
         One-step-ahead VaR forecast (decimal loss or monetary loss if wealth is set).
-
-    Raises
-    ------
-    Warning
-        If NaNs are detected in the return series.
     """
-    if returns.isna().any():
-        warnings.warn("NaNs detected in return series. Consider handling or dropping missing values.")
-
     volatility = returns.rolling(window=window).std()
     innovations = returns / volatility
     quantile = np.percentile(innovations.dropna(), 100 * (1 - confidence_level))
