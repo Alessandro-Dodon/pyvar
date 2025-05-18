@@ -6,8 +6,6 @@
 
 - Check log returns vs normal returns on everything
 
-- Use term "filtered historical innovations"/ check it out (shoould be the same as standardized residuals)
-
 - Explain buy and hold strategy (always assumed in our calculations) in the pdf report
 
 - Specify in docstrings that options can be empty list (equity only portfolios) for simulations
@@ -19,3 +17,5 @@
 - Function to obtain a single returns vector for univariate analysis VaR? So from portfolio you can plug in directly the vector of returns to univariate VaR models
 
 - Verify behavior of the functions in py scripts (e.g. plots)
+
+- Merge the 2 types of corr models? Or not?

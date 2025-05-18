@@ -213,7 +213,6 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
         yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
     )
 
-
     # Export
     width = fig.layout.width or 1000
     height = fig.layout.height or 500
