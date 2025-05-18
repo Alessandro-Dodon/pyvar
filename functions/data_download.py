@@ -47,6 +47,13 @@ def validate_matrix(matrix: pd.DataFrame, context: str = ""):
     Perform basic structural and statistical checks on any matrix 
     used in financial modeling (e.g., prices, positions, returns).
 
+    If you don't download the data using our functions, like using 
+    your own csv file, you can use this function to check the data
+    immediately. We don't reccomend however for our basic applications
+    to use portfolios with overall negative values (complete shorts).
+    Also keep in mind that a near zero value of portfolio (perfect hedge)
+    may be a problem in some other functions. 
+
     Parameters
     ----------
     matrix : pd.DataFrame
