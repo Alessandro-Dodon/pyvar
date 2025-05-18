@@ -270,24 +270,30 @@ def create_portfolio(prices: pd.DataFrame, shares: pd.Series) -> pd.DataFrame:
 #----------------------------------------------------------
 # Summary Statistics
 # ----------------------------------------------------------
-def summary_statistics(prices: pd.DataFrame): 
+def summary_statistics(matrix: pd.DataFrame): 
     """
     Compute daily returns, mean returns, and the return covariance matrix.
 
-    Input can be either per-share prices or monetary portfolio exposures.
-    Output type (percentage or monetary returns) depends on the input.
+    This function works both with raw asset prices and with monetary positions
+    obtained by multiplying prices by fixed share quantities. Since percentage 
+    returns are unaffected by fixed multipliers, the output will be the same in 
+    both cases if no trading occurs (i.e., shares are constant over time).
+
+    This makes the function flexible: users can apply it after building a 
+    monetary portfolio or after converting prices to a base currency, 
+    without affecting the computed return series or statistics.
 
     Parameters
     ----------
-    prices : pd.DataFrame
-        Price matrix with tickers as columns and dates as index.
+    matrix : pd.DataFrame
+        Price matrix or monetary position matrix with tickers as columns and dates as index.
 
     Returns
     -------
     returns : pd.DataFrame
-        Daily returns (percentage or monetary).
+        Daily percentage returns per asset.
     mean_returns : pd.Series
-        Mean return per asset.
+        Mean daily return per asset.
     covariance_matrix : pd.DataFrame
         Covariance matrix of the return series.
 
@@ -295,8 +301,16 @@ def summary_statistics(prices: pd.DataFrame):
     ------
     Warning
         If matrix structure is unstable or contains issues for downstream analysis.
+
+    Notes
+    -----
+    - If shares are constant over time, returns and return-based statistics
+    (means, covariance matrix) will be exactly the same as those computed 
+    from raw prices.
+    - If shares vary over time (e.g., due to trading or rebalancing),
+    the return series will differ.
     """
-    returns = prices.pct_change().dropna()
+    returns = matrix.pct_change().dropna()
 
     # Properly validate the returns matrix now
     validate_matrix(returns, context="summary statistics returns")

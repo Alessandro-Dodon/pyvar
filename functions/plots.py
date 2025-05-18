@@ -655,6 +655,8 @@ def plot_simulated_distribution(pnl, var, es, confidence_level=0.99, output_path
     simulations. Combines histogram and smoothed KDE, with vertical lines marking
     Value-at-Risk and Expected Shortfall.
 
+    This is a static only plot.
+
     Parameters
     ----------
     pnl : np.ndarray or pd.Series
@@ -706,6 +708,8 @@ def plot_simulated_paths(portfolio_paths, output_path=None):
     Displays individual paths generated from a Monte Carlo simulation of
     portfolio values. Useful for assessing the dispersion and range of
     simulated future outcomes.
+
+    This is a static only plot.
 
     Parameters
     ----------
