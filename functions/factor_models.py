@@ -4,8 +4,9 @@ Factor Model VaR and Expected Shortfall Module
 
 Provides modular functions to compute portfolio Value-at-Risk (VaR) and Expected Shortfall (ES) 
 based on linear factor models. Supports both the Sharpe single-index model and the 
-Fama–French 3-factor framework. ES is estimated using a general parametric Gaussian formula 
-based on portfolio volatility.
+Fama–French 3-factor framework. The quantiles are obtained from the normal distribution, as
+factor returns are assumed to be normally distributed. ES is estimated using the general 
+parametric normal formula based on portfolio volatility.
 
 Authors
 -------
@@ -20,20 +21,7 @@ Contents
 - single_factor_var: Sharpe model — estimates VaR and portfolio volatility
 - fama_french_var: Fama–French 3-factor model — estimates VaR and volatility
 - factor_models_es: Computes ES from volatility and infers portfolio value from VaR
-
-Notes
------
-- All returns must be daily and in decimal format (e.g., 0.01 = 1%).
-- Portfolio weights must sum to 1 and match return columns.
-- Warnings are issued if extreme short exposures are detected (e.g., weights < –1).
-- `factor_models_es` assumes normally distributed returns and infers portfolio value 
-  from the ratio of 'VaR_monetary' to 'VaR' unless passed separately.
 """
-
-# NOTE: weights are constant? Check logic and compare it
-#       with the other models that use x
-
-# NOTE 2: ban short positions?
 
 #----------------------------------------------------------
 # Packages
@@ -58,6 +46,8 @@ def single_factor_var(
     confidence_level: float = 0.99
 ) -> tuple[pd.DataFrame, float]:
     """
+    Main
+    ----
     Estimate Value-at-Risk (VaR) using a single-factor (Sharpe) model.
 
     Computes portfolio VaR assuming all assets share exposure to a single systematic risk factor.
@@ -102,8 +92,9 @@ def single_factor_var(
 
     Notes
     -----
-    If VaR is required for a longer horizon (e.g., h days),
-    scale the reported VaR by √h.
+    - This VaR assumes factor returns are normally distributed.
+    - This function estimates 1-day VaR. For other horizons like weekly or monthly, scale the reported VaR by √h.
+    - Weights are supposed to be perfectly constant during the period.
     """
     if not returns.index.equals(benchmark.index):
         raise ValueError("Benchmark and asset return series must have the same datetime index.")
@@ -125,28 +116,28 @@ def single_factor_var(
     residuals = pd.DataFrame(index=returns.index)
     for ticker in returns.columns:
         r_i = returns[ticker]
-        reg = np.polyfit(benchmark, r_i, 1)
-        beta = reg[0]
+        regression = np.polyfit(benchmark, r_i, 1)
+        beta = regression[0]
         betas.append(beta)
         predicted = beta * benchmark
         residuals[ticker] = r_i - predicted
 
     betas = np.array(betas)
-    factor_var = np.var(benchmark, ddof=1)
+    factor_variance = np.var(benchmark, ddof=1) 
     residual_cov = residuals.cov().values
 
     portfolio_volatility = np.sqrt(
-        (weights @ betas) ** 2 * factor_var + weights @ residual_cov @ weights
+        (weights @ betas) ** 2 * factor_variance + weights @ residual_cov @ weights
     )
 
     z = norm.ppf(confidence_level)
     var_pct = z * portfolio_volatility
 
-    portf_returns = returns @ weights
+    portfolio_returns = returns @ weights
     result_data = pd.DataFrame({
-        "Returns": portf_returns,
+        "Returns": portfolio_returns,
         "Benchmark": benchmark,
-        "VaR": pd.Series(var_pct, index=portf_returns.index),
+        "VaR": pd.Series(var_pct, index=portfolio_returns.index),
     })
     result_data["VaR Violation"] = result_data["Returns"] < -result_data["VaR"]
     result_data["VaR_monetary"] = result_data["VaR"] * portfolio_value
@@ -166,6 +157,7 @@ def load_ff3_factors(start=None, end=None) -> pd.DataFrame:
     """
     Downloads Fama-French 3-factor daily data.
     Returns DataFrame with ['Mkt_RF', 'SMB', 'HML', 'RF'] as fractional returns.
+    This is automatically called by the `fama_french_var` function if no factors are provided.
     """
     resp = requests.get(_FF_ZIP_URL, timeout=30)
     resp.raise_for_status()
@@ -194,6 +186,8 @@ def fama_french_var(
     factors: pd.DataFrame | None = None
 ) -> tuple[pd.DataFrame, float]:
     """
+    Main
+    ----
     Estimate Value-at-Risk (VaR) using the Fama-French 3-factor model.
 
     Fits a linear factor model with Mkt-RF, SMB, and HML factors. Computes asset-level 
@@ -233,8 +227,9 @@ def fama_french_var(
 
     Notes
     -----
-    If VaR is required for a longer horizon (e.g., h days),
-    scale the reported VaR by √h.
+    - This VaR assumes factor returns are normally distributed.
+    - This function estimates 1-day VaR, as we download the daily factors data.
+    - Weights are supposed to be perfectly constant during the period.
     """
     if returns.isnull().values.any():
         raise ValueError("Missing values detected in returns. Handle NaNs before passing.")
@@ -274,9 +269,9 @@ def fama_french_var(
     z = norm.ppf(confidence_level)
     var_pct = z * portfolio_volatility
 
-    portf_returns = returns @ weights
+    portfolio_returns = returns @ weights
     result_data = pd.DataFrame({
-        "Returns": portf_returns,
+        "Returns": portfolio_returns,
         "Factor_Mkt_RF": factors["Mkt_RF"],
         "Factor_SMB": factors["SMB"],
         "Factor_HML": factors["HML"]
@@ -298,6 +293,8 @@ def factor_models_es(
     confidence_level: float = 0.99
 ) -> pd.DataFrame:
     """
+    Main
+    ----
     Append Expected Shortfall (ES) to a factor-model-based VaR result DataFrame.
 
     Infers portfolio value from the ratio of 'VaR_monetary' to 'VaR' and appends
@@ -328,8 +325,8 @@ def factor_models_es(
 
     Notes
     -----
-    If ES is needed over a longer horizon (e.g., h days),
-    scale the reported ES by √h.
+    - This ES assumes factor returns are normally distributed.
+    - This function estimates 1-day ES.
     """
     if "VaR" not in result_data.columns or "VaR_monetary" not in result_data.columns:
         raise ValueError("Missing 'VaR' or 'VaR_monetary' columns in result_data.")
@@ -344,8 +341,8 @@ def factor_models_es(
     )
 
     z = norm.ppf(confidence_level)
-    tail_prob = 1 - confidence_level
-    es_pct = portfolio_volatility * norm.pdf(z) / tail_prob
+    tail_probability = 1 - confidence_level
+    es_pct = portfolio_volatility * norm.pdf(z) / tail_probability
 
     result_data = result_data.copy()
     result_data["ES"] = pd.Series(es_pct, index=result_data.index)

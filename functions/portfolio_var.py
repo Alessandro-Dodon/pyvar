@@ -3,7 +3,10 @@ Risk Decomposition Module: VaR and ES Attribution
 --------------------------------------------------
 
 Implements risk attribution and decomposition tools for Value-at-Risk (VaR) and 
-Expected Shortfall (ES), based on Euler’s theorem and the asset-normal approach. 
+Expected Shortfall (ES), based on the asset-normal approach. 
+
+Notice that the portfolio normal VaR and ES can be replicated using the 
+parametric function in the basic_var.py module.
 
 Each measure is decomposed into marginal, component, relative, and incremental 
 contributions, using portfolio positions and the return covariance structure.
@@ -20,16 +23,13 @@ May 2025
 
 Contents
 ---------
-- var_asset_normal: Diversified and undiversified VaR with diversification benefit
+- asset_normal_var: Diversified and undiversified VaR with diversification benefit
 - marginal_var / marginal_es: Marginal contributions to VaR or ES
 - component_var / component_es: Component contributions (position × marginal)
 - relative_component_var / relative_component_es: Share of total VaR or ES per asset
 - incremental_var / incremental_es: Impact of hypothetical changes in position size
 """
 
-# TODO: double check all formulas and inputs (x)
-# TODO: take away ES metrics?
-# TODO: check logic, why each other function? Isn't an input output structure better?
 
 #----------------------------------------------------------
 # Packages
@@ -37,15 +37,15 @@ Contents
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-import warnings
-from IPython.display import display
 
 
 #----------------------------------------------------------
 # Asset-Normal VaR with Diversification Benefit
 #----------------------------------------------------------
-def var_asset_normal(position_data, confidence_level=0.99, holding_period=1):
+def asset_normal_var(position_data, confidence_level=0.99, holding_period=1):
     """
+    Main
+    ----
     Estimate portfolio Value-at-Risk (VaR) using the asset-normal approach.
 
     Computes both diversified and undiversified portfolio VaR under the normality assumption. 
@@ -91,11 +91,11 @@ def var_asset_normal(position_data, confidence_level=0.99, holding_period=1):
     for positions in position_data.loc[returns.index].values:
         x = positions.reshape(-1, 1)
 
-        var_div = abs(z_score * np.sqrt(float(x.T @ cov_matrix @ x)) * scale)
-        var_undiv = abs(z_score * np.sum(np.sqrt(np.diag(cov_matrix)) * positions) * scale)
+        var_diversified = abs(z_score * np.sqrt(float(x.T @ cov_matrix @ x)) * scale)
+        var_undiversified = abs(z_score * np.sum(np.sqrt(np.diag(cov_matrix)) * positions) * scale)
 
-        diversified.append(var_div)
-        undiversified.append(var_undiv)
+        diversified.append(var_diversified)
+        undiversified.append(var_undiversified)
 
     result_data = pd.DataFrame({
         "Diversified_VaR": diversified,
@@ -111,11 +111,12 @@ def var_asset_normal(position_data, confidence_level=0.99, holding_period=1):
 #----------------------------------------------------------
 def marginal_var(position_data, confidence_level=0.99, holding_period=1):
     """
+    Main
+    ----
     Estimate Marginal Value-at-Risk (VaR) for each asset in a portfolio.
 
     Computes the marginal contribution of each asset to the total diversified 
-    portfolio VaR using Euler decomposition. Assumes normally distributed returns 
-    and a buy-and-hold portfolio strategy.
+    portfolio VaR. 
 
     Parameters
     ----------
@@ -146,7 +147,7 @@ def marginal_var(position_data, confidence_level=0.99, holding_period=1):
     positions = position_data.loc[returns.index].values
 
     # Compute diversified VaR for each day
-    diversified_var_series = var_asset_normal(
+    diversified_var_series = asset_normal_var(
         position_data=position_data,
         confidence_level=confidence_level,
         holding_period=holding_period
@@ -180,10 +181,12 @@ def marginal_var(position_data, confidence_level=0.99, holding_period=1):
 #----------------------------------------------------------
 def component_var(position_data, confidence_level=0.99, holding_period=1):
     """
+    Main
+    ----
     Estimate Component Value-at-Risk (VaR) for each asset in a portfolio.
 
     Computes the contribution of each asset to total diversified VaR using 
-    Euler decomposition: Component VaR = position × marginal VaR.
+    the following formula: Component VaR = position × marginal VaR.
 
     Parameters
     ----------
@@ -222,10 +225,12 @@ def component_var(position_data, confidence_level=0.99, holding_period=1):
 #----------------------------------------------------------
 def relative_component_var(position_data, confidence_level=0.99, holding_period=1):
     """
+    Main
+    ----
     Estimate Relative Component Value-at-Risk (VaR) for each asset.
 
     Computes the share of total diversified VaR contributed by each asset at 
-    each time step using Euler decomposition. Row-wise values sum to 1.
+    each time step. Row-wise values sum to 1.
 
     Parameters
     ----------
@@ -249,7 +254,7 @@ def relative_component_var(position_data, confidence_level=0.99, holding_period=
         confidence_level=confidence_level,
         holding_period=holding_period
     )
-    total_var_series = var_asset_normal(
+    total_var_series = asset_normal_var(
         position_data=position_data,
         confidence_level=confidence_level,
         holding_period=holding_period
@@ -266,6 +271,8 @@ def relative_component_var(position_data, confidence_level=0.99, holding_period=
 #----------------------------------------------------------
 def incremental_var(position_data, change_vector, confidence_level=0.99, holding_period=1):
     """
+    Main
+    ----
     Estimate Incremental Value-at-Risk (VaR) from a position change.
 
     Computes the daily impact on total diversified VaR from a proposed change 
@@ -303,7 +310,8 @@ def incremental_var(position_data, change_vector, confidence_level=0.99, holding
     if a.shape[0] != marginal_df.shape[1]:
         raise ValueError("Change vector must match number of assets.")
 
-    return marginal_df @ a
+    incremental_var_series = marginal_df @ a
+    return incremental_var_series
 
 
 #----------------------------------------------------------
@@ -311,10 +319,12 @@ def incremental_var(position_data, change_vector, confidence_level=0.99, holding
 #----------------------------------------------------------
 def marginal_es(position_data, confidence_level=0.99, holding_period=1):
     """
+    Main
+    ----
     Estimate Marginal Expected Shortfall (ES) for each asset in a portfolio.
 
     Computes the marginal contribution of each asset to the total diversified 
-    portfolio Expected Shortfall using Euler decomposition. Assumes normally 
+    portfolio Expected Shortfall. Assumes normally 
     distributed returns and a buy-and-hold portfolio strategy.
 
     Parameters
@@ -363,11 +373,13 @@ def marginal_es(position_data, confidence_level=0.99, holding_period=1):
 
         marginal_es_list.append(delta_es)
 
-    return pd.DataFrame(
+    result_data = pd.DataFrame(
         marginal_es_list,
         index=returns.index,
         columns=position_data.columns
     )
+
+    return result_data
 
 
 #----------------------------------------------------------
@@ -375,10 +387,12 @@ def marginal_es(position_data, confidence_level=0.99, holding_period=1):
 #----------------------------------------------------------
 def component_es(position_data, confidence_level=0.99, holding_period=1):
     """
+    Main
+    ----
     Estimate Component Expected Shortfall (ES) for each asset in a portfolio.
 
     Computes the contribution of each asset to total portfolio ES using 
-    Euler decomposition: Component ES = position × marginal ES.
+    the following formula: Component ES = position × marginal ES.
 
     Parameters
     ----------
@@ -413,6 +427,8 @@ def component_es(position_data, confidence_level=0.99, holding_period=1):
 #----------------------------------------------------------
 def relative_component_es(position_data, confidence_level=0.99, holding_period=1):
     """
+    Main
+    ----
     Estimate Relative Component Expected Shortfall (ES) for each asset.
 
     Computes the share of total portfolio ES contributed by each asset at 
@@ -451,6 +467,8 @@ def relative_component_es(position_data, confidence_level=0.99, holding_period=1
 #----------------------------------------------------------
 def incremental_es(position_data, change_vector, confidence_level=0.99, holding_period=1):
     """
+    Main
+    ----
     Estimate Incremental Expected Shortfall (ES) from a position change.
 
     Computes the daily change in portfolio ES due to a change in asset positions 
@@ -489,4 +507,5 @@ def incremental_es(position_data, change_vector, confidence_level=0.99, holding_
     if a.shape[0] != marginal_df.shape[1]:
         raise ValueError("Change vector must match number of assets.")
 
-    return marginal_df @ a
+    incremental_series = marginal_df @ a
+    return incremental_series

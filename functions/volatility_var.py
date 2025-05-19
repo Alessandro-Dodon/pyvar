@@ -3,8 +3,8 @@ Volatility-Based VaR and Expected Shortfall Estimation Module
 -------------------------------------------------------------
 
 Provides functions to compute Value-at-Risk (VaR) and Expected Shortfall (ES)
-using volatility models such as GARCH, ARCH, EWMA, and Moving Average. Includes
-semi-parametric approaches based on empirical quantiles of standardized residuals.
+using volatility models such as GARCH, ARCH, EWMA, and Moving Average. 
+A semi-parametric approach is adopted consistently, based on empirical quantiles of standardized residuals.
 
 Authors
 -------
@@ -17,20 +17,14 @@ May 2025
 Contents
 --------
 - forecast_garch_variance: Forecast conditional variance using GARCH(1,1)
-- forecast_garch_var: Forecast VaR using empirical quantiles and GARCH variance
-- var_garch: In-sample and out-of-sample VaR from GARCH-family models
-- var_arch: VaR using ARCH(p) with empirical quantiles
-- var_ewma: VaR using exponentially weighted moving average volatility
-- var_moving_average: VaR using rolling standard deviation
-- es_volatility: Expected Shortfall using standardized residuals and volatility estimates
-
-Notes
------
-- All returns are assumed to be daily and in decimal format (e.g., 0.01 = 1%).
+- forecast_garch_var: Estimates VaR using forecasted conditional variance
+- garch_var: VaR from GARCH-family models with flexible distributions
+- arch_var: VaR using ARCH(p) 
+- ewma_var: VaR using exponentially weighted moving average volatility
+- ma_var: VaR using rolling standard deviation
+- volatility_es: Expected Shortfall using standardized residuals and volatility estimates
 """
 
-# TODO: double check all formulas 
-# TODO: check the forecast functions
 
 #----------------------------------------------------------
 # Packages
@@ -39,7 +33,6 @@ import numpy as np
 import pandas as pd
 from arch import arch_model
 from scipy.stats import norm, t, gennorm
-import warnings
 
 
 #----------------------------------------------------------
@@ -47,6 +40,8 @@ import warnings
 #----------------------------------------------------------
 def forecast_garch_variance(returns, steps_ahead=10, cumulative=False):
     """
+    Main
+    ----
     Forecast future conditional variance using a GARCH(1,1) model.
 
     Uses the analytical closed-form solution under the assumption that returns follow
@@ -70,14 +65,17 @@ def forecast_garch_variance(returns, steps_ahead=10, cumulative=False):
     ------
     ValueError
         If the fitted model is unstable (alpha + beta ≥ 1).
+
+    Notes
+    -----
+    - Returns are scaled by 100 before fitting to improve numerical stability.
     """
+    returns_scaled = returns * 100
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        model = arch_model(returns, vol="GARCH", p=1, q=1, dist="normal")
-        fit = model.fit(disp="off")
+    model = arch_model(returns_scaled, vol="GARCH", p=1, q=1, dist="normal")
+    fit = model.fit(disp="off")
 
-    omega = fit.params["omega"]
+    omega_scaled = fit.params["omega"]
     alpha = fit.params["alpha[1]"]
     beta = fit.params["beta[1]"]
     phi = alpha + beta
@@ -85,11 +83,17 @@ def forecast_garch_variance(returns, steps_ahead=10, cumulative=False):
     if phi >= 1:
         raise ValueError("Unstable GARCH model: alpha + beta must be < 1.")
 
-    sigma2_t = fit.conditional_volatility.iloc[-1] ** 2
+    # Rescale omega to original units
+    omega = omega_scaled / 10000
+
+    sigma2_t_scaled = fit.conditional_volatility.iloc[-1] ** 2
+    sigma2_t = sigma2_t_scaled / 10000
+
     long_run_var = omega / (1 - phi)
 
     if not cumulative:
-        return long_run_var + (phi**steps_ahead) * (sigma2_t - long_run_var)
+        forecast = long_run_var + (phi**steps_ahead) * (sigma2_t - long_run_var)
+        return forecast
 
     term1 = long_run_var * (steps_ahead - 1 - phi * (1 - phi**(steps_ahead - 1)) / (1 - phi))
     term2 = ((1 - phi**steps_ahead) / (1 - phi)) * sigma2_t
@@ -128,15 +132,19 @@ def forecast_garch_var(returns, steps_ahead=10, confidence_level=0.99, cumulativ
     ------
     ValueError
         If the GARCH model is unstable (handled internally by forecast_garch_variance).
+
+    Notes
+    -----
+    - Returns are scaled by 100 before fitting to improve numerical stability.
     """
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        model = arch_model(returns, vol="GARCH", p=1, q=1, dist="normal")
-        fit = model.fit(disp="off")
+    returns_scaled = returns * 100
+
+    model = arch_model(returns_scaled, vol="GARCH", p=1, q=1, dist="normal")
+    fit = model.fit(disp="off")
 
     variance = forecast_garch_variance(returns, steps_ahead, cumulative)
 
-    residuals = returns / fit.conditional_volatility
+    residuals = returns_scaled / fit.conditional_volatility
     empirical_z = np.percentile(residuals, 100 * (1 - confidence_level))
 
     var = -empirical_z * np.sqrt(variance)
@@ -146,19 +154,18 @@ def forecast_garch_var(returns, steps_ahead=10, confidence_level=0.99, cumulativ
 #----------------------------------------------------------
 # Garch VaR
 #----------------------------------------------------------
-def var_garch(returns, confidence_level=0.99, p=1, q=1, model="GARCH", distribution="normal", wealth=None):
+def garch_var(returns, confidence_level=0.99, p=1, q=1, model="GARCH", distribution="normal", wealth=None):
     """
-    Estimate Value-at-Risk (VaR) using a semi-parametric GARCH-family model with flexible specification.
+    Main
+    ----
+    Estimate Value-at-Risk (VaR) using a flexible GARCH-family model.
 
-    This function fits a GARCH-type volatility model to a return series using maximum likelihood, 
-    where the user can choose both the volatility specification (e.g., GARCH, EGARCH, APARCH) and 
-    the innovation distribution (e.g., Normal, Student-t, GED, Skewed-t). The fitted model is used 
-    to filter conditional volatilities and standardized residuals.
+    This function fits a GARCH-type volatility model to a return series using MLE.
+    Users can choose the volatility model (e.g., GARCH, EGARCH, APARCH) and innovation
+    distribution (e.g., Normal, Student-t, GED, Skewed-t). Conditional volatility is 
+    extracted to compute standardized residuals and empirical quantile-based VaR.
 
-    VaR is then computed semi-parametrically by applying empirical quantiles to the standardized 
-    residuals, allowing for flexible tail behavior without fully relying on a parametric distribution.
-
-    The function returns both a time series of in-sample VaR values and a one-step-ahead forecast.
+    VaR is computed both in-sample and as a 1-day ahead forecast.
 
     Parameters
     ----------
@@ -194,6 +201,10 @@ def var_garch(returns, confidence_level=0.99, p=1, q=1, model="GARCH", distribut
     ------
     ValueError
         If an unsupported model or distribution is specified.
+
+    Notes
+    -----
+    - Returns are scaled by 100 before fitting to improve numerical stability.
     """
     # Validate model and distribution
     model = model.upper()
@@ -256,8 +267,10 @@ def var_garch(returns, confidence_level=0.99, p=1, q=1, model="GARCH", distribut
 #----------------------------------------------------------
 # Arch VaR
 #----------------------------------------------------------
-def var_arch(returns, confidence_level=0.99, p=1, wealth=None):
+def arch_var(returns, confidence_level=0.99, p=1, wealth=None):
     """
+    Main
+    ----
     Estimate Value-at-Risk (VaR) using a semi-parametric ARCH model.
 
     Fits an ARCH(p) model to the return series using maximum likelihood estimation,
@@ -288,6 +301,10 @@ def var_arch(returns, confidence_level=0.99, p=1, wealth=None):
         - 'VaR_monetary': optional, monetary VaR if wealth is provided
     next_day_var : float
         One-step-ahead VaR forecast (decimal loss or monetary loss if wealth is set).
+
+    Notes
+    -----
+    - Returns are scaled by 100 before fitting to improve numerical stability.
     """
     returns_scaled = returns * 100
 
@@ -320,8 +337,10 @@ def var_arch(returns, confidence_level=0.99, p=1, wealth=None):
 #----------------------------------------------------------
 # EWMA VaR
 #----------------------------------------------------------
-def var_ewma(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
+def ewma_var(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
     """
+    Main
+    ----
     Estimate Value-at-Risk (VaR) using a semi-parametric EWMA volatility model.
 
     Fits an Exponentially Weighted Moving Average (EWMA) model to estimate conditional volatility,
@@ -386,8 +405,10 @@ def var_ewma(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
 #----------------------------------------------------------
 # MA VaR
 #----------------------------------------------------------
-def var_moving_average(returns, confidence_level=0.99, window=20, wealth=None):
+def ma_var(returns, confidence_level=0.99, window=20, wealth=None):
     """
+    Main
+    ----
     Estimate Value-at-Risk (VaR) using a semi-parametric moving average volatility model.
 
     Estimates volatility using a fixed-window moving average of squared returns, and computes
@@ -417,6 +438,10 @@ def var_moving_average(returns, confidence_level=0.99, window=20, wealth=None):
         - 'VaR_monetary': optional, monetary VaR if wealth is provided
     next_day_var : float
         One-step-ahead VaR forecast (decimal loss or monetary loss if wealth is set).
+
+    Notes
+    -----
+    - A very short window may lead to unstable VaR estimates.
     """
     volatility = returns.rolling(window=window).std()
     innovations = returns / volatility
@@ -447,8 +472,10 @@ def var_moving_average(returns, confidence_level=0.99, window=20, wealth=None):
 #----------------------------------------------------------
 # Expected Shortfall Volatility
 #----------------------------------------------------------
-def es_volatility(data, confidence_level, wealth=None):
+def volatility_es(result_data, confidence_level, wealth=None):
     """
+    Main
+    ----
     Estimate Expected Shortfall (ES) using standardized residuals and model-implied volatility.
 
     This function computes dynamic Expected Shortfall (ES) by averaging standardized residuals 
@@ -457,7 +484,7 @@ def es_volatility(data, confidence_level, wealth=None):
 
     Parameters
     ----------
-    data : pd.DataFrame
+    result_data : pd.DataFrame
         DataFrame containing at least the columns:
         - 'Innovations': standardized residuals (ε / σ)
         - 'Volatility': conditional standard deviation (in decimals)
@@ -468,7 +495,7 @@ def es_volatility(data, confidence_level, wealth=None):
 
     Returns
     -------
-    data : pd.DataFrame
+    result_data : pd.DataFrame
         Original input DataFrame extended with:
         - 'ES': time-varying expected shortfall (decimal loss)
         - 'ES_monetary': optional, monetary ES if wealth is provided
@@ -478,16 +505,16 @@ def es_volatility(data, confidence_level, wealth=None):
     ValueError
         If the required columns 'Innovations' or 'Volatility' are missing from the input.
     """
-    if "Innovations" not in data.columns or "Volatility" not in data.columns:
+    if "Innovations" not in result_data.columns or "Volatility" not in result_data.columns:
         raise ValueError("Data must contain 'Innovations' and 'Volatility' columns.")
 
-    threshold = np.percentile(data["Innovations"], 100 * (1 - confidence_level))
-    tail_mean = data["Innovations"][data["Innovations"] < threshold].mean()
+    threshold = np.percentile(result_data["Innovations"], 100 * (1 - confidence_level))
+    tail_mean = result_data["Innovations"][result_data["Innovations"] < threshold].mean()
 
-    data["ES"] = -data["Volatility"] * tail_mean
+    result_data["ES"] = -result_data["Volatility"] * tail_mean
 
     if wealth is not None:
-        data["ES_monetary"] = data["ES"] * wealth
+        result_data["ES_monetary"] = result_data["ES"] * wealth
 
-    return data
+    return result_data
 

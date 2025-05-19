@@ -4,8 +4,8 @@ Simulation-Based VaR and ES Module
 
 Provides functions for estimating Value-at-Risk (VaR) and Expected Shortfall (ES)
 using simulation-based techniques. These include parametric Monte Carlo methods,
-multiday geometric Brownian motion simulations, and both historical and 
-bootstrapped historical simulation methods.
+and both historical and bootstrapped historical simulation methods.
+Notice that backtesting is not implemented for this module.
 
 Authors
 -------
@@ -22,20 +22,7 @@ Contents
 - multiday_monte_carlo_var: Multiday Monte Carlo VaR (equity-only)
 - historical_simulation_var: Historical or bootstrapped VaR (equity + options)
 - simulation_es: General-purpose ES from any simulated P&L array
-
-Notes
------
-- All returns are assumed to be daily and in decimal format (e.g., 0.01 = 1%).
-- Time-to-maturity (T) in options must be expressed in years.
-- Input data must be cleaned prior to use — NaNs are preserved by default.
-- Simulation methods assume constant drift and volatility estimated from
-  historical data. Options are revalued using static input parameters.
-- Expected Shortfall (ES) is computed externally using `simulation_es`, 
-  and is valid for all simulated P&L distributions.
-- Backtesting is not implemented for this module but can be done externally.
 """
-
-# TODO: check logic behind each simulation
 
 #----------------------------------------------------------
 # Packages
@@ -43,7 +30,6 @@ Notes
 import numpy as np                     
 import pandas as pd                     
 from scipy.stats import norm
-import warnings
 
 
 # ----------------------------------------------------------
@@ -51,6 +37,8 @@ import warnings
 # ----------------------------------------------------------
 def black_scholes(S, K, tau, r, sigma, opt_type="call"):
     """
+    Main
+    ----
     Compute the Black-Scholes price of a European call or put option.
 
     Implements the closed-form solution for the fair value of a European-style
@@ -99,6 +87,8 @@ def monte_carlo_var(price_data, shares, options,
                     confidence_level=0.99,
                     simulations=50_000, seed=1) -> tuple[float, np.ndarray]:
     """
+    Main
+    ----
     Monte Carlo Value-at-Risk (VaR) for a 1-day horizon.
 
     Simulates correlated arithmetic returns to estimate 1-day profit-and-loss
@@ -125,7 +115,7 @@ def monte_carlo_var(price_data, shares, options,
     -------
     var : float
         Value-at-Risk estimate (monetary units, positive).
-    pnl : np.ndarray
+    profit_and_loss : np.ndarray
         Simulated P&L distribution (length = simulations).
     """
     np.random.seed(seed)
@@ -138,30 +128,33 @@ def monte_carlo_var(price_data, shares, options,
 
     L = np.linalg.cholesky(cov)
     Z = np.random.randn(simulations, len(S0))
-    rets_sim = mu.values + Z.dot(L.T)
-    S_sim = S0 * (1 + rets_sim)
+    returns_simulated = mu.values + Z.dot(L.T)
+    S_simulated = S0 * (1 + returns_simulated)
 
-    init_prices = [
-        black_scholes(S0[op['idx']], op['K'], op['T'], op['r'], op['sigma'], op['type'])
-        for op in options
+    initial_option_prices = [
+    black_scholes(
+        S0[option['asset_index']], 
+        option['K'], option['T'], option['r'], option['sigma'], option['type']
+    )
+    for option in options
     ]
 
-    pnl = np.empty(simulations)
+    profit_and_loss = np.empty(simulations)
     for i in range(simulations):
-        pl_eq = shares.dot(S_sim[i] - S0)
-        pl_opt = 0.0
-        for j, op in enumerate(options):
-            tau = max(op['T'] - 1/252, 0)
-            new_p = black_scholes(
-                S_sim[i, op['idx']],
-                op['K'], tau,
-                op['r'], op['sigma'], op['type']
+        pnl_equity = shares.dot(S_simulated[i] - S0)
+        pnl_options = 0.0
+        for j, option in enumerate(options):
+            tau = max(option['T'] - 1/252, 0)
+            new_option_price = black_scholes(
+                S_simulated[i, option['asset_index']],
+                option['K'], tau,
+                option['r'], option['sigma'], option['type']
             )
-            pl_opt += op['qty'] * (new_p - init_prices[j])
-        pnl[i] = pl_eq + pl_opt
+            pnl_options += option['qty'] * (new_option_price - initial_option_prices[j])
+        profit_and_loss[i] = pnl_equity + pnl_options
 
-    var = -np.percentile(pnl, alpha * 100)
-    return var, pnl
+    var = -np.percentile(profit_and_loss, alpha * 100)
+    return var, profit_and_loss
 
 
 # ----------------------------------------------------------
@@ -169,8 +162,10 @@ def monte_carlo_var(price_data, shares, options,
 # ----------------------------------------------------------
 def multiday_monte_carlo_var(price_data, shares,
                               confidence_level=0.99,
-                              days_ahead=100, simulations=50_000, seed=1) -> tuple[float, np.ndarray, np.ndarray]:
+                              days_ahead=10, simulations=50_000, seed=1) -> tuple[float, np.ndarray, np.ndarray]:
     """
+    Main
+    ----
     Multiday Monte Carlo Value-at-Risk (VaR) for an equity-only portfolio.
 
     Simulates arithmetic portfolio value paths over a fixed horizon with 
@@ -185,7 +180,7 @@ def multiday_monte_carlo_var(price_data, shares,
     confidence_level : float, optional
         Confidence level for VaR (e.g., 0.99). Default is 0.99.
     days_ahead : int, optional
-        Number of trading days to simulate. Default is 100.
+        Number of trading days to simulate. Default is 10.
     simulations : int, optional
         Number of Monte Carlo paths. Default is 50000.
     seed : int, optional
@@ -195,11 +190,15 @@ def multiday_monte_carlo_var(price_data, shares,
     -------
     var : float
         Value-at-Risk estimate (monetary).
-    pnl : np.ndarray
+    profit_and_loss : np.ndarray
         Simulated P&L outcomes (length = simulations).
     portfolio_paths : np.ndarray
         Simulated portfolio value paths (shape: [days_ahead + 1, simulations]).
         Ready for plotting.
+
+    Notes
+    -----
+    - The longer the horizon, the more imprecise the arithmetic approximation. 
     """
     np.random.seed(seed)
     alpha = 1 - confidence_level
@@ -216,14 +215,14 @@ def multiday_monte_carlo_var(price_data, shares,
 
     for t in range(1, days_ahead + 1):
         Z = np.random.randn(simulations, n_assets)
-        rets = mu + Z @ L.T
-        asset_paths[t] = asset_paths[t - 1] * (1 + rets)
+        returns_simulated = mu + Z @ L.T
+        asset_paths[t] = asset_paths[t - 1] * (1 + returns_simulated)
 
     portfolio_paths = (asset_paths * shares).sum(axis=2)
-    pnl = portfolio_paths[-1] - portfolio_paths[0]
-    var = -np.percentile(pnl, alpha * 100)
+    profit_and_loss = portfolio_paths[-1] - portfolio_paths[0]
+    var = -np.percentile(profit_and_loss, alpha * 100)
 
-    return var, pnl, portfolio_paths
+    return var, profit_and_loss, portfolio_paths
 
 
 # ----------------------------------------------------------
@@ -239,6 +238,8 @@ def historical_simulation_var(
     seed=None
 ) -> tuple[float, np.ndarray]:
     """
+    Main
+    ----
     Compute 1-day Value-at-Risk (VaR) using Historical Simulation or
     Bootstrapped Historical Simulation for an equity + options portfolio.
 
@@ -252,7 +253,7 @@ def historical_simulation_var(
     shares : array-like
         Number of shares per asset (length = N).
     options : list of dict
-        Each dict: {'idx', 'K', 'T', 'r', 'sigma', 'type', 'qty'}.
+        Each dict: {'asset_index', 'K', 'T', 'r', 'sigma', 'type', 'qty'}.
     confidence_level : float, optional
         Confidence level for VaR (default: 0.99).
     bootstrap : bool, optional
@@ -266,7 +267,7 @@ def historical_simulation_var(
     -------
     var : float
         Value-at-Risk estimate (monetary units, positive).
-    pnl : np.ndarray
+    profit_and_loss : np.ndarray
         Simulated P&L scenarios (length = T or simulations).
 
     Raises
@@ -284,48 +285,49 @@ def historical_simulation_var(
     T = len(returns)
 
     if not bootstrap and simulations is not None:
-        warnings.warn("Argument 'simulations' is ignored because bootstrap=False.")
+        print("[warning] Argument 'simulations' is ignored because bootstrap=False.")
 
     if not bootstrap and seed is not None:
-        warnings.warn("Argument 'seed' is ignored because bootstrap=False.")
+        print("[warning] Argument 'seed' is ignored because bootstrap=False.")
 
     if bootstrap:
         N = T if simulations is None else simulations
-        idx = np.random.choice(T, size=N, replace=True)
-        rets_sampled = returns[idx]
+        indices = np.random.choice(T, size=N, replace=True)
+        sampled_returns = returns[indices]
     else:
-        rets_sampled = returns
+        sampled_returns = returns
 
-    S_sim = S0 * (1 + rets_sampled)
+    S_simulated = S0 * (1 + sampled_returns)
 
-    init_prices = [
-        black_scholes(S0[op["idx"]], op["K"], op["T"], op["r"], op["sigma"], op["type"])
-        for op in options
+    initial_option_prices = [
+        black_scholes(S0[option["asset_index"]], option["K"], option["T"], option["r"],
+                      option["sigma"], option["type"])
+        for option in options
     ]
 
-    Nsim = len(rets_sampled)
-    pnl = np.empty(Nsim)
-    for i in range(Nsim):
-        pl_eq = shares.dot(S_sim[i] - S0)
-        pl_opt = 0.0
-        for j, op in enumerate(options):
-            tau = max(op["T"] - dt, 0)
-            new_p = black_scholes(
-                S_sim[i, op["idx"]],
-                op["K"], tau,
-                op["r"], op["sigma"], op["type"]
+    num_simulations = len(sampled_returns)
+    profit_and_loss = np.empty(num_simulations)
+    for i in range(num_simulations):
+        pnl_equity = shares.dot(S_simulated[i] - S0)
+        pnl_options = 0.0
+        for j, option in enumerate(options):
+            tau = max(option["T"] - dt, 0)
+            new_option_price = black_scholes(
+                S_simulated[i, option["asset_index"]],
+                option["K"], tau,
+                option["r"], option["sigma"], option["type"]
             )
-            pl_opt += op["qty"] * (new_p - init_prices[j])
-        pnl[i] = pl_eq + pl_opt
+            pnl_options += option["qty"] * (new_option_price - initial_option_prices[j])
+        profit_and_loss[i] = pnl_equity + pnl_options
 
-    var = -np.percentile(pnl, alpha * 100)
-    return var, pnl
+    var = -np.percentile(profit_and_loss, alpha * 100)
+    return var, profit_and_loss
 
 
 # ----------------------------------------------------------
 # Simulation Based ES (General)
 # ----------------------------------------------------------
-def simulation_es(var: float, pnl: np.ndarray) -> float:
+def simulation_es(var: float, profit_and_loss: np.ndarray) -> float:
     """
     Compute Expected Shortfall (ES) from a simulated P&L distribution.
 
@@ -338,7 +340,7 @@ def simulation_es(var: float, pnl: np.ndarray) -> float:
     ----------
     var : float
         Value-at-Risk threshold (positive monetary value).
-    pnl : np.ndarray
+    profit_and_loss : np.ndarray
         Simulated profit-and-loss outcomes (length = number of scenarios).
 
     Returns
@@ -346,5 +348,5 @@ def simulation_es(var: float, pnl: np.ndarray) -> float:
     es : float
         Expected Shortfall (average loss beyond the VaR threshold), in monetary units.
     """
-    es = -pnl[pnl <= -var].mean()
+    es = -profit_and_loss[profit_and_loss <= -var].mean()
     return es

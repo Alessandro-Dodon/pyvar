@@ -2,8 +2,8 @@
 Basic VaR and Expected Shortfall Estimation Module
 --------------------------------------------
 
-Provides functions to compute Value-at-Risk (VaR) and Expected Shortfall (ES)
-using both non-parametric (historical) and parametric methods (Normal and Student-t distributions).
+Provides functions to compute Value-at-Risk (VaR) and Expected Shortfall (ES) using the two most
+basic methods, both non-parametric (historical) and parametric methods (Normal and Student-t distributions).
 
 Authors
 ------
@@ -15,18 +15,12 @@ May 2025
 
 Contents
 --------
-- historical_var: Historical simulation-based VaR
-- historical_es: Historical ES based on tail mean
+- historical_var: Historical or non-parametric VaR
+- historical_es: Historical ES based on empirical tail mean
 - parametric_var: Parametric VaR using Normal or Student-t distributions
 - parametric_es: Parametric ES using Normal or Student-t distributions
-
-Notes
------
-- All returns are assumed to be daily and in decimal format (e.g., 0.01 = 1%).
 """
 
-# TODO: violations is not needed! can be put into the graph directly!
-# TODO: double check all formulas 
 
 #----------------------------------------------------------
 # Packages
@@ -41,6 +35,8 @@ import pandas as pd
 #----------------------------------------------------------
 def historical_var(returns, confidence_level=0.99, wealth=None):
     """
+    Main
+    ----
     Estimate Value-at-Risk (VaR) using historical (non-parametric) simulation.
 
     Computes the VaR from the empirical distribution of past returns without assuming
@@ -63,6 +59,10 @@ def historical_var(returns, confidence_level=0.99, wealth=None):
         - 'VaR': constant VaR (decimal loss)
         - 'VaR Violation': True if loss exceeded VaR on a given day
         - 'VaR_monetary': optional, VaR scaled by wealth if provided
+
+    Notes
+    -----
+    - This function estimates 1-day VaR. For other horizons like weekly or monthly, different data must be used.
     """
     var_cutoff = np.percentile(returns, 100 * (1 - confidence_level))
     var_series = pd.Series(-var_cutoff, index=returns.index)
@@ -84,6 +84,8 @@ def historical_var(returns, confidence_level=0.99, wealth=None):
 #----------------------------------------------------------
 def historical_es(result_data, wealth=None): 
     """
+    Main
+    ----
     Estimate Expected Shortfall (ES) using historical returns below the VaR threshold.
 
     Computes ES by averaging the returns that fall below the negative VaR level.
@@ -104,6 +106,10 @@ def historical_es(result_data, wealth=None):
         Extended DataFrame with:
         - 'ES': constant Expected Shortfall (decimal loss)
         - 'ES_monetary': optional, ES scaled by wealth if provided
+
+    Notes
+    -----
+    - This function estimates 1-day VaR. For other horizons like weekly or monthly, different data must be used.
     """
     var_threshold = result_data["VaR"].iloc[0]
     tail_returns = result_data["Returns"][result_data["Returns"] < -var_threshold]
@@ -130,8 +136,8 @@ def parametric_var(returns, confidence_level=0.99, distribution="normal", wealth
     Estimate Value-at-Risk (VaR) using a parametric distribution.
 
     Fits a Normal or Student-t distribution to the return series and computes
-    1-day VaR as the left-tail quantile. VaR is scaled to return volatility 
-    and optionally converted to monetary loss if portfolio value is provided.
+    1-day VaR as the left-tail quantile. VaR is optionally converted to monetary 
+    loss if portfolio value is provided.
 
     Parameters
     ----------
@@ -160,8 +166,7 @@ def parametric_var(returns, confidence_level=0.99, distribution="normal", wealth
 
     Notes
     -----
-    If VaR is required for a longer horizon (e.g., h days),
-    scale the reported VaR by √h.
+    - This function estimates 1-day VaR. For other horizons like weekly or monthly, scale the reported VaR by √h.
     """
     match distribution:
         case "normal":
@@ -226,8 +231,7 @@ def parametric_es(result_data, confidence_level, distribution="normal", wealth=N
 
     Notes
     -----
-    If ES is needed over a longer horizon (e.g., h days),
-    scale the reported ES by √h.
+    - This function estimates 1-day VaR. For other horizons like weekly or monthly, scale the reported VaR by √h.
     """
     returns = result_data["Returns"]
     alpha = confidence_level

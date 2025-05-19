@@ -1,6 +1,6 @@
 """
 Backtesting Module
----------------------------------------------
+------------------
 
 Implements statistical tests for validating Value-at-Risk (VaR) forecasts.
 
@@ -31,7 +31,7 @@ Contents
 - joint_lr_test: Combined test for both coverage and independence
 """
 
-# TODO: double check
+# TODO: check formulas
 
 #----------------------------------------------------------
 # Packages
@@ -46,6 +46,8 @@ from scipy.stats import chi2
 # ----------------------------------------------------------
 def count_violations(result_data, start_date=None, end_date=None):
     """
+    Main
+    ----
     Count Value-at-Risk (VaR) violations over time.
 
     Computes how often actual portfolio returns exceed the estimated VaR threshold,
@@ -99,9 +101,11 @@ def count_violations(result_data, start_date=None, end_date=None):
 # ----------------------------------------------------------
 def kupiec_test(total_violations, total_days, confidence_level):
     """
-    Kupiec Unconditional Coverage Test
+    Main
+    ----
+    This is the Kupiec Unconditional Coverage Test.
 
-    Evaluate whether the observed number of Value-at-Risk (VaR) violations is consistent 
+    Evaluates whether the observed number of Value-at-Risk (VaR) violations is consistent 
     with the expected frequency implied by the chosen confidence level. Assumes i.i.d. 
     Bernoulli violations. Rejection implies miscalibrated VaR — either under- or 
     overestimating tail risk.
@@ -157,9 +161,11 @@ def kupiec_test(total_violations, total_days, confidence_level):
 # ----------------------------------------------------------
 def christoffersen_test(violations):
     """
-    Christoffersen Independence Test
+    Main
+    ----
+    This is the Christoffersen Independence Test.
 
-    Test whether VaR violations are independent over time using a 2-state Markov 
+    Tests whether VaR violations are independent over time using a 2-state Markov 
     transition matrix. Rejection indicates clustering of exceptions, suggesting 
     model misspecification or missing dynamics (e.g., volatility persistence).
 
@@ -228,9 +234,11 @@ def christoffersen_test(violations):
 # ----------------------------------------------------------
 def joint_lr_test(LR_uc, LR_c):
     """
-    Joint Likelihood Ratio Test (Kupiec + Christoffersen)
+    Main
+    ----
+    This is the Joint Likelihood Ratio Test (Kupiec + Christoffersen)
 
-    Combine unconditional coverage and independence tests to assess whether a 
+    Combines unconditional coverage and independence tests to assess whether a 
     VaR model produces both the correct number and timing of violations. 
     Rejection suggests the model fails on at least one of the two dimensions.
 

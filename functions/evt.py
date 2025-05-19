@@ -7,6 +7,9 @@ Peaks Over Threshold (POT) method and the Generalized Pareto Distribution (GPD).
 It provides functions to estimate Value-at-Risk (VaR) and Expected Shortfall (ES) 
 based on fitted tail parameters from historical return data.
 
+A first general parameter fitting function is defined, which is used internally by
+the main functions. 
+
 Authors
 -------
 Alessandro Dodon, Niccolò Lecce, Marco Gasparetti
@@ -20,13 +23,8 @@ Contents
 - fit_evt_parameters: Tail fitting using POT and GPD
 - evt_var: EVT-based Value-at-Risk estimation
 - evt_es: EVT-based Expected Shortfall estimation
-
-Notes
------
-- All returns are assumed to be daily and in decimal format (e.g., 0.01 = 1%).
 """
 
-# TODO: double check all formulas 
 
 #----------------------------------------------------------
 # Packages
@@ -41,11 +39,14 @@ from scipy.stats import genpareto
 #----------------------------------------------------------
 def fit_evt_parameters(returns, threshold_percentile=97.5):
     """
+    Main
+    ----
     Fit a Generalized Pareto Distribution (GPD) to the tail of the return distribution.
 
     Applies the Peaks Over Threshold (POT) method to model the extreme losses using GPD.
     This function estimates the shape and scale parameters of the GPD based on the 
-    excesses above a high threshold.
+    excesses above a high threshold. There is no need to directly call this function,
+    it is used internally by the evt_var() and evt_es() functions.
 
     Parameters
     ----------
@@ -89,6 +90,8 @@ def fit_evt_parameters(returns, threshold_percentile=97.5):
 #----------------------------------------------------------
 def evt_var(returns, confidence_level=0.99, threshold_percentile=97.5, wealth=None):
     """
+    Main
+    ----
     Estimate Value-at-Risk (VaR) using Extreme Value Theory (EVT).
 
     Computes the VaR from a Generalized Pareto Distribution fitted to the tail 
@@ -113,6 +116,11 @@ def evt_var(returns, confidence_level=0.99, threshold_percentile=97.5, wealth=No
         - 'VaR': constant EVT-based VaR (decimal loss)
         - 'VaR Violation': boolean indicator for VaR breach
         - 'VaR_monetary': optional, VaR scaled by wealth
+
+    Notes
+    -----
+    - Data cleaning and preprocessing is always left to the user and should be done before calling this function.
+    - Horizon is implicitely defined by the input data. For weekly or monthly VaR, provide weekly or monthly data.
     """
     params = fit_evt_parameters(returns, threshold_percentile)
     xi = params["xi"]
@@ -141,6 +149,8 @@ def evt_var(returns, confidence_level=0.99, threshold_percentile=97.5, wealth=No
 #----------------------------------------------------------
 def evt_es(result_data, threshold_percentile=97.5, wealth=None):
     """
+    Main
+    ----
     Estimate Expected Shortfall (ES) using Extreme Value Theory (EVT).
 
     Computes the ES from a Generalized Pareto Distribution fitted to the tail 
@@ -171,6 +181,11 @@ def evt_es(result_data, threshold_percentile=97.5, wealth=None):
     ------
     KeyError
         If required columns ('Returns', 'VaR') are missing from input.
+
+    Notes
+    -----
+    - Data cleaning and preprocessing is always left to the user and should be done before calling this function.
+    - Horizon is implicitely defined by the input data. For weekly or monthly ES, provide weekly or monthly data.
     """
     if "Returns" not in result_data or "VaR" not in result_data:
         raise KeyError("Input DataFrame must contain 'Returns' and 'VaR' columns from evt_var().")

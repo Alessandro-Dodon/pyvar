@@ -7,15 +7,7 @@ and correlation structures using Plotly and Matplotlib. All Plotly-based
 plots follow a consistent white-background aesthetic with black-bordered 
 axes and support both interactive display and static image export.
 
-Features include:
-- Backtesting plots for VaR and Expected Shortfall
-- Volatility tracking over time
-- Diversified vs. Undiversified VaR comparison
-- Risk contribution (Component VaR) bar and line charts
-- Correlation matrix heatmaps
-- Simulated P&L distribution plots with KDE overlay (static only)
-- Simulated portfolio path plots over time (static only)
-- Consistent asset color mapping for visual coherence
+This module is designed to be best used in Jupyter notebooks or similar environments.
 
 Static images can be exported using `output_path`. If no path is provided,
 a high-resolution inline image is displayed.
@@ -43,9 +35,6 @@ Contents
 """
 
 # TODO: double check all names/ titles
-# TODO: output path should work only with static images
-# TODO: if there is the output to the plot, make another plot with
-# interactive = False or force False and export
 
 #----------------------------------------------------------
 # Packages
@@ -69,9 +58,11 @@ import seaborn as sns
 #----------------------------------------------------------
 def display_high_dpi_inline(png_bytes, width):
     """
+    Main
+    ----
     Display a high-resolution PNG image inline in a notebook.
-
     Encodes the image in base64 and renders it with a specified width.
+    This is a support function.
 
     Parameters
     ----------
@@ -94,6 +85,8 @@ def display_high_dpi_inline(png_bytes, width):
 #----------------------------------------------------------
 def plot_backtest(data, subset=None, interactive=True, output_path=None):
     """
+    Main
+    ----
     Generate a backtesting plot for Value-at-Risk (VaR) and optionally Expected Shortfall (ES).
 
     Displays returns, VaR threshold, and VaR violations. Adds ES line if present.
@@ -235,6 +228,8 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
 #----------------------------------------------------------
 def plot_volatility(volatility_series, subset=None, interactive=True, output_path=None):
     """
+    Main
+    ----
     Plot conditional volatility over time.
 
     Generates an interactive line plot of volatility estimates (in %). 
@@ -304,10 +299,12 @@ def plot_volatility(volatility_series, subset=None, interactive=True, output_pat
 #----------------------------------------------------------
 def get_asset_color_map(assets):
     """
+    Main
+    ----
     Generate consistent colors for asset-level visualizations.
-
     Assigns a unique color to each asset using Plotly's qualitative palette, 
     cycling through it as needed. Useful for consistent coloring in portfolio plots.
+    This is a support function.
 
     Parameters
     ----------
@@ -329,6 +326,8 @@ def get_asset_color_map(assets):
 #----------------------------------------------------------
 def plot_var_series(var_df, interactive=True, output_path=None):
     """
+    Main
+    ----
     Plot diversified vs. undiversified Value-at-Risk (VaR) over time.
 
     Displays a line chart comparing diversified VaR (accounting for correlation)
@@ -403,6 +402,8 @@ def plot_var_series(var_df, interactive=True, output_path=None):
 # ----------------------------------------------------------
 def plot_risk_contribution_bar(component_df, interactive=True, output_path=None):
     """
+    Main
+    ----
     Plot average absolute Component VaR contributions by asset.
 
     Displays a horizontal bar chart showing the average absolute 
@@ -552,6 +553,8 @@ def plot_risk_contribution_lines(component_df, interactive=True, output_path=Non
 #----------------------------------------------------------
 def plot_correlation_matrix(position_data, interactive=True, output_path=None):
     """
+    Main
+    ----
     Plot a correlation heatmap of asset returns.
 
     Computes returns from monetary positions and visualizes the return correlation matrix 
@@ -646,8 +649,10 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
 # ----------------------------------------------------------
 # Simulated P&L Distribution Plot with KDE (Static Only)
 # ----------------------------------------------------------
-def plot_simulated_distribution(pnl, var, es, confidence_level=0.99, output_path=None):
+def plot_simulated_distribution(profit_and_loss, var, es, confidence_level=0.99, output_path=None):
     """
+    Main
+    ----
     Plot histogram and KDE of simulated Profit & Loss (P&L) with VaR and ES markers.
 
     Suitable for visualizing risk from Monte Carlo, bootstrapped, or historical
@@ -658,7 +663,7 @@ def plot_simulated_distribution(pnl, var, es, confidence_level=0.99, output_path
 
     Parameters
     ----------
-    pnl : np.ndarray or pd.Series
+    profit_and_loss : np.ndarray or pd.Series
         Simulated profit and loss values.
     var : float
         Value-at-Risk estimate.
@@ -671,7 +676,7 @@ def plot_simulated_distribution(pnl, var, es, confidence_level=0.99, output_path
     """
     plt.figure(figsize=(10, 5))
 
-    sns.histplot(pnl, bins=80, kde=True, stat="density",
+    sns.histplot(profit_and_loss, bins=80, kde=True, stat="density",
                  color="lightblue", edgecolor="black", linewidth=0.5)
 
     plt.axvline(-var, color="black", linestyle="-", linewidth=1.5,
@@ -702,6 +707,8 @@ def plot_simulated_distribution(pnl, var, es, confidence_level=0.99, output_path
 # ----------------------------------------------------------
 def plot_simulated_paths(portfolio_paths, output_path=None):
     """
+    Main
+    ----
     Plot simulated portfolio value trajectories over time.
 
     Displays individual paths generated from a Monte Carlo simulation of
