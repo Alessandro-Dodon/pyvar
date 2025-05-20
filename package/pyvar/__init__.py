@@ -1,7 +1,7 @@
 """
-PyVaR: A Comprehensive Financial Risk Analysis Toolkit
+pyvar: A Comprehensive Financial Risk Analysis Toolkit
 
-PyVaR is a modular Python package designed for financial risk modeling, 
+pyvar is a modular Python package designed for financial risk modeling, 
 focusing on Value-at-Risk (VaR) and Expected Shortfall (ES). 
 It provides analytical tools, interactive visualizations, and rigorous 
 backtesting utilities to support risk management and portfolio analysis.
