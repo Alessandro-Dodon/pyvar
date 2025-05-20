@@ -1,3 +1,41 @@
+"""
+Interactive Visualization Module for Risk and Portfolio Analysis
+----------------------------------------------------------------
+
+Provides plotting utilities for risk metrics, portfolio contributions, 
+and correlation structures using Plotly and Matplotlib. All Plotly-based 
+plots follow a consistent white-background aesthetic with black-bordered 
+axes and support both interactive display and static image export.
+
+This module is designed to be best used in Jupyter notebooks or similar environments.
+
+Static images can be exported using `output_path`. If no path is provided,
+a high-resolution inline image is displayed.
+
+Authors
+-------
+Alessandro Dodon, Niccolò Lecce, Marco Gasparetti
+
+Created
+-------
+May 2025
+
+Contents
+--------
+- plot_backtest: Backtesting VaR and ES with return violations
+- plot_volatility: Line plot of conditional volatility
+- plot_var_series: Diversified vs. undiversified VaR comparison
+- plot_risk_contribution_bar: Average Component VaR bar chart
+- plot_risk_contribution_lines: Component VaR evolution by asset
+- plot_correlation_matrix: Heatmap of asset return correlations
+- plot_simulated_distribution: Histogram + KDE of simulated P&L with VaR/ES (static only)
+- plot_simulated_paths: Simulated portfolio value trajectories (static only)
+- get_asset_color_map: Generate consistent color assignment for assets
+- display_high_dpi_inline: Utility for displaying PNG images inline
+"""
+
+# TODO: double check all names/ titles
+
 #----------------------------------------------------------
 # Packages
 #----------------------------------------------------------
@@ -11,41 +49,65 @@ from IPython.display import display, HTML
 from plotly.io import to_image
 from io import BytesIO
 import base64
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-#################################################
-# Note: double check all names/ titles
-#################################################
-# Note: output path should work only with static images
-#################################################
 
 #----------------------------------------------------------
 # Display helper 
 #----------------------------------------------------------
 def display_high_dpi_inline(png_bytes, width):
+    """
+    Main
+    ----
+    Display a high-resolution PNG image inline in a notebook.
+    Encodes the image in base64 and renders it with a specified width.
+    This is a support function.
+
+    Parameters
+    ----------
+    png_bytes : bytes
+        PNG image in byte format.
+    width : int
+        Width in pixels for display.
+
+    Returns
+    -------
+    IPython.display.HTML
+        HTML image element for inline display.
+    """
     encoded = base64.b64encode(png_bytes).decode("utf-8")
     return HTML(f'<img src="data:image/png;base64,{encoded}" style="width:{width}px;"/>')
 
 
 #----------------------------------------------------------
-# Backtesting Plot for VaR (and optionally ES)
+# Backtesting Plot for VaR and ES 
 #----------------------------------------------------------
 def plot_backtest(data, subset=None, interactive=True, output_path=None):
     """
-    Adaptive backtest plot for Value-at-Risk and optionally Expected Shortfall.
+    Main
+    ----
+    Generate a backtesting plot for Value-at-Risk (VaR) and optionally Expected Shortfall (ES).
 
-    Automatically chooses bar or line plots for returns based on data length.
-    Adds VaR line and violations. If 'ES' column exists, includes ES line.
-    Zero line is shown only when bars are used.
+    Displays returns, VaR threshold, and VaR violations. Adds ES line if present.
+    Automatically switches between bar and line plot depending on time span.
+    Can show plot interactively or export as static image.
 
-    Parameters:
-    - data (pd.DataFrame): Must contain 'Returns', 'VaR', and 'VaR Violation'. 
-                           Optionally can contain 'ES'.
-    - subset (tuple, optional): (start_date, end_date) for time window selection.
-    - interactive (bool): Show interactive plot (True) or export static PNG (False).
-    - output_path (str, optional): File path to save PNG if interactive=False.
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Must contain 'Returns', 'VaR', and 'VaR Violation'. Optionally 'ES'.
+    subset : tuple, optional
+        Start and end date for subsetting the time window.
+    interactive : bool, optional
+        Whether to display the plot interactively. Default is True.
+    output_path : str, optional
+        File path to save static PDF if interactive is False.
 
-    Returns:
-    - fig (plotly.graph_objs.Figure): Plotly figure object.
+    Returns
+    -------
+    plotly.graph_objs.Figure
+        Generated plotly figure.
     """
     if subset is not None:
         data = data.loc[subset[0]:subset[1]]
@@ -122,7 +184,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
             xref="x", yref="y"
         )
 
-    # Layout
+        # Layout
     fig.update_layout(
         title=title,
         yaxis_title="Returns (%)",
@@ -134,7 +196,13 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
         plot_bgcolor="white",
         paper_bgcolor="white",
         margin=dict(l=60, r=60, t=50, b=50),
-        xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
+        xaxis=dict(
+            showline=True,
+            linewidth=1,
+            linecolor="black",
+            mirror=True,
+            range=[data.index.min(), data.index.max()]  # 🔧 Ensures full-width alignment
+        ),
         yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
     )
 
@@ -147,7 +215,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
         fig.show()
         return fig
     elif output_path:
-        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+        fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
@@ -160,25 +228,28 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
 #----------------------------------------------------------
 def plot_volatility(volatility_series, subset=None, interactive=True, output_path=None):
     """
-    Interactive Volatility Plot.
+    Main
+    ----
+    Plot conditional volatility over time.
 
-    Create an interactive Plotly figure showing conditional volatility over time.
+    Generates an interactive line plot of volatility estimates (in %). 
+    Supports subsetting, export to PDF, or inline display.
 
-    Parameters:
-    - volatility_series (pd.Series):
-        Time series of volatility estimates (decimal format).
+    Parameters
+    ----------
+    volatility_series : pd.Series
+        Time series of volatility estimates in decimal format (e.g., 0.02 = 2%).
+    subset : tuple, optional
+        Start and end date as (start_date, end_date) to zoom in.
+    interactive : bool, optional
+        Whether to display the plot interactively. Default is True.
+    output_path : str, optional
+        File path to save static PDF if interactive is False.
 
-    - subset (tuple, optional):
-        (start_date, end_date) to zoom into a specific time range.
-
-    Returns:
-    - plotly.graph_objs.Figure:
-        Interactive volatility plot with clean formatting.
-
-    Notes:
-    - Volatility is displayed as a blue line (in %).
-    - The background is white with black axis borders.
-    - Hover labels show volatility in percentage terms.
+    Returns
+    -------
+    plotly.graph_objs.Figure
+        Plotly figure of volatility over time.
     """
     if subset is not None:
         volatility_series = volatility_series.loc[subset[0]:subset[1]]
@@ -216,7 +287,7 @@ def plot_volatility(volatility_series, subset=None, interactive=True, output_pat
         return fig
 
     elif output_path:
-        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+        fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
 
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
@@ -228,21 +299,22 @@ def plot_volatility(volatility_series, subset=None, interactive=True, output_pat
 #----------------------------------------------------------
 def get_asset_color_map(assets):
     """
-    Asset Color Mapping.
+    Main
+    ----
+    Generate consistent colors for asset-level visualizations.
+    Assigns a unique color to each asset using Plotly's qualitative palette, 
+    cycling through it as needed. Useful for consistent coloring in portfolio plots.
+    This is a support function.
 
-    Generate a consistent color assignment for a list of assets, cycling through a predefined color palette.
-
-    Parameters:
-    - assets (list-like):
+    Parameters
+    ----------
+    assets : list-like
         List of asset names (strings).
 
-    Returns:
-    - dict:
-        Dictionary mapping each asset to a unique color.
-
-    Notes:
-    - Colors are drawn cyclically from Plotly's qualitative palette.
-    - Ensures consistent asset coloring across plots.
+    Returns
+    -------
+    dict
+        Dictionary mapping each asset to a color string.
     """
     base_colors = px.colors.qualitative.Plotly
     color_cycle = itertools.cycle(base_colors)
@@ -254,25 +326,29 @@ def get_asset_color_map(assets):
 #----------------------------------------------------------
 def plot_var_series(var_df, interactive=True, output_path=None):
     """
-    Asset-Normal vs. Undiversified VaR Plot.
+    Main
+    ----
+    Plot diversified vs. undiversified Value-at-Risk (VaR) over time.
 
-    Create an interactive Plotly line chart comparing diversified (Asset-Normal) VaR and 
-    Undiversified VaR (ρ = 1) over time.
+    Displays a line chart comparing diversified VaR (accounting for correlation)
+    and undiversified VaR (assuming full asset correlation). Useful for visualizing
+    the diversification benefit in monetary units.
 
-    Parameters:
-    - var_series (pd.Series):
-        Time series of diversified Value-at-Risk (VaR).
+    Parameters
+    ----------
+    var_df : pd.DataFrame
+        Must contain the columns:
+        - 'Diversified_VaR': Time series of portfolio VaR
+        - 'Undiversified_VaR': VaR assuming ρ = 1 for all assets
+    interactive : bool, optional
+        Whether to display the plot interactively. Default is True.
+    output_path : str, optional
+        File path to save static PDF if interactive is False.
 
-    - uvar_series (pd.Series):
-        Time series of undiversified VaR (full asset correlation assumed).
-
-    Returns:
-    - None:
-        Displays an interactive plot with both series for comparison.
-
-    Notes:
-    - Useful for visualizing the impact of diversification over time.
-    - Outputs VaR in monetary units.
+    Returns
+    -------
+    None
+        Displays or saves the plot; does not return a figure.
     """
     fig = go.Figure()
 
@@ -315,7 +391,7 @@ def plot_var_series(var_df, interactive=True, output_path=None):
     if interactive:
         fig.show()
     elif output_path:
-        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+        fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
@@ -326,18 +402,33 @@ def plot_var_series(var_df, interactive=True, output_path=None):
 # ----------------------------------------------------------
 def plot_risk_contribution_bar(component_df, interactive=True, output_path=None):
     """
-    Average Component VaR Contribution Bar Chart.
+    Main
+    ----
+    Plot average absolute Component VaR contributions by asset.
 
-    Create an interactive horizontal bar chart showing the average absolute Component VaR 
-    contribution of each asset to total portfolio risk.
+    Displays a horizontal bar chart showing the average absolute 
+    risk contribution of each asset to portfolio VaR. Useful for 
+    visualizing the relative importance of individual assets.
 
-    Parameters:
-    - component_df (pd.DataFrame):
-        Time series of Component VaR values (shape: T × N).
+    Parameters
+    ----------
+    component_df : pd.DataFrame
+        Time series of Component VaR values (T × N).
+        Each column corresponds to an asset.
+    interactive : bool, optional
+        Whether to display the plot interactively. Default is True.
+    output_path : str, optional
+        File path to save static PDF if interactive is False.
 
-    Returns:
-    - fig (plotly.graph_objs.Figure):
-        Interactive bar chart figure.
+    Returns
+    -------
+    plotly.graph_objs.Figure
+        Interactive Plotly figure object.
+    
+    Raises
+    ------
+    ValueError
+        If all component VaR contributions are zero.
     """
     average_contributions = component_df.abs().mean()
     total = average_contributions.sum()
@@ -385,7 +476,7 @@ def plot_risk_contribution_bar(component_df, interactive=True, output_path=None)
         fig.show()
         return  # Prevent double rendering
     elif output_path:
-        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+        fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
@@ -396,23 +487,24 @@ def plot_risk_contribution_bar(component_df, interactive=True, output_path=None)
 #----------------------------------------------------------
 def plot_risk_contribution_lines(component_df, interactive=True, output_path=None):
     """
-    Component VaR Over Time Line Plot.
+    Plot Component VaR contributions by asset over time.
 
-    Create an interactive Plotly line chart showing the evolution of each asset's Component VaR 
-    contribution over time.
+    Displays a multi-line chart showing how each asset's Component VaR evolves. 
+    Useful for tracking risk dynamics and identifying shifting contributions.
 
-    Parameters:
-    - component_df (pd.DataFrame):
-        Time series of Component VaR values (shape: T × N).
+    Parameters
+    ----------
+    component_df : pd.DataFrame
+        Time series of Component VaR values (T × N), one column per asset.
+    interactive : bool, optional
+        Whether to display the plot interactively. Default is True.
+    output_path : str, optional
+        File path to save static PDF if interactive is False.
 
-    Returns:
-    - None:
-        Displays an interactive line plot with one line per asset.
-
-    Notes:
-    - Colors are consistently assigned using a fixed palette.
-    - Helps visualize changing risk contributions across time.
-    - Hover templates display asset name and Component VaR in monetary units.
+    Returns
+    -------
+    None
+        Displays or saves the plot; does not return a figure.
     """
     asset_colors = get_asset_color_map(component_df.columns)
     fig = go.Figure()
@@ -450,7 +542,7 @@ def plot_risk_contribution_lines(component_df, interactive=True, output_path=Non
         fig.show()
         return  # Prevent duplicate display
     elif output_path:
-        fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
+        fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
@@ -461,37 +553,38 @@ def plot_risk_contribution_lines(component_df, interactive=True, output_path=Non
 #----------------------------------------------------------
 def plot_correlation_matrix(position_data, interactive=True, output_path=None):
     """
-    Interactive Correlation Matrix Heatmap.
+    Main
+    ----
+    Plot a correlation heatmap of asset returns.
 
-    Create an interactive heatmap visualization of the asset return correlations, 
-    showing only the lower triangle of the matrix with a diverging red-blue color scheme.
+    Computes returns from monetary positions and visualizes the return correlation matrix 
+    as a lower-triangular heatmap with a red-blue diverging color scale. Hover labels 
+    show asset pairs and correlation values. Axis labels are hidden for a cleaner look.
 
-    Description:
-    - Computes returns from monetary positions:
-        - Log returns if all positions are positive.
-        - Percentage returns if any position is negative (e.g., due to short selling).
-    - Masks the upper triangle to reduce redundancy.
-    - White gridlines and no visible axes for a clean heatmap appearance.
+    Parameters
+    ----------
+    position_data : pd.DataFrame or np.ndarray
+        Time series of monetary positions (T × N).
+    interactive : bool, optional
+        Whether to display the plot interactively. Default is True.
+    output_path : str, optional
+        File path to save static PNG if interactive is False.
 
-    Parameters:
-    - position_data (pd.DataFrame or np.ndarray):
-        Time series of monetary positions (shape: T × N).
+    Returns
+    -------
+    plotly.graph_objects.Figure
+        Interactive correlation matrix heatmap.
 
-    Returns:
-    - fig (plotly.graph_objects.Figure):
-        Interactive heatmap figure ready for display.
-
-    Notes:
-    - Correlations range from -1 (perfect negative) to +1 (perfect positive).
-    - Hover tooltips show asset pairs and their correlation values.
+    Notes
+    -----
+    - This must be exported to PNG to preserve quality.
+    - Always uses percentage returns (pct_change).
+    - Masks the upper triangle to remove redundant values.
     """
     position_data = pd.DataFrame(position_data).dropna()
 
-    # Compute returns
-    if (position_data <= 0).any().any():
-        returns = position_data.pct_change().dropna()
-    else:
-        returns = np.log(position_data / position_data.shift(1)).dropna()
+    # Always use percentage returns
+    returns = position_data.pct_change().dropna()
 
     corr_matrix = returns.corr()
     asset_names = corr_matrix.columns.tolist()
@@ -519,7 +612,7 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
     ))
 
     fig.update_layout(
-        title="Correlation Matrix (Returns)",
+        title="Correlation Matrix (Percentage Returns)",
         width=900,
         height=800,
         template="simple_white",
@@ -553,3 +646,105 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
         display(display_high_dpi_inline(png_bytes, width))
 
 
+# ----------------------------------------------------------
+# Simulated P&L Distribution Plot with KDE (Static Only)
+# ----------------------------------------------------------
+def plot_simulated_distribution(profit_and_loss, var, es, confidence_level=0.99, output_path=None):
+    """
+    Main
+    ----
+    Plot histogram and KDE of simulated Profit & Loss (P&L) with VaR and ES markers.
+
+    Suitable for visualizing risk from Monte Carlo, bootstrapped, or historical
+    simulations. Combines histogram and smoothed KDE, with vertical lines marking
+    Value-at-Risk and Expected Shortfall.
+
+    This is a static only plot.
+
+    Parameters
+    ----------
+    profit_and_loss : np.ndarray or pd.Series
+        Simulated profit and loss values.
+    var : float
+        Value-at-Risk estimate.
+    es : float
+        Expected Shortfall estimate.
+    confidence_level : float, optional
+        Confidence level for VaR and ES (e.g., 0.99). Default is 0.99.
+    output_path : str, optional
+        File path to export PDF. If None, shows the plot inline.
+    """
+    plt.figure(figsize=(10, 5))
+
+    sns.histplot(profit_and_loss, bins=80, kde=True, stat="density",
+                 color="lightblue", edgecolor="black", linewidth=0.5)
+
+    plt.axvline(-var, color="black", linestyle="-", linewidth=1.5,
+                label=f"VaR ({int(confidence_level * 100)}%)")
+    plt.axvline(-es, color="red", linestyle="--", linewidth=1.5,
+                label=f"ES ({int(confidence_level * 100)}%)")
+
+    plt.title("Simulated Portfolio P&L Distribution", loc="left", fontsize=13, fontweight="medium")
+    plt.legend(loc="upper left", frameon=True, edgecolor="black")
+    plt.xlabel("Profit / Loss")
+    plt.ylabel("Density")
+    plt.legend()
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, format="pdf")
+        plt.close()
+    else:
+        buf = BytesIO()
+        plt.savefig(buf, format="png", dpi=300)
+        buf.seek(0)
+        display(display_high_dpi_inline(buf.read(), width=1000))
+        plt.close()
+
+
+# ----------------------------------------------------------
+# Simulated Portfolio Path Plot (Static Only)
+# ----------------------------------------------------------
+def plot_simulated_paths(portfolio_paths, output_path=None):
+    """
+    Main
+    ----
+    Plot simulated portfolio value trajectories over time.
+
+    Displays individual paths generated from a Monte Carlo simulation of
+    portfolio values. Useful for assessing the dispersion and range of
+    simulated future outcomes.
+
+    This is a static only plot.
+
+    Parameters
+    ----------
+    portfolio_paths : np.ndarray
+        Simulated paths of portfolio values (T × N), where T is time steps
+        and N is number of simulation paths.
+    output_path : str, optional
+        File path to export PDF. If None, shows the plot inline.
+    """
+    num_days, num_paths = portfolio_paths.shape
+    sample_paths = min(num_paths, 2500)
+    x_axis = np.arange(num_days)
+
+    plt.figure(figsize=(10, 5))
+    for i in range(sample_paths):
+        plt.plot(x_axis, portfolio_paths[:, i], alpha=0.4)
+
+    plt.xlim(0, num_days - 1)
+    plt.title(f"Simulated Portfolio Value Trajectories over {num_days - 1} Days", loc="left", fontsize=13, fontweight="medium")
+    plt.xlabel("Days")
+    plt.ylabel("Portfolio Value")
+    plt.tight_layout()
+
+    if output_path:
+        plt.savefig(output_path, format="pdf")
+        plt.close()
+    else:
+        buf = BytesIO()
+        plt.savefig(buf, format='png', dpi=300)
+        buf.seek(0)
+        display(display_high_dpi_inline(buf.read(), width=1000))
+        plt.close()
