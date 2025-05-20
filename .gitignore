@@ -1,1 +1,46 @@
-*.pdf
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.pyo
+*.pyd
+*.so
+.Python
+env/
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS-specific
+.DS_Store
+*.swp
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.code-workspace
+
+# Logs and lock files
+*.log
+*.lock
+
+# Data files (optional)
+*.csv
+*.ts
+*.zip
+*.h5
+*.pkl
+
+# Build artifacts
+build/
+dist/
+*.egg
+*.manifest
+*.spec
+
+# Git
+*.orig
+*.rej
+
