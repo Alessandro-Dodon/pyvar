@@ -61,7 +61,7 @@ from .volatility import (
 )
 
 from .portfolio import (
-    var_asset_normal,
+    asset_normal_var,
     marginal_var,
     component_var,
     relative_component_var,
@@ -75,7 +75,7 @@ from .portfolio import (
 from .correlation import (
     ma_correlation_var,
     ewma_correlation_var,
-    es_correlation
+    correlation_es
 )
 
 from .factor_models import (
