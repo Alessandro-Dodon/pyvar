@@ -13,6 +13,8 @@ contributions, using portfolio positions and the return covariance structure.
 
 Assumes normally distributed returns and a static covariance matrix over time.
 
+Assumes a buy-and-hold portfolio strategy. If shares drastically change, the 
+risk measures in this module should be recalculated.
 Authors
 -------
 Alessandro Dodon, Niccolò Lecce, Marco Gasparetti

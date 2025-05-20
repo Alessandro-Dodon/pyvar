@@ -1,6 +1,6 @@
 """
 Basic VaR and Expected Shortfall Estimation Module
---------------------------------------------
+--------------------------------------------------
 
 Provides functions to compute Value-at-Risk (VaR) and Expected Shortfall (ES) using the two most
 basic methods, both non-parametric (historical) and parametric methods (Normal and Student-t distributions).

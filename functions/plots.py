@@ -1,6 +1,6 @@
 """
 Interactive Visualization Module for Risk and Portfolio Analysis
--------------------------------------------------------------------
+----------------------------------------------------------------
 
 Provides plotting utilities for risk metrics, portfolio contributions, 
 and correlation structures using Plotly and Matplotlib. All Plotly-based 

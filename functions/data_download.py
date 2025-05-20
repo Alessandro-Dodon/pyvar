@@ -10,7 +10,12 @@ For single-asset analysis (e.g., VaR/ES with univariate models), these tools
 are not required, since the input can be a single price or return series.
 
 Each time we will assume daily VaR calculation, so all the data downloaded
-with this module is daily.
+with this module is daily. This module also partially helps in pre-processing
+the data.
+
+Notice that all the risk management measures adopted in the other modules
+assume a "buy and hold" strategy". If shares change suddently, the risk measure
+must be recalculated. 
 
 Authors
 -------
@@ -25,11 +30,10 @@ Contents
 - get_raw_prices: Download adjusted closing prices using yfinance
 - convert_to_base: Convert raw prices to a common base currency
 - create_portfolio: Convert prices into monetary exposures using share quantities
-- summary_statistics: Compute return series, means, and covariance matrix
+- summary_statistics: Compute returns, means, and covariance matrix
 - validate_matrix: Run basic stability checks on matrices (e.g., prices, returns, positions)
 """
 
-# TODO: better names for currency conversion function for the output
 
 #----------------------------------------------------------
 # Packages
@@ -44,6 +48,8 @@ import numpy as np
 #----------------------------------------------------------
 def validate_matrix(matrix: pd.DataFrame, context: str = ""):
     """
+    Main
+    ----
     Perform basic structural and statistical checks on any matrix 
     used in financial modeling (e.g., prices, positions, returns).
 
@@ -51,7 +57,7 @@ def validate_matrix(matrix: pd.DataFrame, context: str = ""):
     your own csv file, you can use this function to check the data
     immediately. We don't reccomend however for our basic applications
     to use portfolios with overall negative values (complete shorts).
-    Also keep in mind that a near zero value of portfolio (perfect hedge)
+    Also, notice that a near zero value of portfolio (perfect hedge)
     may be a problem in some other functions. 
 
     Parameters
@@ -73,9 +79,9 @@ def validate_matrix(matrix: pd.DataFrame, context: str = ""):
     if matrix.isnull().any().any():
         print(f"[warning] {label} NaNs detected — clean the data before analysis.")
 
-    n_obs, n_assets = matrix.shape
-    if n_obs < n_assets:
-        print(f"[warning] {label} Fewer rows ({n_obs}) than columns ({n_assets}) — covariance may be unstable.")
+    n_observations, n_assets = matrix.shape 
+    if n_observations < n_assets:
+        print(f"[warning] {label} Fewer rows ({n_observations}) than columns ({n_assets}) — covariance may be unstable.")
 
     variances = matrix.var()
     near_zero = variances < 1e-10
@@ -84,8 +90,8 @@ def validate_matrix(matrix: pd.DataFrame, context: str = ""):
         print(f"[warning] {label} Near-zero variance in: {bad_assets} — may cause instability.")
 
     cov = matrix.cov().values
-    eigvals = np.linalg.eigvalsh(cov)
-    if (eigvals < -1e-8).any():
+    eigenvalues = np.linalg.eigvalsh(cov)
+    if (eigenvalues < -1e-8).any():
         print(f"[warning] {label} Covariance matrix not PSD — negative eigenvalues detected.")
 
 
@@ -94,7 +100,9 @@ def validate_matrix(matrix: pd.DataFrame, context: str = ""):
 # ----------------------------------------------------------
 def get_raw_prices(tickers, start="2024-01-01", end=None) -> pd.DataFrame:
     """
-    Download adjusted closing prices for a list of tickers using yfinance.
+    Main
+    ----
+    Download daily adjusted closing prices for a list of tickers using yfinance.
 
     Returns a DataFrame with tickers as columns and dates as index.
     Designed for multi-asset use cases and portfolio modeling.
@@ -118,27 +126,29 @@ def get_raw_prices(tickers, start="2024-01-01", end=None) -> pd.DataFrame:
     Warning
         If matrix structure is unstable or contains issues for downstream analysis.
     """
-    prices = (
+    raw_prices = (
         yf.download(" ".join(tickers), start=start, end=end,
                     auto_adjust=True, progress=False)["Close"]
         .ffill()
     )
 
-    validate_matrix(prices, context="raw prices")
+    validate_matrix(raw_prices, context="raw prices")
 
-    return prices
+    return raw_prices
 
 
 #----------------------------------------------------------
 # Currency Conversion
 # ----------------------------------------------------------
 def convert_to_base(
-    raw: pd.DataFrame,
-    cur_map: dict = None,
-    base: str = "EUR",
+    raw_prices: pd.DataFrame,
+    currency_mapping: dict = None,
+    base_currency: str = "EUR",
     show_currency_detection: bool = True
 ) -> pd.DataFrame:
     """
+    Main
+    ----
     Convert raw prices to a common base currency using FX rates from Yahoo Finance.
 
     Automatically scales minor units like GBp or ZAc and renames currencies to
@@ -146,12 +156,12 @@ def convert_to_base(
 
     Parameters
     ----------
-    raw : pd.DataFrame
+    raw_prices : pd.DataFrame
         Raw price data (tickers as columns, dates as index).
-    cur_map : dict, optional
+    currency_mapping : dict, optional
         Mapping from tickers to their native currencies.
         If None, currencies are auto-detected via yfinance.
-    base : str, optional
+    base_currency : str, optional
         Target base currency. Default is 'EUR'.
     show_currency_detection : bool, optional
         If True, prints currency detection and FX conversion steps.
@@ -167,60 +177,60 @@ def convert_to_base(
         If FX rates cannot be downloaded for some currencies or if currency detection fails.
     """
     # Detect currencies if not provided
-    if cur_map is None:
-        cur_map = {}
-        for t in raw.columns:
+    if currency_mapping is None:
+        currency_mapping = {}
+        for ticker in raw_prices.columns:
             try:
-                cur = yf.Ticker(t).fast_info.get("currency", "UNKNOWN") or "UNKNOWN"
+                native_currency = yf.Ticker(ticker).fast_info.get("currency", "UNKNOWN") or "UNKNOWN"
             except Exception:
-                cur = "UNKNOWN"
-            cur_map[t] = cur
+                native_currency = "UNKNOWN"
+            currency_mapping[ticker] = native_currency
             if show_currency_detection:
-                print(f"[currency detection] {t}: {cur}")
+                print(f"[currency detection] {ticker}: {native_currency}")
 
     # Determine which FX pairs are needed
-    needed = {cur_map[t] for t in raw.columns if cur_map[t] not in {base, "UNKNOWN"}}
-    fx_pairs = [f"{base}{cur}=X" for cur in needed]
+    needed_currencies = {currency_mapping[ticker] for ticker in raw_prices.columns if currency_mapping[ticker] not in {base_currency, "UNKNOWN"}}
+    fx_pair_list = [f"{base_currency}{currency}=X" for currency in needed_currencies]
 
-    if fx_pairs:
+    if fx_pair_list:
         if show_currency_detection:
-            print(f"[fx download] Downloading FX pairs: {', '.join(fx_pairs)}")
-        fx = (
-            yf.download(" ".join(fx_pairs), start=raw.index[0],
+            print(f"[fx download] Downloading FX pairs: {', '.join(fx_pair_list)}")
+        fx_rates = (
+            yf.download(" ".join(fx_pair_list), start=raw_prices.index[0],
                         auto_adjust=True, progress=False)["Close"]
-            .reindex(raw.index)
+            .reindex(raw_prices.index)
             .ffill()
         )
     else:
-        fx = pd.DataFrame(index=raw.index)
+        fx_rates = pd.DataFrame(index=raw_prices.index)
 
     # Convert all tickers to base currency
-    converted_prices = pd.DataFrame(index=raw.index)
-    for t in raw.columns:
-        p = raw[t].copy()
-        cur = cur_map[t]
+    converted_prices = pd.DataFrame(index=raw_prices.index)
+    for ticker in raw_prices.columns:
+        my_price = raw_prices[ticker].copy()
+        native_currency = currency_mapping[ticker]
 
-        if cur in {"GBp", "GBX", "ZAc"}:
+        if native_currency in {"GBp", "GBX", "ZAc"}:
             if show_currency_detection:
-                print(f"[unit conversion] {t}: converting from {cur} to major unit")
-            p *= 0.01
-            cur = "GBP" if cur in {"GBp", "GBX"} else "ZAR"
+                print(f"[unit conversion] {ticker}: converting from {native_currency} to major unit")
+            my_price *= 0.01
+            native_currency = "GBP" if native_currency in {"GBp", "GBX"} else "ZAR"
 
-        if cur not in {base, "UNKNOWN"}:
-            pair = f"{base}{cur}=X"
-            if pair not in fx.columns:
+        if native_currency not in {base_currency, "UNKNOWN"}:
+            fx_pair = f"{base_currency}{native_currency}=X"
+            if fx_pair not in fx_rates.columns:
                 if show_currency_detection:
-                    print(f"[warning] {t}: FX pair {pair} not found — skipping")
-                converted_prices[t] = p
+                    print(f"[warning] {ticker}: FX pair {fx_pair} not found — skipping")
+                converted_prices[ticker] = my_price
                 continue
-            rate = fx[pair]
-            p = p / rate
+            fx_rate = fx_rates[fx_pair]
+            my_price = my_price / fx_rate
             if show_currency_detection:
-                print(f"[conversion] {t}: {cur} → {base} via {pair}")
+                print(f"[conversion] {ticker}: {native_currency} → {base_currency} via {fx_pair}")
 
-        converted_prices[t] = p
+        converted_prices[ticker] = my_price
 
-    return converted_prices 
+    return converted_prices
 
 
 #----------------------------------------------------------
@@ -228,6 +238,8 @@ def convert_to_base(
 # ----------------------------------------------------------
 def create_portfolio(prices: pd.DataFrame, shares: pd.Series) -> pd.DataFrame:
     """
+    Main
+    ----
     Convert asset prices to monetary portfolio exposures using share quantities.
 
     Tickers in `shares` must match the columns of the price DataFrame.
@@ -279,6 +291,8 @@ def create_portfolio(prices: pd.DataFrame, shares: pd.Series) -> pd.DataFrame:
 # ----------------------------------------------------------
 def summary_statistics(matrix: pd.DataFrame): 
     """
+    Main
+    ----
     Compute daily returns, mean returns, and the return covariance matrix.
 
     This function works both with raw asset prices and with monetary positions
