@@ -13,6 +13,9 @@ covariance matrix (EWMA).
 Expected Shortfall is computed via the es_correlation function, which automatically 
 selects between parametric and empirical estimation based on model output.
 
+Assumes a buy-and-hold portfolio strategy. If shares drastically change, the 
+risk measures in this module should be recalculated.
+
 Authors
 -------
 Alessandro Dodon, Niccolò Lecce, Marco Gasparetti

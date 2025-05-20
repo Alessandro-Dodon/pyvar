@@ -8,6 +8,9 @@ Fama–French 3-factor framework. The quantiles are obtained from the normal dis
 factor returns are assumed to be normally distributed. ES is estimated using the general 
 parametric normal formula based on portfolio volatility.
 
+Assumes a buy-and-hold portfolio strategy. If shares drastically change, the 
+risk measures in this module should be recalculated.
+
 Authors
 -------
 Alessandro Dodon, Niccolò Lecce, Marco Gasparetti

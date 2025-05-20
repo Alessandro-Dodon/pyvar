@@ -7,6 +7,9 @@ using simulation-based techniques. These include parametric Monte Carlo methods,
 and both historical and bootstrapped historical simulation methods.
 Notice that backtesting is not implemented for this module.
 
+Assumes a buy-and-hold portfolio strategy. If shares drastically change, the 
+risk measures in this module should be recalculated.
+
 Authors
 -------
 Alessandro Dodon, Niccolò Lecce, Marco Gasparetti
