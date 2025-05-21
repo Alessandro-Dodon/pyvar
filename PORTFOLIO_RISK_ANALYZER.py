@@ -13,6 +13,8 @@ from functions.data_download import (
 )
 from functions.simulations import black_scholes
 
+
+
 # ================================================================
 # 1) USER INPUT – Base currency, tickers, share quantities
 # ================================================================
@@ -46,6 +48,10 @@ if input("Do you have options in the portfolio? (y/n): ").lower().startswith("y"
         })
 
         print(f"  ✔ Added {opt_type.upper()} {underlying} x{contracts}x{multiplier} @K={strike}\n")
+
+
+
+
 
 # ================================================================
 # 2) EQUITY DATA PREPROCESSING
@@ -142,6 +148,8 @@ if options_list:
 
         print(f"{opt['type'].upper():4} {opt['under']:<6}  {opt['qty']:>6.0f}× @ {price_opt:>8.2f} = {val_opt:>10.2f}")
 
+
+
 # ================================================================
 # 4) TOTAL PORTFOLIO VALUE
 # ================================================================
@@ -151,3 +159,51 @@ print("\n===== TOTAL PORTFOLIO VALUE =====")
 print(f"Equity-only:         {portfolio_value:,.2f} {BASE}")
 print(f"Options (B-S):       {option_value:,.2f} {BASE}")
 print(f"TOTAL PORTFOLIO:     {total_value:,.2f} {BASE}")
+
+
+
+
+
+# ================================================================
+# 4) ASSET-NORMAL VaR AND DECOMPOSITION (EQUITY ONLY)
+# ================================================================
+from functions.portfolio import (
+    asset_normal_var,
+    component_var,
+    marginal_var,
+    relative_component_var
+)
+
+CONFIDENCE = 0.99
+HOLDING_PERIOD = 1
+
+print("\n===== ASSET-NORMAL VAR (EQUITY ONLY) =====")
+
+# VaR series
+var_df = asset_normal_var(position_data=positions_df,
+                          confidence_level=CONFIDENCE,
+                          holding_period=HOLDING_PERIOD)
+
+# Last values
+last_var_row = var_df.iloc[-1]
+print(f"Diversified VaR:     {last_var_row['Diversified_VaR']:,.2f} {BASE}")
+print(f"Undiversified VaR:   {last_var_row['Undiversified_VaR']:,.2f} {BASE}")
+print(f"Diversification Gain:{last_var_row['Diversification_Benefit']:,.2f} {BASE}")
+
+# Component VaR
+comp_var_df = component_var(positions_df, confidence_level=CONFIDENCE)
+last_comp = comp_var_df.iloc[-1]
+
+# Relative contributions
+rel_comp_df = relative_component_var(positions_df, confidence_level=CONFIDENCE)
+last_rel = rel_comp_df.iloc[-1]
+
+# Print summary table
+summary_table = pd.DataFrame({
+    "Component_VaR": last_comp,
+    "Relative_%": last_rel * 100
+})
+print("\n===== COMPONENT VAR BREAKDOWN =====")
+print(summary_table.to_string(float_format=lambda x: f"{x:,.2f}"))
+
+
