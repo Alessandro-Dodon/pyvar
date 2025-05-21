@@ -1,16 +1,27 @@
 from setuptools import setup, find_packages
 
 setup(
-    name='PyVaR',
+    name='pyvar',
     version='0.1',
     packages=find_packages(),
     install_requires=[
         'numpy',
         'pandas',
-        'plotly',
         'scipy',
-        'arch'
+        'yfinance',
+        'plotly',
+        'kaleido',
+        'matplotlib',
+        'seaborn',
+        'arch',
+        'statsmodels',
+        'ipython',
+        'requests'
     ],
-    description='VaR and risk modeling toolkit for financial applications',
+    description='PyVaR: A financial risk modeling and VaR analysis toolkit',
     author='Alessandro Dodon, Niccolò Lecce, Marco Gasparetti',
+    license='MIT',
+    python_requires='>=3.7',
+    # long_description=open("README.md").read(),
+    # long_description_content_type="text/markdown",
 )

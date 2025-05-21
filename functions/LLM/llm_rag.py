@@ -33,6 +33,9 @@ Contents
 """
 
 
+#----------------------------------------------------------
+# Packages
+#----------------------------------------------------------
 import requests
 from langchain_chroma import Chroma
 from langchain_community.document_loaders import PyPDFLoader
@@ -40,13 +43,17 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import GPT4AllEmbeddings
 import os
 
+
 # --- CONFIGURATION --------------------------
 LMSTUDIO_ENDPOINT = "http://xxx.xxx.x.xxx:xxxx"  # Your LM Studio server URL, you can find this on the right side of the LM Studio Developer tab
 API_PATH = "/v1/completions"
 MODEL_NAME = "qwen-3-4b-instruct"                # Installed model name
 # ---------------------------------------------
 
-# Function to send a prompt to the local LLM and get a response
+
+#----------------------------------------------------------
+# Prompt Function for LLM
+#----------------------------------------------------------
 def ask_llm(prompt: str,
             max_tokens: int = 256,
             temperature: float = 0.2):
@@ -88,9 +95,9 @@ def ask_llm(prompt: str,
     return data["choices"][0]["text"]
 
 
-
-# ----- RAG (Retrieval-Augmented Generation) -----
-# Function to build or load a Chroma vector database from a PDF
+#----------------------------------------------------------
+# RAG Function (Chroma vector from a PDF)
+#----------------------------------------------------------
 def get_vectorstore(pdf_paths, persist_dir="kb_chroma"):
     """
     Main
@@ -137,8 +144,9 @@ def get_vectorstore(pdf_paths, persist_dir="kb_chroma"):
     return vectordb
 
 
-
-# Function to generate a rich prompt for the LLM based on documents + metrics
+#----------------------------------------------------------
+# Prompt Generation (based on documents + metrics)
+#----------------------------------------------------------
 def build_rag_prompt(metrics: dict,
                      vectordb: Chroma,
                      port_val: float,

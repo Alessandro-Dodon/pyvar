@@ -27,6 +27,7 @@ Contents
 - simulation_es: General-purpose ES from any simulated P&L array
 """
 
+
 #----------------------------------------------------------
 # Packages
 # ----------------------------------------------------------
@@ -185,7 +186,7 @@ def multiday_monte_carlo_var(price_data, shares,
     days_ahead : int, optional
         Number of trading days to simulate. Default is 10.
     simulations : int, optional
-        Number of Monte Carlo paths. Default is 50000.
+        Number of Monte Carlo paths. Default is 50,000.
     seed : int, optional
         Random seed for reproducibility.
 
@@ -199,10 +200,21 @@ def multiday_monte_carlo_var(price_data, shares,
         Simulated portfolio value paths (shape: [days_ahead + 1, simulations]).
         Ready for plotting.
 
+    Raises
+    ------
+    ValueError
+        If 'shares' is not a 1D array or if its length does not match the number of assets
+        (i.e., the number of columns in 'price_data').
+
     Notes
     -----
     - The longer the horizon, the more imprecise the arithmetic approximation. 
     """
+    # Convert and validate shares input
+    shares = np.asarray(shares)
+    if shares.ndim != 1 or shares.shape[0] != price_data.shape[1]:
+        raise ValueError(f"'shares' must be a 1D array with length equal to number of assets ({price_data.shape[1]}).")
+
     np.random.seed(seed)
     alpha = 1 - confidence_level
 

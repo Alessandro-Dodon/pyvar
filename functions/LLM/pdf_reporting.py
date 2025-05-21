@@ -34,7 +34,9 @@ Contents
 """
 
 
-
+#----------------------------------------------------------
+# Packages
+#----------------------------------------------------------
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER
@@ -46,6 +48,9 @@ import datetime
 import pandas as pd
 
 
+#----------------------------------------------------------
+# PDF Report Generation
+#----------------------------------------------------------
 def save_report_as_pdf(metrics: dict,
                        weights: pd.Series,
                        interpretation: str,
