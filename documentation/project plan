@@ -1,0 +1,31 @@
+\section*{Project Plan}
+
+\small
+
+The objective of this project is the development of a Python package for the estimation of Value-at-Risk (VaR) and Expected Shortfall (ES), specifically tailored for equity portfolios using simple, transparent models. The package is designed to automate the entire VaR estimation pipeline—from portfolio construction to model selection, computation of risk measures, visualization, backtesting, and output interpretation via natural language generation.
+
+\underline{Model Foundation} \\
+We implement basic VaR models that assume constant volatility, including both historical and parametric methods. Analytical expressions for VaR and ES under these assumptions serve as benchmarks for more complex models.
+
+\underline{Advanced Tail Risk Estimation} \\
+We integrate Extreme Value Theory using the Peaks-Over-Threshold (POT) method. A Generalized Pareto Distribution (GPD) is fitted to tail losses, and closed-form formulas are used to compute VaR and ES.
+
+\underline{Volatility Modeling} \\
+The package includes GARCH(1,1) models with analytical variance forecasts, as well as extensions such as EGARCH, GJR-GARCH, and APARCH. ARCH($p$), MA, and EWMA estimators are also included. VaR and ES are computed semi-empirically using standardized residuals.
+
+\underline{Time-Varying Correlation and Portfolio-Level Risk} \\
+For multivariate portfolios, we implement MA and EWMA correlation models. These provide time-varying covariance matrices used to estimate portfolio VaR under the normality assumption.
+
+\underline{Factor-Based Risk Models} \\
+We include both the Sharpe single-factor model and the Fama-French three-factor model. Factor loadings are estimated via OLS, and portfolio variance is derived analytically from systematic and idiosyncratic risk components. VaR and ES are computed under the assumption of normality.
+
+\underline{Specific Portfolio Risk Metrics} \\
+The package computes several portfolio-level risk measures: undiversified VaR (UVaR), marginal VaR, component VaR, and incremental VaR. These metrics decompose total risk and quantify the contribution of individual assets.
+
+\underline{Simulation Methods} \\
+We implement Monte Carlo simulations under the assumption of multivariate normality, including a one-day model and a multi-period geometric Brownian motion for equity portfolios. Option pricing is handled via Black-Scholes. Historical and bootstrap simulation methods are also included as non-parametric alternatives.
+
+\underline{Backtesting} \\
+Model accuracy is evaluated using the Kupiec test (unconditional coverage), the Christoffersen test (independence), and the joint likelihood ratio test. These are applied to non-simulation models to assess the reliability of VaR forecasts.
+
+Each module is implemented in a standalone yet interoperable format, ensuring modularity and usability. The overall design emphasizes speed, clarity, and accessibility, supporting both professional and non-professional users in modern risk management tasks.
