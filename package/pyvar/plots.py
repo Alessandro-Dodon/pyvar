@@ -82,7 +82,7 @@ def display_high_dpi_inline(png_bytes, width):
 #----------------------------------------------------------
 # Backtesting Plot for VaR and ES 
 #----------------------------------------------------------
-def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_title= None):
+def plot_backtest(data, subset=None, interactive=True, output_path=None):
     """
     Main
     ----
@@ -108,29 +108,19 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
     plotly.graph_objs.Figure or None
         Plotly figure if interactive=True. Otherwise, displays or saves the image and returns None.
     """
-    # Optionally subset the data
     if subset is not None:
         data = data.loc[subset[0]:subset[1]]
 
-    # Determine whether to use bar or line for returns
     use_bars = len(data) <= 504
     violations = data["VaR Violation"]
-    has_es     = "ES" in data.columns
+    has_es = "ES" in data.columns
 
-    # Choose title: custom_title overrides the default
-    if custom_title:
-        title = custom_title
-    else:
-        title = (
-            "Backtesting Value-at-Risk and Expected Shortfall"
-            if has_es
-            else "Backtesting Value-at-Risk"
-        )
+    # Set title dynamically
+    title = "Backtesting Value-at-Risk and Expected Shortfall" if has_es else "Backtesting Value-at-Risk"
 
-    # Build the figure
     fig = go.Figure()
 
-    # Plot portfolio returns
+    # Plot returns
     if use_bars:
         fig.add_trace(go.Bar(
             x=data.index,
@@ -150,7 +140,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
             hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
         ))
 
-    # 4b) Plot the VaR line
+    # Plot VaR line
     fig.add_trace(go.Scatter(
         x=data.index,
         y=-100 * data["VaR"],
@@ -161,7 +151,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
         customdata=100 * data["VaR"].abs()
     ))
 
-    # 4c) Plot the ES line if it exists
+    # Plot ES line if present
     if has_es:
         fig.add_trace(go.Scatter(
             x=data.index,
@@ -173,7 +163,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
             customdata=100 * data["ES"].abs()
         ))
 
-    # Highlight VaR violations
+    # Plot violations
     fig.add_trace(go.Scatter(
         x=data.index[violations],
         y=100 * data["Returns"][violations],
@@ -183,7 +173,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
         hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
     ))
 
-    # Add a zero line if using bars
+    # Add zero line only if bars are used
     if use_bars:
         fig.add_shape(
             type="line",
@@ -193,7 +183,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
             xref="x", yref="y"
         )
 
-    # Configure layout
+        # Layout
     fig.update_layout(
         title=title,
         yaxis_title="Returns (%)",
@@ -210,30 +200,29 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
             linewidth=1,
             linecolor="black",
             mirror=True,
-            range=[data.index.min(), data.index.max()],
+            range=[data.index.min(), data.index.max()]  # 🔧 Ensures full-width alignment
         ),
-        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
+        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
     )
 
-    # Show or save
-    width  = fig.layout.width  or 1000
+    # Export
+    width = fig.layout.width or 1000
     height = fig.layout.height or 500
-    scale  = 4
+    scale = 4
 
     if interactive:
-        fig.show()
+        return fig
     elif output_path:
         fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
 
-    return fig
 
 #----------------------------------------------------------
 # Volatility Plot
 #----------------------------------------------------------
-def plot_volatility(volatility_series, subset=None, interactive=True, output_path=None, custom_title=None):
+def plot_volatility(volatility_series, subset=None, interactive=True, output_path=None):
     """
     Main
     ----
@@ -273,7 +262,7 @@ def plot_volatility(volatility_series, subset=None, interactive=True, output_pat
     ))
 
     fig.update_layout(
-        title=custom_title if custom_title else "Volatility Estimate",   # <--- FIX QUI
+        title="Volatility Estimate",
         yaxis_title="Volatility (%)",
         hovermode="x unified",
         height=500,
@@ -291,15 +280,13 @@ def plot_volatility(volatility_series, subset=None, interactive=True, output_pat
 
     if interactive:
         return fig
+
     elif output_path:
         fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
+
     else:
-        from plotly.io import to_image
-        from IPython.display import display, HTML
-        import base64
-        buf = to_image(fig, format="png", width=width, height=height, scale=scale)
-        encoded = base64.b64encode(buf).decode("utf-8")
-        display(HTML(f'<img src="data:image/png;base64,{encoded}" style="width:{width}px;"/>'))
+        png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
+        display(display_high_dpi_inline(png_bytes, width))
 
 
 #----------------------------------------------------------
@@ -332,7 +319,7 @@ def get_asset_color_map(assets):
 #----------------------------------------------------------
 # VaR and UVaR Plot 
 #----------------------------------------------------------
-def plot_var_series(var_df, interactive=True, output_path=None, custom_title=None):
+def plot_var_series(var_df, interactive=True, output_path=None):
     """
     Main
     ----
@@ -377,7 +364,7 @@ def plot_var_series(var_df, interactive=True, output_path=None, custom_title=Non
     ))
 
     fig.update_layout(
-        title=custom_title if custom_title else 'Asset-Normal VaR vs. Undiversified VaR Over Time',  # PATCH QUI
+        title='Asset-Normal VaR vs. Undiversified VaR Over Time',
         xaxis_title='Date',
         yaxis_title='VaR (monetary units)',
         template='simple_white',
@@ -408,7 +395,7 @@ def plot_var_series(var_df, interactive=True, output_path=None, custom_title=Non
 # ----------------------------------------------------------
 # Risk Contribution Bar Chart 
 # ----------------------------------------------------------
-def plot_risk_contribution_bar(component_df, interactive=True, output_path=None, custom_title=None):
+def plot_risk_contribution_bar(component_df, interactive=True, output_path=None):
     """
     Main
     ----
@@ -461,7 +448,7 @@ def plot_risk_contribution_bar(component_df, interactive=True, output_path=None,
     )
 
     fig.update_layout(
-        title=custom_title if custom_title else "Average Absolute Component VaR by Asset",
+        title="Average Absolute Component VaR by Asset",
         xaxis_title="Average Absolute CVaR",
         yaxis_title="Asset",
         template="simple_white",
@@ -487,7 +474,7 @@ def plot_risk_contribution_bar(component_df, interactive=True, output_path=None,
 #----------------------------------------------------------
 # Component VaR Over Time 
 #----------------------------------------------------------
-def plot_risk_contribution_lines(component_df, interactive=True, output_path=None, custom_title=None):
+def plot_risk_contribution_lines(component_df, interactive=True, output_path=None):
     """
     Plot Component VaR contributions by asset over time.
 
@@ -508,42 +495,32 @@ def plot_risk_contribution_lines(component_df, interactive=True, output_path=Non
     plotly.graph_objs.Figure or None
         Plotly figure if interactive=True. Otherwise, displays or saves the image and returns None.
     """
-    average_contributions = component_df.abs().mean()
-    total = average_contributions.sum()
+    asset_colors = get_asset_color_map(component_df.columns)
+    fig = go.Figure()
 
-    if total == 0:
-        raise ValueError("All component VaR contributions are zero; cannot plot bar chart.")
-
-    percentages = 100 * average_contributions / total
-    sorted_assets = average_contributions.sort_values().index
-    asset_colors = get_asset_color_map(sorted_assets)
-
-    fig = go.Figure(
-        data=[
-            go.Bar(
-                x=average_contributions[sorted_assets].values,
-                y=sorted_assets,
-                orientation="h",
-                marker=dict(
-                    color=[asset_colors[asset] for asset in sorted_assets],
-                    line=dict(color='black', width=1)
-                ),
-                hovertemplate="%{y}<br>Average Absolute CVaR = %{x:.2f}<br>% Contribution = %{customdata:.2f}%<extra></extra>",
-                customdata=percentages[sorted_assets].values,
-                name="Average Component VaR"
-            )
-        ]
-    )
+    for asset in component_df.columns:
+        fig.add_trace(go.Scatter(
+            x=component_df.index,
+            y=component_df[asset],
+            mode="lines",
+            name=asset,
+            line=dict(color=asset_colors[asset]),
+            hovertemplate=f"Date: %{{x}}<br>{asset} CVaR = %{{y:.2f}}<extra></extra>"
+        ))
 
     fig.update_layout(
-        title=custom_title if custom_title else "Average Absolute Component VaR by Asset",
-        xaxis_title="Average Absolute CVaR",
-        yaxis_title="Asset",
+        title="Component VaR by Asset Over Time",
+        yaxis_title="Component VaR (monetary units)",
+        xaxis_title="Date",
         template="simple_white",
+        hovermode="x unified",
+        plot_bgcolor="white",
+        paper_bgcolor="white",
+        xaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True, tickformat="%Y-%m-%d"),
+        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
+        margin=dict(l=60, r=60, t=50, b=50),
         height=500,
-        width=1000,
-        margin=dict(l=80, r=40, t=50, b=50),
-        showlegend=False
+        width=1000
     )
 
     width = fig.layout.width or 1000
@@ -562,7 +539,7 @@ def plot_risk_contribution_lines(component_df, interactive=True, output_path=Non
 #----------------------------------------------------------
 # Correlation Matrix Heatmap
 #----------------------------------------------------------
-def plot_correlation_matrix(position_data, interactive=True, output_path=None, custom_title=None):
+def plot_correlation_matrix(position_data, interactive=True, output_path=None):
     """
     Main
     ----
@@ -623,7 +600,7 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None, c
     ))
 
     fig.update_layout(
-        title=custom_title if custom_title else "Correlation Matrix (Percentage Returns)",
+        title="Correlation Matrix (Percentage Returns)",
         width=900,
         height=800,
         template="simple_white",
@@ -659,7 +636,7 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None, c
 # ----------------------------------------------------------
 # Simulated P&L Distribution Plot with KDE (Static Only)
 # ----------------------------------------------------------
-def plot_simulated_distribution(profit_and_loss, var, es, confidence_level=0.99, output_path=None, custom_title=None):
+def plot_simulated_distribution(profit_and_loss, var, es, confidence_level=0.99, output_path=None):
     """
     Main
     ----
@@ -694,11 +671,11 @@ def plot_simulated_distribution(profit_and_loss, var, es, confidence_level=0.99,
     plt.axvline(-es, color="red", linestyle="--", linewidth=1.5,
                 label=f"ES ({int(confidence_level * 100)}%)")
 
-    title = custom_title if custom_title else "Simulated Portfolio P&L Distribution"
-    plt.title(title, loc="left", fontsize=13, fontweight="medium")
+    plt.title("Simulated Portfolio P&L Distribution", loc="left", fontsize=13, fontweight="medium")
     plt.legend(loc="upper left", frameon=True, edgecolor="black")
     plt.xlabel("Profit / Loss")
     plt.ylabel("Density")
+    plt.legend()
     plt.tight_layout()
 
     if output_path:
