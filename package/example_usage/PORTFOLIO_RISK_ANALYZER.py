@@ -25,7 +25,7 @@ from pyvar.plots import (
 )
 
 if __name__ == "__main__":
-    # 1) USER INPUT
+    # 1) INPUT UTENTE
     BASE     = "EUR"
     TICKERS  = ["NVDA", "MSFT"]
     SHARES   = pd.Series({"NVDA": 3, "MSFT": 4})
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     portfolio_value  = float((last_prices * SHARES).sum())
     weights          = (last_prices * SHARES) / portfolio_value
 
-    # Debug: risk-free rate
+    # Debug: risk-free
     try:
         rf_rate = yf.Ticker("^IRX").history(period="1d")["Close"].iloc[-1] / 100
     except:
@@ -87,21 +87,27 @@ if __name__ == "__main__":
     total_value = portfolio_value + option_value
 
     # 5) VAR + ES CALCULATION
+    # 5.1 Asset-Normal
     df_an   = pv.asset_normal_var(positions_df, confidence_level=CONF)
     var_an  = df_an["Diversified_VaR"].iloc[-1]
 
+    # 5.2 Monte Carlo EQ-only
     var_mc_eq, pnl_mc_eq = pv.monte_carlo_var(converted_prices, SHARES.values, [])
     es_mc_eq = pv.simulation_es(var_mc_eq, pnl_mc_eq)
 
+    # 5.3 Monte Carlo EQ+OPT
     var_mc_opt, pnl_mc_opt = pv.monte_carlo_var(converted_prices, SHARES.values, options_list)
     es_mc_opt = pv.simulation_es(var_mc_opt, pnl_mc_opt)
 
+    # 5.4 Historical Sim EQ-only
     var_hist_eq, pnl_hist_eq = pv.historical_simulation_var(converted_prices, SHARES.values, [])
     es_hist_eq = pv.simulation_es(var_hist_eq, pnl_hist_eq)
 
+    # 5.5 Historical Sim EQ+OPT
     var_hist_opt, pnl_hist_opt = pv.historical_simulation_var(converted_prices, SHARES.values, options_list)
     es_hist_opt = pv.simulation_es(var_hist_opt, pnl_hist_opt)
 
+    # 5.6 Single-Factor (Sharpe)
     benchmark      = converted_prices[TICKERS[0]].pct_change().dropna()
     df_sf, vol_sf  = pv.single_factor_var(
         returns, benchmark, weights, portfolio_value, confidence_level=CONF
@@ -112,6 +118,7 @@ if __name__ == "__main__":
         df_sf["ES_monetary"].iloc[-1]
     )
 
+    # 5.7 Fama–French 3
     df_ff3, vol_ff3 = pv.fama_french_var(
         returns, weights, portfolio_value, confidence_level=CONF
     )
@@ -121,6 +128,7 @@ if __name__ == "__main__":
         df_ff3["ES_monetary"].iloc[-1]
     )
 
+    # 5.8 MA Correlation
     df_ma           = pv.ma_correlation_var(positions_df, distribution="normal")
     df_ma           = pv.correlation_es(df_ma)
     var_ma, es_ma   = (
@@ -128,6 +136,7 @@ if __name__ == "__main__":
         df_ma["ES Monetary"].iloc[-1]
     )
 
+    # 5.9 EWMA Correlation
     df_ewma         = pv.ewma_correlation_var(positions_df, distribution="normal")
     df_ewma         = pv.correlation_es(df_ewma)
     var_ewma, es_ewma = (
@@ -135,6 +144,7 @@ if __name__ == "__main__":
         df_ewma["ES Monetary"].iloc[-1]
     )
 
+    # 5.10 EVT
     ret_port        = returns.dot(weights)
     df_evt          = pv.evt_var(ret_port, wealth=portfolio_value)
     df_evt          = pv.evt_es(df_evt, wealth=portfolio_value)
@@ -143,24 +153,29 @@ if __name__ == "__main__":
         df_evt["ES_monetary"].iloc[-1]
     )
 
+    # 5.11 GARCH-based (semi-parametric volatility)
     df_garch_var, _     = pv.garch_var(ret_port, confidence_level=CONF, wealth=portfolio_value)
     df_garch_var        = pv.volatility_es(df_garch_var, confidence_level=CONF, wealth=portfolio_value)
     var_garch, es_garch = (
         df_garch_var["VaR_monetary"].iloc[-1],
         df_garch_var["ES_monetary"].iloc[-1]
     )
+    df_garch_bt = df_garch_var[["Returns", "VaR", "VaR Violation"]]
 
+    # 5.12 ARCH-based
     df_arch_var, _   = pv.arch_var(ret_port, confidence_level=CONF, wealth=portfolio_value)
     df_arch_var      = pv.volatility_es(df_arch_var, confidence_level=CONF, wealth=portfolio_value)
-    var_arch, es_arch= (
-        df_arch_var["VaR_monetary"].iloc[-1],
-        df_arch_var["ES_monetary"].iloc[-1]
-    )
+    df_arch_bt       = df_arch_var[["Returns", "VaR", "VaR Violation"]]
 
+    # 5.13 EWMA-based
     df_ewma_var2, _  = pv.ewma_var(ret_port, confidence_level=CONF, decay_factor=0.94, wealth=portfolio_value)
-    df_ma_var2, _    = pv.ma_var(ret_port, confidence_level=CONF, window=20, wealth=portfolio_value)
+    df_ewma_bt2      = df_ewma_var2[["Returns", "VaR", "VaR Violation"]]
 
-    # 6) BACKTESTING
+    # 5.14 MA-based
+    df_ma_var2, _    = pv.ma_var(ret_port, confidence_level=CONF, window=20, wealth=portfolio_value)
+    df_ma_bt2        = df_ma_var2[["Returns", "VaR", "VaR Violation"]]
+
+    # 6) BACKTESTING (PARAMETRIC + VOLATILITY-BASED)
     df_an_bt = pd.DataFrame({
         "Returns": ret_port,
         "VaR": df_an["Diversified_VaR"] / portfolio_value
@@ -171,13 +186,13 @@ if __name__ == "__main__":
         "Asset-Normal" : df_an_bt,
         "Sharpe-Factor": df_sf[["Returns", "VaR", "VaR Violation"]],
         "FF3-Factor"   : df_ff3[["Returns", "VaR", "VaR Violation"]],
-        "GARCH(1,1)"   : df_garch_var[["Returns","VaR","VaR Violation"]],
-        "ARCH(p)"      : df_arch_var[ ["Returns","VaR","VaR Violation"]],
-        "EWMA(λ=0.94)" : df_ewma_var2[["Returns","VaR","VaR Violation"]],
-        "MA (20d)"     : df_ma_var2[["Returns","VaR","VaR Violation"]],
+        "GARCH(1,1)"   : df_garch_bt,
+        "ARCH(p)"      : df_arch_bt,
+        "EWMA(λ=0.94)" : df_ewma_bt2,
+        "MA (20d)"     : df_ma_bt2,
     }
 
-    # 6a) Print backtest summary
+    # --- Stampa backtest summary
     records = []
     for name, df_bt in backtest_data.items():
         n_viol, rate = count_violations(df_bt)
@@ -203,52 +218,33 @@ if __name__ == "__main__":
         .to_string(float_format=lambda x: f"{x:.3f}")
     )
 
-    # 6b) Plot backtests with specific titles
+    # --- 6b) Plot backtests ---
     for name, df_bt in backtest_data.items():
-        fig = plot_backtest(df_bt, interactive=False)
-        # set the custom title
-        fig.update_layout(title_text=f"Backtest VaR — {name}")
-        fig.show()
+        plot_backtest(df_bt, interactive=True).update_layout(
+            title_text=f"Backtest VaR — {name}"
+        )
 
     # 7) ADDITIONAL PLOTS
-    # GARCH volatility
-    fig = plot_volatility(df_garch_var["Volatility"], interactive=False)
-    fig.update_layout(title_text="GARCH(1,1) Conditional Volatility")
-    fig.show()
+    # Volatility plot (GARCH vol)
+    plot_volatility(df_garch_var["Volatility"], interactive=True)
 
-    # Diversified vs Undiversified VaR
-    fig = plot_var_series(df_an, interactive=False)
-    fig.update_layout(title_text="Asset-Normal VaR vs Undiversified VaR Over Time")
-    fig.show()
+    # Diversified vs Undiversified VaR series
+    plot_var_series(df_an, interactive=True)
 
-    # Component VaR bar
+    # Component VaR contributions
     comp_df = pv.component_var(positions_df, confidence_level=CONF)
-    fig = plot_risk_contribution_bar(comp_df, interactive=False)
-    fig.update_layout(title_text="Average Component VaR by Asset")
-    fig.show()
-
-    # Component VaR lines
-    fig = plot_risk_contribution_lines(comp_df, interactive=False)
-    fig.update_layout(title_text="Component VaR Evolution Over Time")
-    fig.show()
+    plot_risk_contribution_bar(comp_df, interactive=True)
+    plot_risk_contribution_lines(comp_df, interactive=True)
 
     # Correlation matrix
-    fig = plot_correlation_matrix(positions_df, interactive=False)
-    fig.update_layout(title_text="Correlation Matrix (Returns)")
-    fig.show()
+    plot_correlation_matrix(positions_df, interactive=True)
 
-    # Simulated P/L distribution — equity only
-    fig = plot_simulated_distribution(pnl_mc_eq, var_mc_eq, es_mc_eq, confidence_level=CONF)
-    fig.update_layout(title_text="Simulated P/L Distribution — Equity")
-    fig.show()
-
-    # Simulated P/L distribution — equity + options
+    # Simulated P/L distributions
+    plot_simulated_distribution(pnl_mc_eq, var_mc_eq, es_mc_eq, confidence_level=CONF)
     if options_list:
-        fig = plot_simulated_distribution(pnl_mc_opt, var_mc_opt, es_mc_opt, confidence_level=CONF)
-        fig.update_layout(title_text="Simulated P/L Distribution — Equity + Options")
-        fig.show()
+        plot_simulated_distribution(pnl_mc_opt, var_mc_opt, es_mc_opt, confidence_level=CONF)
 
-    # 8) FINAL SYNTHESIS (VaR / ES tables)
+    # 8) SINTESI FINALE
     metrics_eq = {
         "Asset-Normal VaR": var_an,
         "Sharpe-Factor VaR": var_sf,
