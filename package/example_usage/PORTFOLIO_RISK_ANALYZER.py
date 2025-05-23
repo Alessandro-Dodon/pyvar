@@ -1,4 +1,4 @@
-# ================================================================
+#================================================================
 # VaR and ES Risk Report for Equity + Options Portfolio (with plots)
 # ================================================================
 
@@ -40,11 +40,8 @@ if __name__ == "__main__":
     # 3) EQUITY DATA PREP
     START_DATE       = (pd.Timestamp.today() - BDay(300)).strftime("%Y-%m-%d")
     raw_prices       = pv.get_raw_prices(TICKERS, start=START_DATE)
-    currency_map     = {t: yf.Ticker(t).fast_info.get("currency", BASE) or BASE
-                        for t in TICKERS}
-    converted_prices = pv.convert_to_base(
-        raw_prices, currency_mapping=currency_map, base_currency=BASE
-    )
+    currency_map     = {t: yf.Ticker(t).fast_info.get("currency", BASE) or BASE for t in TICKERS}
+    converted_prices = pv.convert_to_base(raw_prices, currency_mapping=currency_map, base_currency=BASE)
     positions_df,    = [pv.create_portfolio(converted_prices, SHARES)]
     returns, mu, cov = pv.summary_statistics(converted_prices)
 
@@ -87,27 +84,21 @@ if __name__ == "__main__":
     total_value = portfolio_value + option_value
 
     # 5) VAR + ES CALCULATION
-    # 5.1 Asset-Normal
     df_an   = pv.asset_normal_var(positions_df, confidence_level=CONF)
     var_an  = df_an["Diversified_VaR"].iloc[-1]
 
-    # 5.2 Monte Carlo EQ-only
     var_mc_eq, pnl_mc_eq = pv.monte_carlo_var(converted_prices, SHARES.values, [])
     es_mc_eq = pv.simulation_es(var_mc_eq, pnl_mc_eq)
 
-    # 5.3 Monte Carlo EQ+OPT
     var_mc_opt, pnl_mc_opt = pv.monte_carlo_var(converted_prices, SHARES.values, options_list)
     es_mc_opt = pv.simulation_es(var_mc_opt, pnl_mc_opt)
 
-    # 5.4 Historical Sim EQ-only
     var_hist_eq, pnl_hist_eq = pv.historical_simulation_var(converted_prices, SHARES.values, [])
     es_hist_eq = pv.simulation_es(var_hist_eq, pnl_hist_eq)
 
-    # 5.5 Historical Sim EQ+OPT
     var_hist_opt, pnl_hist_opt = pv.historical_simulation_var(converted_prices, SHARES.values, options_list)
     es_hist_opt = pv.simulation_es(var_hist_opt, pnl_hist_opt)
 
-    # 5.6 Single-Factor (Sharpe)
     benchmark      = converted_prices[TICKERS[0]].pct_change().dropna()
     df_sf, vol_sf  = pv.single_factor_var(
         returns, benchmark, weights, portfolio_value, confidence_level=CONF
@@ -118,7 +109,6 @@ if __name__ == "__main__":
         df_sf["ES_monetary"].iloc[-1]
     )
 
-    # 5.7 Fama–French 3
     df_ff3, vol_ff3 = pv.fama_french_var(
         returns, weights, portfolio_value, confidence_level=CONF
     )
@@ -128,7 +118,6 @@ if __name__ == "__main__":
         df_ff3["ES_monetary"].iloc[-1]
     )
 
-    # 5.8 MA Correlation
     df_ma           = pv.ma_correlation_var(positions_df, distribution="normal")
     df_ma           = pv.correlation_es(df_ma)
     var_ma, es_ma   = (
@@ -136,7 +125,6 @@ if __name__ == "__main__":
         df_ma["ES Monetary"].iloc[-1]
     )
 
-    # 5.9 EWMA Correlation
     df_ewma         = pv.ewma_correlation_var(positions_df, distribution="normal")
     df_ewma         = pv.correlation_es(df_ewma)
     var_ewma, es_ewma = (
@@ -144,7 +132,6 @@ if __name__ == "__main__":
         df_ewma["ES Monetary"].iloc[-1]
     )
 
-    # 5.10 EVT
     ret_port        = returns.dot(weights)
     df_evt          = pv.evt_var(ret_port, wealth=portfolio_value)
     df_evt          = pv.evt_es(df_evt, wealth=portfolio_value)
@@ -153,7 +140,6 @@ if __name__ == "__main__":
         df_evt["ES_monetary"].iloc[-1]
     )
 
-    # 5.11 GARCH-based (semi-parametric volatility)
     df_garch_var, _     = pv.garch_var(ret_port, confidence_level=CONF, wealth=portfolio_value)
     df_garch_var        = pv.volatility_es(df_garch_var, confidence_level=CONF, wealth=portfolio_value)
     var_garch, es_garch = (
@@ -162,16 +148,13 @@ if __name__ == "__main__":
     )
     df_garch_bt = df_garch_var[["Returns", "VaR", "VaR Violation"]]
 
-    # 5.12 ARCH-based
     df_arch_var, _   = pv.arch_var(ret_port, confidence_level=CONF, wealth=portfolio_value)
     df_arch_var      = pv.volatility_es(df_arch_var, confidence_level=CONF, wealth=portfolio_value)
     df_arch_bt       = df_arch_var[["Returns", "VaR", "VaR Violation"]]
 
-    # 5.13 EWMA-based
     df_ewma_var2, _  = pv.ewma_var(ret_port, confidence_level=CONF, decay_factor=0.94, wealth=portfolio_value)
     df_ewma_bt2      = df_ewma_var2[["Returns", "VaR", "VaR Violation"]]
 
-    # 5.14 MA-based
     df_ma_var2, _    = pv.ma_var(ret_port, confidence_level=CONF, window=20, wealth=portfolio_value)
     df_ma_bt2        = df_ma_var2[["Returns", "VaR", "VaR Violation"]]
 
@@ -218,31 +201,39 @@ if __name__ == "__main__":
         .to_string(float_format=lambda x: f"{x:.3f}")
     )
 
-    # --- 6b) Plot backtests ---
+    # --- 6b) Plot backtests (interattivi) ---
     for name, df_bt in backtest_data.items():
-        plot_backtest(df_bt, interactive=True).update_layout(
-            title_text=f"Backtest VaR — {name}"
+        plot_backtest(
+            df_bt,
+            interactive=True,
+            custom_title=f"Backtest VaR — {name}"
         )
 
-    # 7) ADDITIONAL PLOTS
-    # Volatility plot (GARCH vol)
-    plot_volatility(df_garch_var["Volatility"], interactive=True)
+    # 7) ADDITIONAL PLOTS (interattivi, si aprono nel browser)
+    plot_volatility(
+        df_garch_var["Volatility"],
+        interactive=True,
+        custom_title="Volatility — GARCH(1,1)"
+    )
 
-    # Diversified vs Undiversified VaR series
-    plot_var_series(df_an, interactive=True)
+    plot_var_series(
+        df_an,
+        interactive=True,
+        custom_title="Diversified vs. Undiversified VaR (Asset-Normal)"
+    )
 
-    # Component VaR contributions
     comp_df = pv.component_var(positions_df, confidence_level=CONF)
-    plot_risk_contribution_bar(comp_df, interactive=True)
-    plot_risk_contribution_lines(comp_df, interactive=True)
+    plot_risk_contribution_bar(
+        comp_df,
+        interactive=True,
+        custom_title="Component VaR — Asset-Normal (Static)"
+    )
 
-    # Correlation matrix
-    plot_correlation_matrix(positions_df, interactive=True)
-
-    # Simulated P/L distributions
-    plot_simulated_distribution(pnl_mc_eq, var_mc_eq, es_mc_eq, confidence_level=CONF)
-    if options_list:
-        plot_simulated_distribution(pnl_mc_opt, var_mc_opt, es_mc_opt, confidence_level=CONF)
+    plot_correlation_matrix(
+        positions_df,
+        interactive=True,
+        custom_title="Correlation Matrix — Portfolio (Static)"
+    )
 
     # 8) SINTESI FINALE
     metrics_eq = {
