@@ -14,4 +14,6 @@
 
 - For Ale: make the repo public
 
-- For nick and marco: write the readme and how to download the package (example https://github.com/GianMarcoOddo/pyriskmgmt/tree/main/pyriskmgmt), (just say how to clone and download the package very briefly)
+- For nick and marco: write the readme and how to download the package (example https://github.com/GianMarcoOddo/pyriskmgmt/tree/main/pyriskmgmt), (just say how to clone and download the package very briefly) see my own git repos for download or clone example
+
+- Put LLM in a close folder close to package
