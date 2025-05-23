@@ -60,7 +60,7 @@ from .volatility import (
     volatility_es
 )
 
-from .portfolio import (
+from .portfolio_metrics import (
     asset_normal_var,
     marginal_var,
     component_var,
@@ -72,7 +72,7 @@ from .portfolio import (
     incremental_es
 )
 
-from .correlation import (
+from .time_varying_correlations import (
     ma_correlation_var,
     ewma_correlation_var,
     correlation_es
