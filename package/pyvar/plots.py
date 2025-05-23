@@ -34,7 +34,6 @@ Contents
 - display_high_dpi_inline: Utility for displaying PNG images inline
 """
 
-# TODO: double check all names/ titles
 
 #----------------------------------------------------------
 # Packages
@@ -106,8 +105,8 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
 
     Returns
     -------
-    plotly.graph_objs.Figure
-        Generated plotly figure.
+    plotly.graph_objs.Figure or None
+        Plotly figure if interactive=True. Otherwise, displays or saves the image and returns None.
     """
     # 1) Optionally subset the data
     if subset is not None:
@@ -256,8 +255,8 @@ def plot_volatility(volatility_series, subset=None, interactive=True, output_pat
 
     Returns
     -------
-    plotly.graph_objs.Figure
-        Plotly figure of volatility over time.
+    plotly.graph_objs.Figure or None
+        Plotly figure if interactive=True. Otherwise, displays or saves the image and returns None.
     """
     if subset is not None:
         volatility_series = volatility_series.loc[subset[0]:subset[1]]
@@ -291,7 +290,6 @@ def plot_volatility(volatility_series, subset=None, interactive=True, output_pat
     scale = 4
 
     if interactive:
-        fig.show()
         return fig
 
     elif output_path:
@@ -355,8 +353,8 @@ def plot_var_series(var_df, interactive=True, output_path=None):
 
     Returns
     -------
-    None
-        Displays or saves the plot; does not return a figure.
+    plotly.graph_objs.Figure or None
+        Plotly figure if interactive=True. Otherwise, displays or saves the image and returns None.
     """
     fig = go.Figure()
 
@@ -397,7 +395,7 @@ def plot_var_series(var_df, interactive=True, output_path=None):
     scale = 4
 
     if interactive:
-        fig.show()
+        return fig
     elif output_path:
         fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
@@ -427,16 +425,11 @@ def plot_risk_contribution_bar(component_df, interactive=True, output_path=None)
         Whether to display the plot interactively. Default is True.
     output_path : str, optional
         File path to save static PDF if interactive is False.
-
+    
     Returns
     -------
-    plotly.graph_objs.Figure
-        Interactive Plotly figure object.
-    
-    Raises
-    ------
-    ValueError
-        If all component VaR contributions are zero.
+    plotly.graph_objs.Figure or None
+        Plotly figure if interactive=True. Otherwise, displays or saves the image and returns None.
     """
     average_contributions = component_df.abs().mean()
     total = average_contributions.sum()
@@ -481,8 +474,7 @@ def plot_risk_contribution_bar(component_df, interactive=True, output_path=None)
     scale = 4
 
     if interactive:
-        fig.show()
-        return  # Prevent double rendering
+        return fig
     elif output_path:
         fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
@@ -511,8 +503,8 @@ def plot_risk_contribution_lines(component_df, interactive=True, output_path=Non
 
     Returns
     -------
-    None
-        Displays or saves the plot; does not return a figure.
+    plotly.graph_objs.Figure or None
+        Plotly figure if interactive=True. Otherwise, displays or saves the image and returns None.
     """
     asset_colors = get_asset_color_map(component_df.columns)
     fig = go.Figure()
@@ -547,8 +539,7 @@ def plot_risk_contribution_lines(component_df, interactive=True, output_path=Non
     scale = 4
 
     if interactive:
-        fig.show()
-        return  # Prevent duplicate display
+        return fig
     elif output_path:
         fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
@@ -580,8 +571,8 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
 
     Returns
     -------
-    plotly.graph_objects.Figure
-        Interactive correlation matrix heatmap.
+    plotly.graph_objs.Figure or None
+        Plotly figure if interactive=True. Otherwise, displays or saves the image and returns None.
 
     Notes
     -----
@@ -645,8 +636,7 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
     scale = 4
 
     if interactive:
-        fig.show()
-        return
+        return fig
     elif output_path:
         fig.write_image(output_path, format="png", width=width, height=height, scale=scale)
     else:
