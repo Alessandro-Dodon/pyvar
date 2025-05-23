@@ -108,16 +108,16 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
     plotly.graph_objs.Figure or None
         Plotly figure if interactive=True. Otherwise, displays or saves the image and returns None.
     """
-    # 1) Optionally subset the data
+    # Optionally subset the data
     if subset is not None:
         data = data.loc[subset[0]:subset[1]]
 
-    # 2) Determine whether to use bar or line for returns
+    # Determine whether to use bar or line for returns
     use_bars = len(data) <= 504
     violations = data["VaR Violation"]
     has_es     = "ES" in data.columns
 
-    # 3) Choose title: custom_title overrides the default
+    # Choose title: custom_title overrides the default
     if custom_title:
         title = custom_title
     else:
@@ -127,10 +127,10 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
             else "Backtesting Value-at-Risk"
         )
 
-    # 4) Build the figure
+    # Build the figure
     fig = go.Figure()
 
-    # 4a) Plot portfolio returns
+    # Plot portfolio returns
     if use_bars:
         fig.add_trace(go.Bar(
             x=data.index,
@@ -173,7 +173,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
             customdata=100 * data["ES"].abs()
         ))
 
-    # 4d) Highlight VaR violations
+    # Highlight VaR violations
     fig.add_trace(go.Scatter(
         x=data.index[violations],
         y=100 * data["Returns"][violations],
@@ -183,7 +183,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
         hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
     ))
 
-    # 4e) Add a zero line if using bars
+    # Add a zero line if using bars
     if use_bars:
         fig.add_shape(
             type="line",
@@ -193,7 +193,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
             xref="x", yref="y"
         )
 
-    # 5) Configure layout
+    # Configure layout
     fig.update_layout(
         title=title,
         yaxis_title="Returns (%)",
@@ -215,7 +215,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_
         yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
     )
 
-    # 6) Show or save
+    # Show or save
     width  = fig.layout.width  or 1000
     height = fig.layout.height or 500
     scale  = 4
