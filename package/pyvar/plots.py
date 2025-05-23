@@ -83,7 +83,7 @@ def display_high_dpi_inline(png_bytes, width):
 #----------------------------------------------------------
 # Backtesting Plot for VaR and ES 
 #----------------------------------------------------------
-def plot_backtest(data, subset=None, interactive=True, output_path=None):
+def plot_backtest(data, subset=None, interactive=True, output_path=None, custom_title= None):
     """
     Main
     ----
@@ -109,19 +109,29 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
     plotly.graph_objs.Figure
         Generated plotly figure.
     """
+    # 1) Optionally subset the data
     if subset is not None:
         data = data.loc[subset[0]:subset[1]]
 
+    # 2) Determine whether to use bar or line for returns
     use_bars = len(data) <= 504
     violations = data["VaR Violation"]
-    has_es = "ES" in data.columns
+    has_es     = "ES" in data.columns
 
-    # Set title dynamically
-    title = "Backtesting Value-at-Risk and Expected Shortfall" if has_es else "Backtesting Value-at-Risk"
+    # 3) Choose title: custom_title overrides the default
+    if custom_title:
+        title = custom_title
+    else:
+        title = (
+            "Backtesting Value-at-Risk and Expected Shortfall"
+            if has_es
+            else "Backtesting Value-at-Risk"
+        )
 
+    # 4) Build the figure
     fig = go.Figure()
 
-    # Plot returns
+    # 4a) Plot portfolio returns
     if use_bars:
         fig.add_trace(go.Bar(
             x=data.index,
@@ -141,7 +151,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
             hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
         ))
 
-    # Plot VaR line
+    # 4b) Plot the VaR line
     fig.add_trace(go.Scatter(
         x=data.index,
         y=-100 * data["VaR"],
@@ -152,7 +162,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
         customdata=100 * data["VaR"].abs()
     ))
 
-    # Plot ES line if present
+    # 4c) Plot the ES line if it exists
     if has_es:
         fig.add_trace(go.Scatter(
             x=data.index,
@@ -164,7 +174,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
             customdata=100 * data["ES"].abs()
         ))
 
-    # Plot violations
+    # 4d) Highlight VaR violations
     fig.add_trace(go.Scatter(
         x=data.index[violations],
         y=100 * data["Returns"][violations],
@@ -174,7 +184,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
         hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
     ))
 
-    # Add zero line only if bars are used
+    # 4e) Add a zero line if using bars
     if use_bars:
         fig.add_shape(
             type="line",
@@ -184,7 +194,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
             xref="x", yref="y"
         )
 
-        # Layout
+    # 5) Configure layout
     fig.update_layout(
         title=title,
         yaxis_title="Returns (%)",
@@ -201,19 +211,18 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
             linewidth=1,
             linecolor="black",
             mirror=True,
-            range=[data.index.min(), data.index.max()]  # 🔧 Ensures full-width alignment
+            range=[data.index.min(), data.index.max()],
         ),
-        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True)
+        yaxis=dict(showline=True, linewidth=1, linecolor="black", mirror=True),
     )
 
-    # Export
-    width = fig.layout.width or 1000
+    # 6) Show or save
+    width  = fig.layout.width  or 1000
     height = fig.layout.height or 500
-    scale = 4
+    scale  = 4
 
     if interactive:
         fig.show()
-        return fig
     elif output_path:
         fig.write_image(output_path, format="pdf", width=width, height=height, scale=scale)
     else:
@@ -221,7 +230,6 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
         display(display_high_dpi_inline(png_bytes, width))
 
     return fig
-
 
 #----------------------------------------------------------
 # Volatility Plot
