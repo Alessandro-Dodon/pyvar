@@ -89,7 +89,7 @@ def ask_llm(prompt: str,
         "max_tokens": max_tokens,
         "temperature": temperature
     }
-    resp = requests.post(url, json=payload, timeout=60)
+    resp = requests.post(url, json=payload, timeout=400)  # 30 seconds timeout
     resp.raise_for_status()
     data = resp.json()
     return data["choices"][0]["text"]
@@ -188,23 +188,49 @@ def build_rag_prompt(metrics: dict,
 
     # Final prompt passed to the LLM
     prompt = f"""
-    You are a Senior Financial Risk Analyst. Use the following supporting
-    documentation (do NOT quote verbatim; just internalize the ideas):
+    You are a Senior Financial Risk Analyst with deep expertise in quantitative risk models and practical portfolio management. 
+    You will be given: 
 
-    {context}
+    1. **Supporting documentation excerpts** (do NOT quote verbatim; instead, internalize the concepts and rephrase them).
+    2. **Computed portfolio risk metrics** (VaR, ES, backtest violation counts, rates, p-values for Kupiec, Christoffersen and Joint tests).
+    3. **Total portfolio value** in the base currency.
 
-    Here are the portfolio risk metrics:
-    {metrics}
+    Your task is to produce a polished, non-technical briefing for a client, in clear English, organized exactly as follows:
 
-    The portfolio value is {port_val:,.2f} {base}.
+    ---
+    ## 1. Context Summary  
+    — In 2–3 sentences, summarize the key ideas from the provided documentation that are relevant to understanding these risk metrics.
 
-    For each metric give:
-    1. A brief definition.
-    2. Ideal use cases.
-    3. Pros (≥3 bullets).
-    4. Cons (≥3 bullets).
-    5. Best-practice hints for risk management.
+    ## 2. Metric Definitions  
+    For each of the following risk metrics and tests:
+    - Historical VaR  
+    - Parametric (Normal) VaR  
+    - EVT VaR & ES  
+    - GARCH(1,1) VaR  
+    - Any other models you see in the metrics  
+    - Kupiec, Christoffersen, and Joint backtest statistics
 
-    Explain in plain language suitable for a non-expert client.
+    provide:
+    1. **Definition**: one concise sentence stating what it measures and why it matters.  
+    2. **Ideal Use Cases**: 2–3 bullet points describing when this metric or test is most useful in practice.  
+    3. **Pros**: at least 3 bullet points highlighting the strengths.  
+    4. **Cons**: at least 3 bullet points highlighting the limitations or pitfalls.  
+    5. **Interpretation Guidance**: specifically for backtesting metrics, explain what the observed violation count, violation rate, and p-values imply about model reliability.  
+
+    ## 3. Portfolio Summary  
+    — State the total portfolio value (`{port_val:,.2f} {base}`) and explain in one sentence how that scales your VaR/ES numbers into monetary terms.
+
+    ## 4. Best‐Practice Recommendations  
+    — Provide 5 actionable, practical tips for improving portfolio risk management, drawn from both the models and the documentation. Use non-technical language and direct advice (e.g., “Consider adding a volatility overlay when…”).
+
+    ## 5. Executive Summary  
+    — Write a 2–3 sentence high-level take-away that a non-expert C-suite executive could read in under 30 seconds and still grasp the portfolio’s risk posture.
+
+    **Format requirements**  
+    - Use Markdown headings (##, ###) exactly as above.  
+    - Use complete sentences.  
+    - Keep each bullet point under 20 words.  
+    - Do not quote the documentation verbatim—always paraphrase.  
+    - Be precise, concise, and jargon-free.  
     """
     return prompt.strip()

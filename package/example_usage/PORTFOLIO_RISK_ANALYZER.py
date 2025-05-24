@@ -1,6 +1,15 @@
 #================================================================
 # VaR and ES Risk Report for Equity + Options Portfolio (with plots)
 # ================================================================
+import os, sys
+
+# individua la cartella root del progetto (tre livelli sopra questo file)
+project_root = os.path.abspath(
+    os.path.join(__file__, os.pardir, os.pardir, os.pardir)
+)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 import pandas as pd
 import numpy as np
 import yfinance as yf
@@ -23,6 +32,7 @@ from pyvar.plots import (
 )
 
 import llm.llm_rag as rag
+from llm.pdf_reporting import save_report_as_pdf, open_report_as_pdf
 
 # ----------------------------------------------------------
 # Patch: override the imported plot functions to auto-show + title
@@ -111,20 +121,36 @@ if __name__ == "__main__":
 
     total_value = portfolio_value + option_value
 
+    # Debug prints
+    print("=== DEBUG PORTFOLIO ===")
+    # valori singole posizioni
+    for ticker, qty in SHARES.items():
+        price = last_prices[ticker]
+        print(f"  {ticker}: {qty} × {price:.2f} = {qty * price:.2f} {BASE}")
+    # valore equity
+    print(f"  Portfolio equity value: {portfolio_value:.2f} {BASE}")
+    # valore opzioni
+    print(f"  Options total value:    {option_value:.2f} {BASE}")
+    # totale equity + opzioni
+    print(f"  Total portfolio value:  {total_value:.2f} {BASE}")
+    # tasso risk-free
+    print(f"  Risk-free rate:         {rf_rate:.4%}")
+    print("=========================\n")
+
     # 5) VAR + ES CALCULATION
     df_an   = pv.asset_normal_var(positions_df, confidence_level=CONF)
     var_an  = df_an["Diversified_VaR"].iloc[-1]
 
-    var_mc_eq, pnl_mc_eq = pv.monte_carlo_var(converted_prices, SHARES.values, [])
+    var_mc_eq, pnl_mc_eq = pv.monte_carlo_var(converted_prices, SHARES.values, [], confidence_level=CONF)
     es_mc_eq = pv.simulation_es(var_mc_eq, pnl_mc_eq)
 
-    var_mc_opt, pnl_mc_opt = pv.monte_carlo_var(converted_prices, SHARES.values, options_list)
+    var_mc_opt, pnl_mc_opt = pv.monte_carlo_var(converted_prices, SHARES.values, options_list, confidence_level=CONF)
     es_mc_opt = pv.simulation_es(var_mc_opt, pnl_mc_opt)
 
-    var_hist_eq, pnl_hist_eq = pv.historical_simulation_var(converted_prices, SHARES.values, [])
+    var_hist_eq, pnl_hist_eq = pv.historical_simulation_var(converted_prices, SHARES.values, [], confidence_level=CONF)
     es_hist_eq = pv.simulation_es(var_hist_eq, pnl_hist_eq)
 
-    var_hist_opt, pnl_hist_opt = pv.historical_simulation_var(converted_prices, SHARES.values, options_list)
+    var_hist_opt, pnl_hist_opt = pv.historical_simulation_var(converted_prices, SHARES.values, options_list, confidence_level=CONF)
     es_hist_opt = pv.simulation_es(var_hist_opt, pnl_hist_opt)
 
     benchmark      = converted_prices[TICKERS[0]].pct_change().dropna()
@@ -146,14 +172,14 @@ if __name__ == "__main__":
         df_ff3["ES_monetary"].iloc[-1]
     )
 
-    df_ma           = pv.ma_correlation_var(positions_df, distribution="normal")
+    df_ma           = pv.ma_correlation_var(positions_df, distribution="normal", confidence_level=CONF)
     df_ma           = pv.correlation_es(df_ma)
     var_ma, es_ma   = (
         df_ma["VaR Monetary"].iloc[-1],
         df_ma["ES Monetary"].iloc[-1]
     )
 
-    df_ewma         = pv.ewma_correlation_var(positions_df, distribution="normal")
+    df_ewma         = pv.ewma_correlation_var(positions_df, distribution="normal", confidence_level=CONF)
     df_ewma         = pv.correlation_es(df_ewma)
     var_ewma, es_ewma = (
         df_ewma["VaR Monetary"].iloc[-1],
@@ -284,18 +310,30 @@ if __name__ == "__main__":
     print(results_df.to_string(float_format=lambda x: f"{x:.3f}"))
 
 
-    # ----------------------------------------------------------------
     # 10) LLM INTERPRETATION via RAG
-    # ----------------------------------------------------------------
-    # 10a) crea/carica il vectorstore dai tuoi PDF di contesto
-    vectordb = get_vectorstore(["/path/alla/tuadocumentazione.pdf"])
-    # 10b) prepara il dizionario completo da passare al prompt
+    vectordb = rag.get_vectorstore([r"C:\Users\nickl\Documents\GitHub\VaR\llm\knowledge_base.pdf"])
     combined = {
-        "VaR & ES Metrics": metrics_eq,          # il tuo dict con VaR, ES ecc.
+        "VaR & ES Metrics": metrics_eq,
         "Backtest Summary": results_df.to_dict()
     }
-    prompt = build_rag_prompt(combined, vectordb, portfolio_value, BASE)
-    llm_output = ask_llm(prompt, max_tokens=100, temperature=0.2)
+    prompt     = rag.build_rag_prompt(combined, vectordb, portfolio_value, BASE)
+    llm_output = rag.ask_llm(prompt, max_tokens=1000, temperature=0.2)
 
     print("\n===== LLM INTERPRETATION =====\n")
     print(llm_output)
+
+    # ------------------------------------------------------------
+    # 11) Generate PDF report
+    # ------------------------------------------------------------
+    timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
+    filename  = f"VaR_Report_{timestamp}.pdf"
+
+    open_report_as_pdf(
+    metrics        = metrics_eq,
+    weights        = weights,
+    interpretation = llm_output,
+    opt_list       = options_list,
+    backtest_results=results_df
+)
+
+    print(f"\n!! PDF report generated !!")
