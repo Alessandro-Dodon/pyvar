@@ -22,6 +22,8 @@ from pyvar.plots import (
     plot_correlation_matrix
 )
 
+import llm.llm_rag as rag
+
 # ----------------------------------------------------------
 # Patch: override the imported plot functions to auto-show + title
 # ----------------------------------------------------------
@@ -50,6 +52,12 @@ if __name__ == "__main__":
     TICKERS  = ["NVDA", "MSFT"]
     SHARES   = pd.Series({"NVDA": 3, "MSFT": 4})
     CONF     = 0.99
+
+    # --- LLM CONFIGURATION ---
+    rag.LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
+    rag.API_PATH          = "/v1/completions"
+    rag.MODEL_NAME        = "qwen-3-4b-instruct"
+    #--------------------------------------------------------------
 
     # 2) OPTIONS INPUT (demo)
     options_list = [
@@ -274,3 +282,20 @@ if __name__ == "__main__":
     results_df = pd.DataFrame(records).set_index("Model")
     print("\n===== BACKTEST RESULTS =====\n")
     print(results_df.to_string(float_format=lambda x: f"{x:.3f}"))
+
+
+    # ----------------------------------------------------------------
+    # 10) LLM INTERPRETATION via RAG
+    # ----------------------------------------------------------------
+    # 10a) crea/carica il vectorstore dai tuoi PDF di contesto
+    vectordb = get_vectorstore(["/path/alla/tuadocumentazione.pdf"])
+    # 10b) prepara il dizionario completo da passare al prompt
+    combined = {
+        "VaR & ES Metrics": metrics_eq,          # il tuo dict con VaR, ES ecc.
+        "Backtest Summary": results_df.to_dict()
+    }
+    prompt = build_rag_prompt(combined, vectordb, portfolio_value, BASE)
+    llm_output = ask_llm(prompt, max_tokens=100, temperature=0.2)
+
+    print("\n===== LLM INTERPRETATION =====\n")
+    print(llm_output)
