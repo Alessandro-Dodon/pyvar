@@ -1,7 +1,6 @@
 #================================================================
 # VaR and ES Risk Report for Equity + Options Portfolio (with plots)
 # ================================================================
-
 import pandas as pd
 import numpy as np
 import yfinance as yf
@@ -20,9 +19,30 @@ from pyvar.plots import (
     plot_var_series,
     plot_risk_contribution_bar,
     plot_risk_contribution_lines,
-    plot_correlation_matrix,
-    plot_simulated_distribution
+    plot_correlation_matrix
 )
+
+# ----------------------------------------------------------
+# Patch: override the imported plot functions to auto-show + title
+# ----------------------------------------------------------
+def _auto_show_wrapper(fn):
+    def inner(*args, interactive=True, title=None, **kwargs):
+        fig = fn(*args, interactive=interactive, **kwargs)
+        if fig is not None:
+            if title:
+                fig.update_layout(title=title)
+            if interactive:
+                fig.show()
+        return fig
+    return inner
+
+plot_backtest                = _auto_show_wrapper(plot_backtest)
+plot_volatility              = _auto_show_wrapper(plot_volatility)
+plot_var_series              = _auto_show_wrapper(plot_var_series)
+plot_risk_contribution_bar   = _auto_show_wrapper(plot_risk_contribution_bar)
+plot_risk_contribution_lines = _auto_show_wrapper(plot_risk_contribution_lines)
+plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
+
 
 if __name__ == "__main__":
     # 1) INPUT UTENTE
@@ -175,67 +195,23 @@ if __name__ == "__main__":
         "MA (20d)"     : df_ma_bt2,
     }
 
-    # --- Stampa backtest summary
-    records = []
-    for name, df_bt in backtest_data.items():
-        n_viol, rate = count_violations(df_bt)
-        kup  = kupiec_test(n_viol, len(df_bt), CONF)
-        ch   = christoffersen_test(df_bt)
-        jn   = joint_lr_test(kup["LR_uc"], ch["LR_c"])
-        records.append({
-            "Model": name,
-            "Violations": n_viol,
-            "Rate": rate,
-            "Kupiec LR": kup["LR_uc"],
-            "Kupiec p": kup["p_value"],
-            "Christoffersen LR": ch["LR_c"],
-            "Christoffersen p": ch["p_value"],
-            "Joint LR": jn["LR_total"],
-            "Joint p": jn["p_value"]
-        })
-    backtest_summary = pd.DataFrame(records).set_index("Model")
-    print("\n===== BACKTEST SUMMARY =====\n")
-    print(
-        backtest_summary
-        .sort_values("Rate", ascending=False)
-        .to_string(float_format=lambda x: f"{x:.3f}")
-    )
-
-    # --- 6b) Plot backtests (interattivi) ---
+    # --- 6b) Plot backtests (interactive, each in its own browser tab) ---
     for name, df_bt in backtest_data.items():
         plot_backtest(
             df_bt,
             interactive=True,
-            custom_title=f"Backtest VaR — {name}"
+            title=f"Backtest {name}"
         )
 
-    # 7) ADDITIONAL PLOTS (interattivi, si aprono nel browser)
-    plot_volatility(
-        df_garch_var["Volatility"],
-        interactive=True,
-        custom_title="Volatility — GARCH(1,1)"
-    )
-
-    plot_var_series(
-        df_an,
-        interactive=True,
-        custom_title="Diversified vs. Undiversified VaR (Asset-Normal)"
-    )
-
+    # 7) ADDITIONAL PLOTS (interactive)
+    plot_volatility(df_garch_var["Volatility"], interactive=True, title="Volatility Estimate")
+    plot_var_series(df_an, interactive=True, title="Diversified vs Undiversified VaR")
     comp_df = pv.component_var(positions_df, confidence_level=CONF)
-    plot_risk_contribution_bar(
-        comp_df,
-        interactive=True,
-        custom_title="Component VaR — Asset-Normal (Static)"
-    )
+    plot_risk_contribution_bar(comp_df, interactive=True, title="Average Component VaR")
+    plot_risk_contribution_lines(comp_df, interactive=True, title="Component VaR Over Time")
+    plot_correlation_matrix(positions_df, interactive=True, title="Return Correlation Matrix")
 
-    plot_correlation_matrix(
-        positions_df,
-        interactive=True,
-        custom_title="Correlation Matrix — Portfolio (Static)"
-    )
-
-    # 8) SINTESI FINALE
+    # 8) SINTESI – EQUITY VaR & ES
     metrics_eq = {
         "Asset-Normal VaR": var_an,
         "Sharpe-Factor VaR": var_sf,
@@ -258,23 +234,15 @@ if __name__ == "__main__":
 
     print("\n===== SYNTHESIS – EQUITY VaR =====\n")
     var_keys = [k for k in metrics_eq if "VaR" in k]
-    table_v  = pd.Series({k: metrics_eq[k] for k in var_keys}, name="Value").to_frame()
+    table_v = pd.Series({k: metrics_eq[k] for k in var_keys}, name="Value").to_frame()
     table_v["Pct_of_Port"] = table_v["Value"] / portfolio_value
-    print(
-        table_v
-        .sort_values("Value", ascending=False)
-        .to_string(float_format=lambda x: f"{x:,.2f}")
-    )
+    print(table_v.sort_values("Value", ascending=False).to_string(float_format=lambda x: f"{x:,.2f}"))
 
     print("\n===== SYNTHESIS – EQUITY ES =====\n")
     es_keys = [k for k in metrics_eq if "ES" in k]
     table_e = pd.Series({k: metrics_eq[k] for k in es_keys}, name="Value").to_frame()
     table_e["Pct_of_Port"] = table_e["Value"] / portfolio_value
-    print(
-        table_e
-        .sort_values("Value", ascending=False)
-        .to_string(float_format=lambda x: f"{x:,.2f}")
-    )
+    print(table_e.sort_values("Value", ascending=False).to_string(float_format=lambda x: f"{x:,.2f}"))
 
     if options_list:
         metrics_opt = {
@@ -286,10 +254,23 @@ if __name__ == "__main__":
         print("\n===== SYNTHESIS – EQUITY + OPTIONS =====\n")
         tbl = pd.Series(metrics_opt, name="Value").to_frame()
         tbl["Pct_of_Port"] = tbl["Value"] / total_value
-        print(
-            tbl
-            .sort_values("Value", ascending=False)
-            .to_string(float_format=lambda x: f"{x:,.2f}")
-        )
+        print(tbl.sort_values("Value", ascending=False).to_string(float_format=lambda x: f"{x:,.2f}"))
 
-    print("\n========================================\n")
+    # 9) BACKTEST RESULTS: violations, rate & p-values
+    records = []
+    for name, df_bt in backtest_data.items():
+        n_viol, rate = count_violations(df_bt)
+        kup = kupiec_test(n_viol, len(df_bt), CONF)
+        ch  = christoffersen_test(df_bt)
+        jn  = joint_lr_test(kup["LR_uc"], ch["LR_c"])
+        records.append({
+            "Model": name,
+            "Violations": n_viol,
+            "Violation Rate": rate,
+            "Kupiec p-value": kup["p_value"],
+            "Christoffersen p-value": ch["p_value"],
+            "Joint p-value": jn["p_value"]
+        })
+    results_df = pd.DataFrame(records).set_index("Model")
+    print("\n===== BACKTEST RESULTS =====\n")
+    print(results_df.to_string(float_format=lambda x: f"{x:.3f}"))
