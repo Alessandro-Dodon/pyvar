@@ -1,31 +1,31 @@
-\section*{Project Plan}
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{lmodern}
+\usepackage{parskip}
 
-\small
+\title{Automated VaR and ES Estimation Package}
+\author{}
+\date{}
 
-The objective of this project is the development of a Python package for the estimation of Value-at-Risk (VaR) and Expected Shortfall (ES), specifically tailored for equity portfolios using simple, transparent models. The package is designed to automate the entire VaR estimation pipeline—from portfolio construction to model selection, computation of risk measures, visualization, backtesting, and output interpretation via natural language generation.
+\begin{document}
 
-\underline{Model Foundation} \\
-We implement basic VaR models that assume constant volatility, including both historical and parametric methods. Analytical expressions for VaR and ES under these assumptions serve as benchmarks for more complex models.
+\maketitle
 
-\underline{Advanced Tail Risk Estimation} \\
-We integrate Extreme Value Theory using the Peaks-Over-Threshold (POT) method. A Generalized Pareto Distribution (GPD) is fitted to tail losses, and closed-form formulas are used to compute VaR and ES.
+We present a Python package for automated Value-at-Risk (VaR) and Expected Shortfall (ES) estimation. It covers core models, portfolio analytics, simulations, and a natural language interface for interpretability. Designed for equity portfolios, the tool is efficient, modular, and easy to extend.
 
-\underline{Volatility Modeling} \\
-The package includes GARCH(1,1) models with analytical variance forecasts, as well as extensions such as EGARCH, GJR-GARCH, and APARCH. ARCH($p$), MA, and EWMA estimators are also included. VaR and ES are computed semi-empirically using standardized residuals.
+The project was developed collaboratively, with each member contributing distinct components while working together on structure, testing, and documentation.
 
-\underline{Time-Varying Correlation and Portfolio-Level Risk} \\
-For multivariate portfolios, we implement MA and EWMA correlation models. These provide time-varying covariance matrices used to estimate portfolio VaR under the normality assumption.
+\textbf{Alessandro Dodon} implemented all volatility models (ARCH/GARCH family), basic VaR methods (historical, normal, Student-t), and the Extreme Value Theory module. He also handled multivariate correlation models and portfolio-level risk decomposition.
 
-\underline{Factor-Based Risk Models} \\
-We include both the Sharpe single-factor model and the Fama-French three-factor model. Factor loadings are estimated via OLS, and portfolio variance is derived analytically from systematic and idiosyncratic risk components. VaR and ES are computed under the assumption of normality.
+\textbf{Marco Gasparetti} worked on simulation methods, including Monte Carlo (parametric and historical), multi-day forecasting, and options-based PL modeling.
 
-\underline{Specific Portfolio Risk Metrics} \\
-The package computes several portfolio-level risk measures: undiversified VaR (UVaR), marginal VaR, component VaR, and incremental VaR. These metrics decompose total risk and quantify the contribution of individual assets.
+\textbf{Niccolò Lecce} integrated a large language model interface for result interpretation, aiming to make outputs more accessible to non-technical users.
 
-\underline{Simulation Methods} \\
-We implement Monte Carlo simulations under the assumption of multivariate normality, including a one-day model and a multi-period geometric Brownian motion for equity portfolios. Option pricing is handled via Black-Scholes. Historical and bootstrap simulation methods are also included as non-parametric alternatives.
+Factor models (Sharpe, Fama-French), testing routines, web data ingestion, and interface design were developed jointly by Marco and Niccolò, with group-wide coordination across all tasks.
 
-\underline{Backtesting} \\
-Model accuracy is evaluated using the Kupiec test (unconditional coverage), the Christoffersen test (independence), and the joint likelihood ratio test. These are applied to non-simulation models to assess the reliability of VaR forecasts.
+Backtesting routines were implemented by Alessandro to assess the reliability of VaR models under empirical conditions.
 
-Each module is implemented in a standalone yet interoperable format, ensuring modularity and usability. The overall design emphasizes speed, clarity, and accessibility, supporting both professional and non-professional users in modern risk management tasks.
+Although tasks were divided, all decisions were made together and every module was reviewed by the full team to ensure consistency and coherence.
+
+\end{document}
