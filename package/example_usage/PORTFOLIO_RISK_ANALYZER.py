@@ -122,17 +122,34 @@ if __name__ == "__main__":
     total_value = portfolio_value + option_value
 
     # Debug prints
-    print("=== DEBUG PORTFOLIO ===")
+    print("\n\n=== DEBUG PORTFOLIO ===")
     # valori singole posizioni
     for ticker, qty in SHARES.items():
         price = last_prices[ticker]
         print(f"  {ticker}: {qty} × {price:.2f} = {qty * price:.2f} {BASE}")
     # valore equity
-    print(f"  Portfolio equity value: {portfolio_value:.2f} {BASE}")
-    # valore opzioni
-    print(f"  Options total value:    {option_value:.2f} {BASE}")
+    print(f"\n  Portfolio equity value: {portfolio_value:.2f} {BASE}")
+    
+    # valore singole opzioni
+    print("\n=== DEBUG OPTIONS ===")
+    for opt in options_list:
+        # prezzo unitario dell'opzione
+        price_opt = pv.black_scholes(
+            last_prices.get(opt["under"]) or yf.Ticker(opt["under"])
+                                     .history(period="1d")["Close"].iloc[-1],
+            opt["K"], opt["T"], rf_rate, opt["sigma"], opt["type"]
+        )
+        opt_val = opt["contracts"] * opt["multiplier"] * price_opt
+        print(
+            f"  {opt['contracts']}×{opt['multiplier']} {opt['type'].upper()} on {opt['under']}  "
+            f"@ {price_opt:.2f} → {opt_val:.2f} {BASE}"
+        )
+    print(f"\n  Options total value:    {option_value:.2f} {BASE}")
+    print("======================\n")
+    
     # totale equity + opzioni
     print(f"  Total portfolio value:  {total_value:.2f} {BASE}")
+    
     # tasso risk-free
     print(f"  Risk-free rate:         {rf_rate:.4%}")
     print("=========================\n")
@@ -314,10 +331,15 @@ if __name__ == "__main__":
     vectordb = rag.get_vectorstore([r"C:\Users\nickl\Documents\GitHub\VaR\llm\knowledge_base.pdf"])
     combined = {
         "VaR & ES Metrics": metrics_eq,
-        "Backtest Summary": results_df.to_dict()
+        "Backtest Summary": results_df.to_dict(orient="index")
     }
-    prompt     = rag.build_rag_prompt(combined, vectordb, portfolio_value, BASE)
-    llm_output = rag.ask_llm(prompt, max_tokens=1000, temperature=0.2)
+    prompt = rag.build_rag_prompt(
+    combined=combined,
+    vectordb=vectordb,
+    portfolio_value=portfolio_value,
+    base=BASE
+)
+    llm_output = rag.ask_llm(prompt, max_tokens=1500, temperature=0.1)
 
     print("\n===== LLM INTERPRETATION =====\n")
     print(llm_output)
