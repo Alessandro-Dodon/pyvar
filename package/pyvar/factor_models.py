@@ -48,6 +48,15 @@ def single_factor_var(
     portfolio_value,
     confidence_level = 0.99):
     """
+    Main
+    ----
+    Estimate Value-at-Risk (VaR) using a single-factor (Sharpe) model.
+
+    Computes portfolio VaR assuming all assets share exposure to a single systematic risk factor.
+    The method estimates factor betas, idiosyncratic (residual) variances, and computes portfolio volatility
+    under the Sharpe single-index model assumption. The portfolio volatility is needed for the
+    expected shortfall (ES) calculation.
+
     Parameters
     ----------
     returns : pd.DataFrame
@@ -85,20 +94,23 @@ def single_factor_var(
 
     Notes
     -----
+    - Residuals are assumed to be uncorrelated across assets (i.e., off-diagonal terms in residual covariance are zero).
     - This VaR assumes factor returns are normally distributed.
     - This function estimates 1-day VaR. For other horizons like weekly or monthly, scale the reported VaR by √h.
     - Weights are supposed to be perfectly constant during the period.
-    """
-    
 
-    # Validation checks
+    """
     if not returns.index.equals(benchmark.index):
         raise ValueError("Benchmark and asset returns must share the same index.")
+    
     if set(returns.columns) != set(weights.index):
         raise ValueError("Weights must match returns columns.")
+    
     if not np.isclose(weights.sum(), 1.0):
         raise ValueError("Portfolio weights must sum to 1.")
+    
     weights = weights[returns.columns]
+
     if weights.min() < -1:
         print("[warning] Some weights indicate extreme short positions (e.g., weight < -100%).")
         print("          Ensure this reflects intentional portfolio structure.")
@@ -117,8 +129,8 @@ def single_factor_var(
     factor_variance = np.var(benchmark, ddof=1)
 
     # Build diagonal residual covariance (only idiosyncratic variances)
-    var_resid = residuals.var(ddof=1).values
-    residual_cov = np.diag(var_resid)
+    residuals_variance = residuals.var(ddof=1).values
+    residual_cov = np.diag(residuals_variance)
 
     # Portfolio volatility under single-factor approximation
     portfolio_volatility = np.sqrt(

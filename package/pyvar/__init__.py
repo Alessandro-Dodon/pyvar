@@ -1,21 +1,25 @@
 """
-pyvar: A Comprehensive Financial Risk Analysis Toolkit
+pyvar: A Python Toolkit for Modern Financial Risk Management
 
-pyvar is a modular Python package designed for financial risk modeling, 
-focusing on Value-at-Risk (VaR) and Expected Shortfall (ES). 
-It provides analytical tools, interactive visualizations, and rigorous 
-backtesting utilities to support risk management and portfolio analysis.
+pyvar is a modular, extensible Python package for financial risk analysis, 
+with a primary focus on Value-at-Risk (VaR) and Expected Shortfall (ES). 
+It provides a full pipeline for risk estimation—from data ingestion and modeling 
+to simulation, backtesting, and visualization—suitable for both academic and professional use.
 
 Main Features
 -------------
-- VaR and ES estimation using historical, parametric, simulation, and EVT methods
-- Volatility modeling via GARCH, EWMA, ARCH, and MA models
-- Portfolio risk decomposition (marginal, incremental, component VaR/ES)
-- Time-varying correlation models (EWMA, MA)
-- Factor models including CAPM and Fama-French
-- Monte Carlo and historical simulations for equities and derivatives
-- Backtesting procedures (Kupiec, Christoffersen, Joint LR tests)
-- Interactive and static plots for risk metrics and diagnostics
+The package supports historical and parametric VaR/ES methods, GARCH-family models 
+(including EGARCH, GJR-GARCH, and APARCH), as well as Extreme Value Theory using the 
+Peaks-Over-Threshold (POT) approach. Rolling estimators such as EWMA, ARCH(p), and MA 
+are also included. For portfolio-level analysis, pyvar provides time-varying correlation 
+models (EWMA, MA), full risk decomposition (marginal, incremental, component, and relative 
+contributions), and factor models including CAPM and Fama-French 3-Factor.
+
+Simulation methods include parametric and historical Monte Carlo, with Black-Scholes 
+pricing support for options. Backtesting routines cover standard statistical 
+tests such as Kupiec’s test, Christoffersen’s test, and their joint likelihood ratio. 
+Visualization tools are available for volatility paths, VaR series, portfolio contributions, 
+simulated distributions and more.
 
 Authors
 -------
@@ -27,8 +31,6 @@ Version
 -------
 0.1
 """
-
-
 from .data_download import (
     get_raw_prices,
     convert_to_base,
