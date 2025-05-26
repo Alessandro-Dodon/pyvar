@@ -57,7 +57,7 @@ plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
 
 
 if __name__ == "__main__":
-    '''# 1) INPUT UTENTE
+    # 1) INPUT UTENTE
     BASE     = "EUR"
     TICKERS  = ["NVDA", "MSFT"]
     SHARES   = pd.Series({"NVDA": 3, "MSFT": 4})
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     # 2) OPTIONS INPUT (demo)
     options_list = [
         {"under": "AAPL", "type": "call", "contracts": 1, "multiplier": 100,
-         "qty": 100, "K": 210.0, "T": 1.0}]'''
+         "qty": 100, "K": 210.0, "T": 1.0}]
     
 
 
@@ -81,7 +81,7 @@ if __name__ == "__main__":
     rag.API_PATH          = "/v1/completions"
     rag.MODEL_NAME        = "qwen-3-4b-instruct"
     #--------------------------------------------------------------
-    
+    '''
     # Base valutaria
     BASE = input("Valuta base [EUR]: ").strip().upper() or "EUR"
 
@@ -126,7 +126,7 @@ if __name__ == "__main__":
             print(f"    → {typ.upper()} {u}  {contr}×{mult}  K={K}")
 
     # Trasforma SHARES in pd.Series
-    SHARES = pd.Series(SHARES)
+    SHARES = pd.Series(SHARES)'''
 
 
     CONF = 0.99
@@ -313,6 +313,15 @@ if __name__ == "__main__":
     df_ma_var2, _    = pv.ma_var(ret_port, confidence_level=CONF, window=20, wealth=portfolio_value)
     df_ma_bt2        = df_ma_var2[["Returns", "VaR", "VaR Violation"]]
 
+    df_evt_bt = pd.DataFrame({
+    "Returns": ret_port,
+    "VaR": df_evt["VaR_monetary"] / portfolio_value
+    })
+    df_evt_bt["VaR Violation"] = df_evt_bt["Returns"] < -df_evt_bt["VaR"]
+
+    # Inserisci in backtest_data
+    
+
     # 6) BACKTESTING (PARAMETRIC + VOLATILITY-BASED)
     df_an_bt = pd.DataFrame({
         "Returns": ret_port,
@@ -328,8 +337,11 @@ if __name__ == "__main__":
         "ARCH(p)"      : df_arch_bt,
         "EWMA(λ=0.94)" : df_ewma_bt2,
         "MA (20d)"     : df_ma_bt2,
+        "EVT": df_evt_bt
     }
 
+    
+    
     # --- 6b) Plot backtests (interactive, each in its own browser tab) ---
     for name, df_bt in backtest_data.items():
         plot_backtest(
@@ -456,10 +468,11 @@ if __name__ == "__main__":
         vectordb=vectordb,
         portfolio_value=portfolio_value,
         base=BASE,
+        confidence_level=CONF,
         summary_text=summary_text  # new kwarg
     )
 
-    llm_output = rag.ask_llm(prompt, max_tokens=1500, temperature=0.1)
+    llm_output = rag.ask_llm(prompt, max_tokens=1000, temperature=0.1)
 
     print("===== LLM INTERPRETATION =====")
     print(llm_output)

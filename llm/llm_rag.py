@@ -64,6 +64,7 @@ def build_rag_prompt(
     vectordb: Chroma,
     portfolio_value: float,
     base: str,
+    confidence_level,
     k: int = 2
 ) -> str:
     """
@@ -85,7 +86,7 @@ def build_rag_prompt(
     str
         Il prompt completo da inviare all’LLM.
     """
-    # 1) get context from KB
+    # get context from KB
     hits = vectordb.similarity_search("VaR formulas", k=k)
     raw_context = "\n".join(doc.page_content for doc in hits)
     context_lines = [
@@ -94,13 +95,37 @@ def build_rag_prompt(
     ]
     context = "\n".join(context_lines)
 
-    # 2) metrics list
+    # metrics list
     metrics = combined.get("VaR & ES Metrics", {})
     met_lines = "\n".join(f"- {name}: {val:.2f} {base}" for name, val in metrics.items())
 
-    # 3) assemble prompt
+    # assemble prompt
     prompt_sections = [
-        '''Do not use Markdown. Use plain numbered sections. Be client-facing, concise, and data-driven. Use “risk management” at least once.
+        f'''You are a senior financial analyst. 
+Comment these Value at Risk metrics:
+{summary_text}
+The VaR was computed at a {confidence_level:.0%} confidence level.
+The portfolio value is {portfolio_value:,.2f} {base}.
+Remember that: Interpretation of p-Values
+• Kupiec p-value: if > alfa, exception rate is consistent with model.
+• Christoffersen p-value: if > alfa, exceptions are serially independent.
+• Joint p-value: if > alfa, model passes both coverage and independence tests.
+Violation Metrics
+Number of Violations N, Violation Rate = N/T
+
+— Provide a **short**, non-technical report (avoid jargon, no markdown).
+— Don't show reasoning or calculations, only the conclusions.
+— Limit to **4 bullets**:
+   1. Best model: name (value, violations, p-value)
+   2. Worst model: name (value, violations, p-value)
+   3. Overall performance summary (1 sentence)
+   4. Portfolio impact (1 sentence)
+— Do NOT repeat yourself. If you finish early, stop immediately.''']
+    
+    return "\n".join(prompt_sections)
+
+
+'''Do not use Markdown. Use plain numbered sections. Be client-facing, concise, and data-driven. Use “risk management” at least once.
 
 0. Metrics & Backtest Summary  
 Here are the actual numbers—integrate them verbatim into your text:  
@@ -131,8 +156,3 @@ Five actionable, non-technical tips, each starting with “To improve your risk 
 
 6. References  
 List any sources you used, or say “No external references used.”'''
-
-
-    ]
-
-    return "\n".join(prompt_sections)
