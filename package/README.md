@@ -1,26 +1,84 @@
-# PyVaR
+# PyVaR: A Modern Toolkit for Financial Risk Analysis
 
-**PyVaR** is a modular Python package for financial risk modeling and portfolio analytics.  
-It provides Value-at-Risk (VaR), Expected Shortfall (ES), volatility forecasting, 
-factor models, and simulation-based methods.
+**Automated Value-at-Risk (VaR) estimation and analysis in Python**  
+Simple. Fast. Visual. Intuitive.
 
-## Features
+---
 
-- Historical, parametric, and simulation-based VaR and ES
-- Volatility modeling (GARCH, EWMA, ARCH, MA)
-- Risk decomposition (marginal, incremental, component)
-- Factor-based models (CAPM, Fama-French)
-- Backtesting (Kupiec, Christoffersen)
-- Interactive visualizations with Plotly
+## 📘 Introduction
 
-## Usage
-See the example_usage/ folder for a Jupyter notebook and py script for real use cases.
+Risk management is central to finance, yet many practitioners still rely on inefficient tools like spreadsheets. As programming becomes essential in financial workflows, there is a growing need for accessible, efficient solutions to compute Value-at-Risk (VaR) and other risk metrics.
 
-## Installation
+**PyVaR** is a Python package that automates the full VaR estimation pipeline—from portfolio creation to risk metrics, visualization, backtesting, and even natural language interpretation using LLMs.
 
-From GitHub:
+> Designed for equity portfolios and simple models, PyVaR prioritizes **speed**, **clarity**, and **ease of use**—ideal for professionals, students, and retail investors seeking modern tools for intuitive financial risk modeling.
+
+---
+
+## 🧠 Overview
+
+- Compute and visualize Value-at-Risk (VaR) for equity portfolios
+- Use historical, parametric, and Monte Carlo simulation methods
+- Plot interactive graphs and export high-quality figures
+- Backtest and evaluate risk estimates
+- Leverage LLMs for interpreting model results (experimental)
+- Built with `numpy`, `pandas`, `plotly`, `statsmodels`, `yfinance`, and more
+
+---
+
+## 📂 Repository Structure
+
+```plaintext
+pyvar/
+├── package/           ← installable Python package (contains `pyvar/`)
+├── examples/          ← Jupyter notebooks demonstrating usage
+├── docs/              ← theory, documentation, explanation
+├── llm/               ← experimental natural language extensions
+├── README.md          ← this file
+├── LICENSE            ← project license (MIT)
+```
+
+---
+
+## 📈 Example Output
+
+Below is an example of a VaR visualization produced by PyVaR:
+
+---
+
+## 🚀 Installation
+
+Install PyVaR directly from GitHub using pip:
 
 ```bash
-pip install git+https://github.com/YourUsername/pyvar.git
+pip install git+https://github.com/Alessandro-Dodon/pyvar.git#subdirectory=package
+```
 
+This command:
+- Installs the latest version of the package
+- Automatically pulls required dependencies
+- Works with Python 3.7 or newer
 
+---
+
+## 🧑‍💻 User Guide
+
+The `examples/` folder contains Jupyter notebooks that demonstrate how to use the package on real financial data. You can use them as tutorials or templates for your own work.
+To explore the package and examples locally:
+
+```bash
+# Clone the repository
+git clone https://github.com/Alessandro-Dodon/pyvar.git
+cd pyvar
+
+# (Optional) create a virtual environment
+python -m venv myenv
+source myenv/bin/activate  # On Windows: myenv\Scripts\activate
+
+# Install the package in editable mode
+pip install -e ./package
+
+# Launch the example notebooks
+cd examples
+jupyter notebook
+```
