@@ -1,11 +1,11 @@
-# PyVaR Package
+# pyvar Package
 
-This folder contains the **installable core Python package** for PyVaR.
+This folder contains the **installable core Python package** for pyvar.
 
 - The `pyvar/` subdirectory includes all the source code.
 - The `setup.py` file defines the installation metadata and dependencies.
 
-To install this package manually (from the root of the repository):
+I you want to install this package manually (from the root of the repository):
 
 ```bash
 pip install -e ./package
