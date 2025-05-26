@@ -21,7 +21,5 @@ setup(
     description='PyVaR: A financial risk modeling and VaR analysis toolkit',
     author='Alessandro Dodon, Niccolò Lecce, Marco Gasparetti',
     license='MIT',
-    python_requires='>=3.7',
-    # long_description=open("README.md").read(),
-    # long_description_content_type="text/markdown",
+    python_requires='>=3.7'
 )

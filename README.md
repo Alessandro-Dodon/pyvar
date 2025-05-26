@@ -42,7 +42,10 @@ pyvar/
 
 ## 📈 Example Output
 
-Below is an example of a VaR visualization produced by PyVaR:
+Below is an example of one of our volatility models — the GJR-GARCH (from the GARCH family) with empirical innovations.  
+It shows Value-at-Risk (VaR), Expected Shortfall (ES), and their backtesting results on a subset of the data:
+
+![Example](garch_backtest_subset.png)
 
 ---
 
