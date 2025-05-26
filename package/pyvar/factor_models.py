@@ -49,99 +49,76 @@ def single_factor_var(
     confidence_level: float = 0.99
 ) -> tuple[pd.DataFrame, float]:
     """
-    Main
-    ----
-    Estimate Value-at-Risk (VaR) using a single-factor (Sharpe) model.
-
-    Computes portfolio VaR assuming all assets share exposure to a single systematic risk factor.
-    The method estimates factor betas, residual volatility, and computes portfolio volatility
-    under the Sharpe single-index model assumption. The portfolio volatility is needed for the
-    expected shortfall (ES) calculation.
+    Estimate 1-day Value-at-Risk (VaR) using a true single-factor (Sharpe) model,
+    keeping only the diagonal residual variances.
 
     Parameters
     ----------
     returns : pd.DataFrame
-        Asset return time series (columns = tickers, index = dates).
+        Asset return series (columns = tickers, index = dates).
     benchmark : pd.Series
-        Market return series (e.g., an index).
+        Market return series (e.g., SPY).
     weights : pd.Series
-        Portfolio weights per asset. Must sum to 1 and align with `returns` columns.
+        Portfolio weights, must sum to 1 and align with returns.columns.
     portfolio_value : float
-        Total current value of the portfolio in monetary units.
-    confidence_level : float, optional
-        Confidence level for VaR (e.g., 0.99). Default is 0.99.
+        Total portfolio value in monetary units.
+    confidence_level : float
+        Confidence level for VaR (default 0.99).
 
     Returns
     -------
     result_data : pd.DataFrame
-        DataFrame with columns:
-        - 'Returns': portfolio return series (decimal)
-        - 'VaR': constant VaR threshold (decimal loss)
-        - 'VaR Violation': boolean flag for VaR breaches
-        - 'VaR_monetary': VaR in monetary units
-
+        Columns:
+        - Returns: portfolio returns series
+        - VaR: constant percentile VaR (decimal loss)
+        - VaR Violation: boolean flag of breaches
+        - VaR_monetary: VaR in monetary units
     portfolio_volatility : float
-        Portfolio standard deviation estimated under the Sharpe model.
-
-    Raises
-    ------
-    ValueError
-        If the benchmark index does not align with the returns index.
-        If weights do not match the number or names of tickers in `returns`.
-        If weights do not sum to 1.
-    Warning
-        If weights include extreme short exposures (e.g., weight < -1), results may be unstable
-        or require careful interpretation.
-
-    Notes
-    -----
-    - This VaR assumes factor returns are normally distributed.
-    - This function estimates 1-day VaR. For other horizons like weekly or monthly, scale the reported VaR by √h.
-    - Weights are supposed to be perfectly constant during the period.
+        Estimated portfolio volatility under the single-factor model.
     """
+
+    # 1) Validation checks
     if not returns.index.equals(benchmark.index):
-        raise ValueError("Benchmark and asset return series must have the same datetime index.")
-
-    if not set(returns.columns) == set(weights.index):
-        raise ValueError("Weights must match the columns in the return DataFrame (tickers).")
-
+        raise ValueError("Benchmark and asset returns must share the same index.")
+    if set(returns.columns) != set(weights.index):
+        raise ValueError("Weights must match returns columns.")
     if not np.isclose(weights.sum(), 1.0):
         raise ValueError("Portfolio weights must sum to 1.")
+    weights = weights[returns.columns]
 
-    weights = weights[returns.columns]  # align order
-
-    if weights.min() < -1:
-        print("[warning] Some weights indicate extreme short positions (e.g., weight < -100%).")
-        print("          Ensure this reflects intentional portfolio structure.")
-
-    # Estimate betas and residuals
+    # 2) Estimate betas and compute residuals
     betas = []
     residuals = pd.DataFrame(index=returns.index)
     for ticker in returns.columns:
         r_i = returns[ticker]
-        regression = np.polyfit(benchmark, r_i, 1)
-        beta = regression[0]
+        beta, _ = np.polyfit(benchmark, r_i, 1)
         betas.append(beta)
-        predicted = beta * benchmark
-        residuals[ticker] = r_i - predicted
-
+        residuals[ticker] = r_i - beta * benchmark
     betas = np.array(betas)
-    factor_variance = np.var(benchmark, ddof=1) 
-    residual_cov = residuals.cov().values
 
+    # 3) Factor variance
+    factor_variance = np.var(benchmark, ddof=1)
+
+    # 4) Build diagonal residual covariance (only idiosyncratic variances)
+    var_resid = residuals.var(ddof=1).values
+    residual_cov = np.diag(var_resid)
+
+    # 5) Portfolio volatility under single-factor approximation
     portfolio_volatility = np.sqrt(
-        (weights @ betas) ** 2 * factor_variance + weights @ residual_cov @ weights
+        (weights.values @ betas)**2 * factor_variance
+        + weights.values @ residual_cov @ weights.values
     )
 
+    # 6) Compute VaR percentile
     z = norm.ppf(confidence_level)
     var_pct = z * portfolio_volatility
 
+    # 7) Build result DataFrame
     portfolio_returns = returns @ weights
     result_data = pd.DataFrame({
         "Returns": portfolio_returns,
-        "Benchmark": benchmark,
-        "VaR": pd.Series(var_pct, index=portfolio_returns.index),
-    })
+        "VaR": var_pct,
+    }, index=returns.index)
     result_data["VaR Violation"] = result_data["Returns"] < -result_data["VaR"]
     result_data["VaR_monetary"] = result_data["VaR"] * portfolio_value
 

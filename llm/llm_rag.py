@@ -59,6 +59,7 @@ def get_vectorstore(pdf_paths, persist_dir: str = "kb_chroma") -> Chroma:
 
 def build_rag_prompt(
     *,
+    summary_text: str,
     combined: dict,
     vectordb: Chroma,
     portfolio_value: float,
@@ -68,56 +69,70 @@ def build_rag_prompt(
     """
     Constructs a clear, plain-text prompt without markdown.
 
-    Retrieves context from PDF, cleans numeric noise, formats metrics and backtest,
-    and instructs the LLM using numbered, plain headings.
+    Parameters
+    ----------
+    summary_text : str
+        Prebuilt lines like "Asset-Normal VaR has a value of XX EUR, backtest showed..."
+    combined : dict
+        {"VaR & ES Metrics": {...}, "Backtest Summary": {...}}
+    vectordb : Chroma
+    portfolio_value : float
+    base : str
+    k : int
+
+    Returns
+    -------
+    str
+        Il prompt completo da inviare all’LLM.
     """
-    # 1) Retrieve and clean context chunks
+    # 1) get context from KB
     hits = vectordb.similarity_search("VaR formulas", k=k)
     raw_context = "\n".join(doc.page_content for doc in hits)
-    context_lines = [line for line in raw_context.splitlines()
-                     if not re.match(r'^\s*\d+(?:[\s,]+\d+)*\s*$', line)]
+    context_lines = [
+        line for line in raw_context.splitlines()
+        if not re.match(r'^\s*\d+(?:[\s,]+\d+)*\s*$', line)
+    ]
     context = "\n".join(context_lines)
 
-    # 2) Extract metrics and backtest entries
+    # 2) metrics list
     metrics = combined.get("VaR & ES Metrics", {})
-    backtest = combined.get("Backtest Summary", {})
-
-    # 3) Format metric and backtest lines
     met_lines = "\n".join(f"- {name}: {val:.2f} {base}" for name, val in metrics.items())
-    bt_lines = "\n".join(
-        f"- {model}: violations={d['Violations']}, rate={d['Violation Rate']:.3f}, "
-        f"kupiec_p={d['Kupiec p-value']:.3f}, chr_p={d['Christoffersen p-value']:.3f}, "
-        f"joint_p={d['Joint p-value']:.3f}"
-        for model, d in backtest.items()
-    )
 
-    # 4) Construct plain-text prompt with explicit handling of non-backtested metrics
+    # 3) assemble prompt
     prompt_sections = [
-        "Do not use markdown. Use plain numbered sections.",
-        # Context Summary
-        f"1. Context Summary:\n"
-        f"Provide 2-3 sentences relating the theoretical formulas to the portfolio metrics.\n"
-        f"Context formulas:\n{context}\n",
-        # Metric Definitions
-        "2. Metric Definitions:\n"
-        "For each metric, follow this template exactly:\n"
-        "  Metric Name\n"
-        "  a) Definition (one sentence)\n"
-        "  b) Ideal Use Cases (2-3 bullets)\n"
-        "  c) Pros (3 bullets)\n"
-        "  d) Cons (3 bullets)\n"
-        "  e) Interpretation Guidance:\n"
-        "     - If backtest data available: comment violations and p-values.\n"
-        "     - If no backtest data: state 'Not backtested'.\n"
-        f"Metrics list:\n{met_lines}\n",
-        # Backtest Summary
-        f"3. Backtest Summary:\n{bt_lines if bt_lines else '- No backtests performed'}\n",
-        # Portfolio Summary
-        "4. Portfolio Summary:\nOne sentence on how portfolio value scales VaR and ES.\n",
-        # Best-Practice Recommendations
-        "5. Best-Practice Recommendations:\nFive actionable, non-technical tips.\n",
-        # Executive Summary
-        "6. Executive Summary:\nProvide 2-3 sentences at C-suite level."
+        '''Do not use Markdown. Use plain numbered sections. Be client-facing, concise, and data-driven. Use “risk management” at least once.
+
+0. Metrics & Backtest Summary  
+Here are the actual numbers—integrate them verbatim into your text:  
+{summary_text}
+
+1. Context Summary  
+In 2–3 sentences, explain why we compute these VaR metrics and how they fit into our risk management framework. Reference the key formula (“VaR = z·σ”) in one phrase.
+
+2. Metric Definitions  
+Below is the list of all metrics with their values (including ES), as of today. For each, do exactly:
+  a) One-sentence definition  
+  b) 2–3 bullets: when to use it (client-friendly)  
+  c) 2–3 bullets: real-world pros  
+  d) 2–3 bullets: real-world cons  
+  e) One sentence interpreting *its* backtest results or “Not backtested” (use the numbers in section 0)
+
+Metrics list:  
+{metrics_list}
+
+3. Portfolio Summary  
+One crisp sentence on how portfolio size scales VaR and ES.
+
+4. Best-Practice Recommendations  
+Five actionable, non-technical tips, each starting with “To improve your risk management, you should…”
+
+5. Executive Summary  
+2–3 sentences at C-suite level: highlight the single biggest takeaway from the actual data and the next step.
+
+6. References  
+List any sources you used, or say “No external references used.”'''
+
+
     ]
 
     return "\n".join(prompt_sections)

@@ -57,23 +57,80 @@ plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
 
 
 if __name__ == "__main__":
-    # 1) INPUT UTENTE
+    '''# 1) INPUT UTENTE
     BASE     = "EUR"
     TICKERS  = ["NVDA", "MSFT"]
     SHARES   = pd.Series({"NVDA": 3, "MSFT": 4})
     CONF     = 0.99
+
+
+    # 2) OPTIONS INPUT (demo)
+    options_list = [
+        {"under": "AAPL", "type": "call", "contracts": 1, "multiplier": 100,
+         "qty": 100, "K": 210.0, "T": 1.0}]'''
+    
+
+
+
+     # ——————————————————————————————
+    # 1) INPUT UTENTE INTERATTIVO
+    # ——————————————————————————————
 
     # --- LLM CONFIGURATION ---
     rag.LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
     rag.API_PATH          = "/v1/completions"
     rag.MODEL_NAME        = "qwen-3-4b-instruct"
     #--------------------------------------------------------------
+    
+    # Base valutaria
+    BASE = input("Valuta base [EUR]: ").strip().upper() or "EUR"
 
-    # 2) OPTIONS INPUT (demo)
-    options_list = [
-        {"under": "AAPL", "type": "call", "contracts": 1, "multiplier": 100,
-         "qty": 100, "K": 210.0, "T": 1.0}
-    ]
+    # Ticker equity
+    TICKERS = input("Tickers equity (separati da spazio): ").upper().split()
+    if not TICKERS:
+        print("Nessun ticker inserito, esco.")
+        sys.exit(1)
+
+    # Numero di azioni per ticker
+    SHARES = {}
+    for t in TICKERS:
+        while True:
+            try:
+                q = float(input(f"  Shares {t:<6}: "))
+                SHARES[t] = q
+                break
+            except ValueError:
+                print("    Numero non valido, riprova.")
+
+    # Opzioni
+    options_list = []
+    if input("Hai opzioni? (s/n): ").lower().startswith("s"):
+        while True:
+            u = input("  Sottostante (ENTER per terminare): ").upper()
+            if not u:
+                break
+            typ = input("    Tipo (call/put): ").lower()
+            contr = float(input("    Contratti (numero): "))
+            mult = int(input("    Multiplier [100]: ") or 100)
+            K = float(input("    Strike: "))
+            T = float(input("    Time-to-maturity (anni): "))
+            options_list.append({
+                "under": u,
+                "type": typ,
+                "contracts": contr,
+                "multiplier": mult,
+                "qty": contr * mult,
+                "K": K,
+                "T": T
+            })
+            print(f"    → {typ.upper()} {u}  {contr}×{mult}  K={K}")
+
+    # Trasforma SHARES in pd.Series
+    SHARES = pd.Series(SHARES)
+
+
+    CONF = 0.99
+    START_DATE = (pd.Timestamp.today() - BDay(300)).strftime("%Y-%m-%d")
 
     # 3) EQUITY DATA PREP
     START_DATE       = (pd.Timestamp.today() - BDay(300)).strftime("%Y-%m-%d")
@@ -170,15 +227,42 @@ if __name__ == "__main__":
     var_hist_opt, pnl_hist_opt = pv.historical_simulation_var(converted_prices, SHARES.values, options_list, confidence_level=CONF)
     es_hist_opt = pv.simulation_es(var_hist_opt, pnl_hist_opt)
 
-    benchmark      = converted_prices[TICKERS[0]].pct_change().dropna()
-    df_sf, vol_sf  = pv.single_factor_var(
-        returns, benchmark, weights, portfolio_value, confidence_level=CONF
+    
+    # SINGGLE FACTOR MODEL con SPY come benchmark
+
+    # 1) Scarica SPY e convertilo in EUR
+    spy_raw = pv.get_raw_prices(["SPY"], start=START_DATE)
+    # se SPY è in USD, fai la conversione reale
+    spy_prices = pv.convert_to_base(
+        spy_raw,
+        currency_mapping={"SPY": "USD"},
+        base_currency=BASE
     )
-    df_sf          = pv.factor_models_es(df_sf, vol_sf, confidence_level=CONF)
-    var_sf, es_sf  = (
+    
+    # 2) Rendimenti SPY
+    spy_ret = spy_prices["SPY"].pct_change().dropna()
+    
+    # 3) Allinea indici con returns
+    common_idx         = returns.index.intersection(spy_ret.index)
+    returns_aligned    = returns.loc[common_idx]
+    spy_ret_aligned    = spy_ret.loc[common_idx]
+    # (i pesi verranno riallineati internamente, ma puoi allinearli esplicitamente)
+    weights_aligned    = weights.loc[returns_aligned.columns]
+    
+    # 4) Chiamata con SPY
+    df_sf, vol_sf = pv.single_factor_var(
+        returns_aligned,
+        spy_ret_aligned,
+        weights_aligned,
+        portfolio_value,
+        confidence_level=CONF
+    )
+    df_sf = pv.factor_models_es(df_sf, vol_sf, confidence_level=CONF)
+    var_sf, es_sf = (
         df_sf["VaR_monetary"].iloc[-1],
         df_sf["ES_monetary"].iloc[-1]
     )
+
 
     df_ff3, vol_ff3 = pv.fama_french_var(
         returns, weights, portfolio_value, confidence_level=CONF
@@ -327,35 +411,65 @@ if __name__ == "__main__":
     print(results_df.to_string(float_format=lambda x: f"{x:.3f}"))
 
 
-    # 10) LLM INTERPRETATION via RAG
+    # --- BUILD SUMMARY_TEXT FOR PROMPT (PATCHED: ONLY VaR) ---
+    summary_lines = []
+    for name, value in metrics_eq.items():
+        # skip everything that non contenga "VaR"
+        if "VaR" not in name:
+            continue
+        
+        # tolgo il suffisso per creare la chiave di ricerca
+        base_key = name.replace(" VaR", "")
+        # match “Asset-Normal” → “Asset-Normal”, “FF3” → “FF3-Factor”, ecc.
+        matches = [idx for idx in results_df.index if base_key in idx]
+    
+        if matches:
+            d = results_df.loc[matches[0]]
+            summary_lines.append(
+                f"{name} has a value of {value:.2f} {BASE}, "
+                f"backtest showed {int(d['Violations'])} violations "
+                f"({d['Violation Rate']:.3f}), "
+                f"Kupiec p={d['Kupiec p-value']:.3f}, "
+                f"Christoffersen p={d['Christoffersen p-value']:.3f}, "
+                f"Joint p={d['Joint p-value']:.3f}."
+            )
+        else:
+            summary_lines.append(
+                f"{name} has a value of {value:.2f} {BASE}, backtest not performed."
+            )
+    
+    summary_text = "\n".join(summary_lines)
+
+    print("\n===== SUMMARY TEXT =====\n"
+          f"{summary_text}\n")
+
+    # get vectorstore (or use cached summary)
     vectordb = rag.get_vectorstore([r"C:\Users\nickl\Documents\GitHub\VaR\llm\knowledge_base.pdf"])
     combined = {
         "VaR & ES Metrics": metrics_eq,
         "Backtest Summary": results_df.to_dict(orient="index")
     }
+
+    # build prompt including summary_text prefix
     prompt = rag.build_rag_prompt(
-    combined=combined,
-    vectordb=vectordb,
-    portfolio_value=portfolio_value,
-    base=BASE
-)
+        combined=combined,
+        vectordb=vectordb,
+        portfolio_value=portfolio_value,
+        base=BASE,
+        summary_text=summary_text  # new kwarg
+    )
+
     llm_output = rag.ask_llm(prompt, max_tokens=1500, temperature=0.1)
 
-    print("\n===== LLM INTERPRETATION =====\n")
+    print("===== LLM INTERPRETATION =====")
     print(llm_output)
 
-    # ------------------------------------------------------------
-    # 11) Generate PDF report
-    # ------------------------------------------------------------
-    timestamp = pd.Timestamp.now().strftime("%Y%m%d_%H%M%S")
-    filename  = f"VaR_Report_{timestamp}.pdf"
-
+    # generate PDF
     open_report_as_pdf(
-    metrics        = metrics_eq,
-    weights        = weights,
-    interpretation = llm_output,
-    opt_list       = options_list,
-    backtest_results=results_df
-)
-
-    print(f"\n!! PDF report generated !!")
+        metrics=metrics_eq,
+        weights=weights,
+        interpretation=llm_output,
+        opt_list=options_list,
+        backtest_results=results_df
+    )
+    print("!! PDF report generated !!")
