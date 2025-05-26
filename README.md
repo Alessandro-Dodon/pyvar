@@ -1,20 +1,84 @@
-### TODO:
+# PyVaR: A Modern Toolkit for Financial Risk Analysis
 
-- Functions and  rest can be deleted, only leave package
+**Automated Value-at-Risk (VaR) estimation and analysis in Python**  
+Simple. Fast. Visual. Intuitive.
 
-- For the project diary (use github history): contribution of everybody (marco simulations, nick LLM, both documentation and revision, factor models, web scraping, testing, ale volatility, portfolio and EVT basic models)
+---
 
-- For plan: just general intro, we cover equity and make it shorter (about half a page)
+## 📘 Introduction
 
-- For the latex formulas, make sure notations are consistent 
+Risk management is central to finance, yet many practitioners still rely on inefficient tools like spreadsheets. As programming becomes essential in financial workflows, there is a growing need for accessible, efficient solutions to compute Value-at-Risk (VaR) and other risk metrics.
 
-- For the results: show normal underestimates risk and volatility passes all the tests and is more precise. For the portfolio show the 2 different simulations (HS vs MC)
+**PyVaR** is a Python package that automates the full VaR estimation pipeline—from portfolio creation to risk metrics, visualization, backtesting, and even natural language interpretation using LLMs.
 
-- For nick's program: use the package not the functions!
+> Designed for equity portfolios and simple models, PyVaR prioritizes **speed**, **clarity**, and **ease of use**—ideal for professionals, students, and retail investors seeking modern tools for intuitive financial risk modeling.
 
-- For Ale: make the repo public
+---
 
-- For nick and marco: write the readme and how to download the package (example https://github.com/GianMarcoOddo/pyriskmgmt/tree/main/pyriskmgmt), (just say how to clone and download the package very briefly) see my own git repos for download or clone example
+## 🧠 Overview
 
-- Put LLM in a close folder close to package
+- Compute and visualize Value-at-Risk (VaR) for equity portfolios
+- Use historical, parametric, and Monte Carlo simulation methods
+- Plot interactive graphs and export high-quality figures
+- Backtest and evaluate risk estimates
+- Leverage LLMs for interpreting model results (experimental)
+- Built with `numpy`, `pandas`, `plotly`, `statsmodels`, `yfinance`, and more
 
+---
+
+## 📂 Repository Structure
+
+```plaintext
+pyvar/
+├── package/           ← installable Python package (contains `pyvar/`)
+├── examples/          ← Jupyter notebooks demonstrating usage
+├── docs/              ← theory, documentation, explanation
+├── llm/               ← experimental natural language extensions
+├── README.md          ← this file
+├── LICENSE            ← project license (MIT)
+```
+
+---
+
+## 📈 Example Output
+
+Below is an example of a VaR visualization produced by PyVaR:
+
+---
+
+## 🚀 Installation
+
+Install PyVaR directly from GitHub using pip:
+
+```bash
+pip install git+https://github.com/Alessandro-Dodon/pyvar.git#subdirectory=package
+```
+
+This command:
+- Installs the latest version of the package
+- Automatically pulls required dependencies
+- Works with Python 3.7 or newer
+
+---
+
+## 🧑‍💻 User Guide
+
+The `examples/` folder contains Jupyter notebooks that demonstrate how to use the package on real financial data. You can use them as tutorials or templates for your own work.
+To explore the package and examples locally:
+
+```bash
+# Clone the repository
+git clone https://github.com/Alessandro-Dodon/pyvar.git
+cd pyvar
+
+# (Optional) create a virtual environment
+python -m venv myenv
+source myenv/bin/activate  # On Windows: myenv\Scripts\activate
+
+# Install the package in editable mode
+pip install -e ./package
+
+# Launch the example notebooks
+cd examples
+jupyter notebook
+```
