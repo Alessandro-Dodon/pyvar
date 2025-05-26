@@ -1,6 +1,6 @@
-# PyVaR Examples
+# pyvar Examples
 
-This folder contains example scripts that demonstrate how to use the PyVaR package in practice.
+This folder contains example scripts that demonstrate how to use the pyvar package in practice.
 
 ---
 
@@ -24,12 +24,12 @@ It’s designed as a real-life walkthrough for new users.
 
 ### `pyvar_llm_report.py` 
 
-This Python script shows how to combine the PyVaR package with the LLM module to:
+This Python script shows how to combine the pyvar package with the LLM module to:
 
 - Automatically generate risk management reports
 - Ask questions about your model results using a local LLM
 
-It serves as a minimal and practical example of PyVaR + LLM in action.
+It serves as a minimal and practical example of pyvar + LLM in action.
 
 ---
 
