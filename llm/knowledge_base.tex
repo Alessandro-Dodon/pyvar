@@ -164,7 +164,7 @@ Expected Shortfall is computed either using the analytical formula under the nor
 
 These models are widely used and particularly popular in risk management due to their ability to reflect changes in market structure over time. The semi-empirical variant, using past standardized innovations, is often more accurate than the parametric one, which tends to underestimate risk under the assumption of normally distributed returns.
 
-However, modeling the full variance-covariance (VCV) matrix \( \Sigma_t \) is more delicate than modeling individual volatilities. The presence of unstable or poorly conditioned weights can significantly distort risk measures, making this approach more sensitive to estimation noise. Moreover, matrix operations such as inversion and eigen-decomposition add considerable computational cost—especially for large portfolios.
+However, modeling the full variance-covariance (VCV) matrix \( \Sigma_t \) is more delicate than modeling individual volatilities. The presence of unstable or poorly conditioned weights can significantly distort risk measures, making this approach more sensitive to estimation noise. This adds considerable computational cost—especially for large portfolios.
 
 More advanced multivariate models, such as DCC-GARCH or VEC(1,1), are not included due to limited support in Python and their increased estimation complexity.
 
