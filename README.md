@@ -1,4 +1,4 @@
-# PyVaR: A Modern Toolkit for Financial Risk Analysis
+# pyvar: A Modern Toolkit for Financial Risk Analysis
 
 **Automated Value-at-Risk (VaR) estimation and analysis in Python**  
 Simple. Fast. Visual. Intuitive.
@@ -9,9 +9,9 @@ Simple. Fast. Visual. Intuitive.
 
 Risk management is central to finance, yet many practitioners still rely on inefficient tools like spreadsheets. As programming becomes essential in financial workflows, there is a growing need for accessible, efficient solutions to compute Value-at-Risk (VaR) and other risk metrics.
 
-**PyVaR** is a Python package that automates the full VaR estimation pipeline—from portfolio creation to risk metrics, visualization, backtesting, and even natural language interpretation using LLMs.
+**pyvar** is a Python package that automates the full VaR estimation pipeline—from portfolio creation to risk metrics, visualization, backtesting, and even natural language interpretation using LLMs.
 
-> Designed for equity portfolios and simple models, PyVaR prioritizes **speed**, **clarity**, and **ease of use**—ideal for professionals, students, and retail investors seeking modern tools for intuitive financial risk modeling.
+> Designed for equity portfolios and simple models, pyvar prioritizes **speed**, **clarity**, and **ease of use**—ideal for professionals, students, and retail investors seeking modern tools for intuitive financial risk modeling.
 
 ---
 
@@ -51,7 +51,7 @@ It shows Value-at-Risk (VaR), Expected Shortfall (ES), and their backtesting res
 
 ## 🚀 Installation
 
-Install PyVaR directly from GitHub using pip:
+Install pyvar directly from GitHub using pip:
 
 ```bash
 pip install git+https://github.com/Alessandro-Dodon/pyvar.git#subdirectory=package
