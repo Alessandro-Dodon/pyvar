@@ -1,6 +1,6 @@
-# PyVaR Documentation
+# pyvar Documentation
 
-This folder contains supporting documents that summarize the PyVaR package and its applications.
+This folder contains supporting documents that summarize the pyvar package and its applications.
 
 ---
 
