@@ -1,4 +1,4 @@
-# pyvar: A Modern Toolkit for Financial Risk Analysis
+# pyvar: A Modern Toolkit for Financial Risk Management
 
 **Automated Value-at-Risk (VaR) estimation and analysis in Python**  
 Simple. Fast. Visual. Intuitive.
