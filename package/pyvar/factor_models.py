@@ -4,7 +4,7 @@ Factor Model VaR and Expected Shortfall Module
 
 Provides modular functions to compute portfolio Value-at-Risk (VaR) and Expected Shortfall (ES) 
 based on linear factor models. Supports both the Sharpe single-index model and the 
-Fama–French 3-factor framework. The quantiles are obtained from the normal distribution, as
+Fama-French 3-factor framework. The quantiles are obtained from the normal distribution, as
 factor returns are assumed to be normally distributed. ES is estimated using the general 
 parametric normal formula based on portfolio volatility.
 
@@ -22,7 +22,7 @@ May 2025
 Contents
 --------
 - single_factor_var: Sharpe model — estimates VaR and portfolio volatility
-- fama_french_var: Fama–French 3-factor model — estimates VaR and volatility
+- fama_french_var: Fama-French 3-factor model — estimates VaR and volatility
 - factor_models_es: Computes ES from volatility and infers portfolio value from VaR
 """
 
@@ -42,42 +42,56 @@ import requests
 # Single-Factor VaR (Sharpe Model)
 # ----------------------------------------------------------
 def single_factor_var(
-    returns: pd.DataFrame,
-    benchmark: pd.Series,
-    weights: pd.Series,
-    portfolio_value: float,
-    confidence_level: float = 0.99
-) -> tuple[pd.DataFrame, float]:
+    returns,
+    benchmark,
+    weights,
+    portfolio_value,
+    confidence_level = 0.99):
     """
-    Estimate 1-day Value-at-Risk (VaR) using a true single-factor (Sharpe) model,
-    keeping only the diagonal residual variances.
-
     Parameters
     ----------
     returns : pd.DataFrame
-        Asset return series (columns = tickers, index = dates).
+        Asset return time series (columns = tickers, index = dates).
     benchmark : pd.Series
-        Market return series (e.g., SPY).
+        Market return series (e.g., an index).
     weights : pd.Series
-        Portfolio weights, must sum to 1 and align with returns.columns.
+        Portfolio weights per asset. Must sum to 1 and align with `returns` columns.
     portfolio_value : float
-        Total portfolio value in monetary units.
-    confidence_level : float
-        Confidence level for VaR (default 0.99).
+        Total current value of the portfolio in monetary units.
+    confidence_level : float, optional
+        Confidence level for VaR (e.g., 0.99). Default is 0.99.
 
     Returns
     -------
     result_data : pd.DataFrame
-        Columns:
-        - Returns: portfolio returns series
-        - VaR: constant percentile VaR (decimal loss)
-        - VaR Violation: boolean flag of breaches
-        - VaR_monetary: VaR in monetary units
-    portfolio_volatility : float
-        Estimated portfolio volatility under the single-factor model.
-    """
+        DataFrame with columns:
+        - 'Returns': portfolio return series (decimal)
+        - 'VaR': constant VaR threshold (decimal loss)
+        - 'VaR Violation': boolean flag for VaR breaches
+        - 'VaR_monetary': VaR in monetary units
 
-    # 1) Validation checks
+    portfolio_volatility : float
+        Portfolio standard deviation estimated under the Sharpe model.
+
+    Raises
+    ------
+    ValueError
+        If the benchmark index does not align with the returns index.
+        If weights do not match the number or names of tickers in `returns`.
+        If weights do not sum to 1.
+    Warning
+        If weights include extreme short exposures (e.g., weight < -1), results may be unstable
+        or require careful interpretation.
+
+    Notes
+    -----
+    - This VaR assumes factor returns are normally distributed.
+    - This function estimates 1-day VaR. For other horizons like weekly or monthly, scale the reported VaR by √h.
+    - Weights are supposed to be perfectly constant during the period.
+    """
+    
+
+    # Validation checks
     if not returns.index.equals(benchmark.index):
         raise ValueError("Benchmark and asset returns must share the same index.")
     if set(returns.columns) != set(weights.index):
@@ -85,35 +99,38 @@ def single_factor_var(
     if not np.isclose(weights.sum(), 1.0):
         raise ValueError("Portfolio weights must sum to 1.")
     weights = weights[returns.columns]
+    if weights.min() < -1:
+        print("[warning] Some weights indicate extreme short positions (e.g., weight < -100%).")
+        print("          Ensure this reflects intentional portfolio structure.")
 
-    # 2) Estimate betas and compute residuals
+    # Estimate betas and compute residuals
     betas = []
     residuals = pd.DataFrame(index=returns.index)
     for ticker in returns.columns:
         r_i = returns[ticker]
-        beta, _ = np.polyfit(benchmark, r_i, 1)
+        beta, intercept = np.polyfit(benchmark, r_i, 1)
         betas.append(beta)
         residuals[ticker] = r_i - beta * benchmark
     betas = np.array(betas)
 
-    # 3) Factor variance
+    # Factor variance
     factor_variance = np.var(benchmark, ddof=1)
 
-    # 4) Build diagonal residual covariance (only idiosyncratic variances)
+    # Build diagonal residual covariance (only idiosyncratic variances)
     var_resid = residuals.var(ddof=1).values
     residual_cov = np.diag(var_resid)
 
-    # 5) Portfolio volatility under single-factor approximation
+    # Portfolio volatility under single-factor approximation
     portfolio_volatility = np.sqrt(
         (weights.values @ betas)**2 * factor_variance
         + weights.values @ residual_cov @ weights.values
     )
 
-    # 6) Compute VaR percentile
+    # Compute VaR percentile
     z = norm.ppf(confidence_level)
     var_pct = z * portfolio_volatility
 
-    # 7) Build result DataFrame
+    # Build result DataFrame
     portfolio_returns = returns @ weights
     result_data = pd.DataFrame({
         "Returns": portfolio_returns,
@@ -159,12 +176,11 @@ def load_ff3_factors(start=None, end=None) -> pd.DataFrame:
 # Fama-French 3-Factor Model: Value-at-Risk
 # -------------------------------------------------------
 def fama_french_var(
-    returns: pd.DataFrame,
-    weights: pd.Series,
-    portfolio_value: float,
-    confidence_level: float = 0.99,
-    factors: pd.DataFrame | None = None
-) -> tuple[pd.DataFrame, float]:
+    returns,
+    weights,
+    portfolio_value,
+    confidence_level = 0.99,
+    factors = None) :
     """
     Main
     ----
@@ -231,11 +247,11 @@ def fama_french_var(
     excess = returns.sub(factors["RF"], axis=0)
 
     betas, resid_var = {}, {}
-    for tkr in returns:
-        yx = pd.concat([excess[tkr], X], axis=1).dropna()
+    for ticker in returns:
+        yx = pd.concat([excess[ticker], X], axis=1).dropna()
         res = sm.OLS(yx.iloc[:, 0], yx.iloc[:, 1:]).fit()
-        betas[tkr] = res.params.drop("const")
-        resid_var[tkr] = res.resid.var(ddof=0)
+        betas[ticker] = res.params.drop("const")
+        resid_var[ticker] = res.resid.var(ddof=0)
 
     B = pd.DataFrame(betas).T
     Σf = factors[["Mkt_RF", "SMB", "HML"]].cov().values
@@ -268,10 +284,9 @@ def fama_french_var(
 # Factor Model ES — Inferred Portfolio Value
 # -------------------------------------------------------
 def factor_models_es(
-    result_data: pd.DataFrame,
-    portfolio_volatility: float,
-    confidence_level: float = 0.99
-) -> pd.DataFrame:
+    result_data,
+    portfolio_volatility,
+    confidence_level = 0.99) :
     """
     Main
     ----
