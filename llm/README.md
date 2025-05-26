@@ -35,7 +35,4 @@ This is kept **separate from the main PyVaR package** to simplify installation f
 If you want to try out the LLM functionality together with PyVaR:
 
 - Check the Python script in the `examples/` folder — it shows a full pipeline from risk modeling to local LLM Q&A/reporting.
-- For help setting up LM Studio, see the notebook:
-
-```text
-tutorial_llm.ipynb
+- For help setting up LM Studio, see the notebook `tutorial_llm.ipynb`.
