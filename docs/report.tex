@@ -345,7 +345,7 @@ Our back-testing framework covers every method except the simulation models. Eac
 
 \section{Results and Applications}
 
-We present backtesting results for two Value-at-Risk (VaR) models under a simple strategy: investing \$100{,}000 in the Vanguard Total World Stock ETF (VT).
+We present backtesting results for two Value-at-Risk (VaR) models under a simple strategy: investing 100\,000 in the Vanguard Total World Stock ETF (VT).
 
 The \textit{Parametric Normal} model recorded 77 violations (1.85\%), with highly significant test statistics for both Kupiec and Christoffersen tests, indicating poor fit. As seen in Figure 1 in the appendix, this model assumes i.i.d.\ returns and fails to account for time-varying volatility, which contributes to its inability to pass the independence and conditional coverage tests.
 
@@ -353,7 +353,7 @@ In contrast, the \textit{GJR-GARCH with skewed-$t$ innovations} model had only 4
 
 These results highlight that the normality assumption is too strong for daily financial returns, even for relatively stable assets such as the ETF considered.
 
-We also report results for a globally diversified portfolio (value: CHF 105{,}097.30) including equities and options (CHF 1{,}021.74, priced via the BSM model). The \textit{Monte Carlo simulation} estimated a 1-day 99\% VaR of CHF 2{,}516.22 and ES of CHF 2{,}875.99, showing a nearly normal loss distribution (Figure 3 in the appendix). In comparison, the \textit{Historical Simulation} yielded a higher VaR (CHF 2{,}616.72) and ES (CHF 3{,}407.97), with a clearly non-normal distribution that better captures heavy tails and asymmetry (Figure 4 in the appendix).
+We also report results for a globally diversified portfolio (value: CHF 105\,181.93) including equities and options (CHF 1\,106.37, priced via the BS model). The \textit{Monte Carlo simulation} estimated a 1-day 99\% VaR of CHF 2\,481.02 and ES of CHF 2\,835.28, showing a nearly normal P\&L distribution (Figure~3 in the appendix). In comparison, the \textit{Historical Simulation} yielded a higher VaR (CHF 2\,582.21) and ES (CHF 3\,356.69), with a clearly non-normal distribution that better captures heavy tails and asymmetry (Figure~4 in the appendix).
 
 The full analysis and many more results can be found in the notebook \texttt{pyvar\_example\_usage.ipynb}, available in the \texttt{examples/} folder of the GitHub repository.
 
