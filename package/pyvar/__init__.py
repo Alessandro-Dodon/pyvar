@@ -35,7 +35,7 @@ from .data_download import (
     get_raw_prices,
     convert_to_base,
     create_portfolio,
-    summary_statistics,
+    compute_returns,
     validate_matrix
 )
 
