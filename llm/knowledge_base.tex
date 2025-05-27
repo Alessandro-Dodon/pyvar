@@ -67,7 +67,7 @@ and for portfolios this naturally extends to the normal parametric form. Expecte
 \]
 where $\phi$ is the standard normal density and $f_{t_\nu}$ is the density of the Student-$t$ distribution with $\nu$ degrees of freedom.
 
-Normal and Student-$t$ VaR and ES estimates scale with the holding period as $\sqrt{h}$. These measures can be expressed in monetary terms by multiplying by portfolio wealth $W$, or as percentages if $W$ is omitted. For the single-asset models, we will always omit $W$ from the notation for simplicity. If a longer horizon is desired for historical VaR, one can simply use historical data aggregated over the corresponding horizon.
+Normal and Student-$t$ VaR and ES estimates scale with the holding period as $\sqrt{h}$. If a longer horizon is desired for historical VaR, one can simply use historical data aggregated over the corresponding horizon.
 
 Despite their simplicity, these models have important drawbacks. The parametric normal VaR often underestimates risk, as daily financial returns typically exhibit fat tails. The Student-$t$ model improves tail fit but cannot capture the asymmetry of return distributions. The GED is sometimes used as an alternative, but we do not implement it here due to its overlap with skew-$t$, which is also not included.
 
