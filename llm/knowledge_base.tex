@@ -27,7 +27,7 @@
 }
 
 % Title (optional)
-\title{\textbf{pyvar Knowledge Base: Theoretical Foundation and Risk Models}}
+\title{\textbf{pyvar LLM Knowledge Base}}
 \author{}
 \date{}
 
@@ -37,19 +37,20 @@
 \tableofcontents
 \newpage
 
-\section{Theoretical Foundation}
+\section{Introduction}
 
-In this section, we present the mathematical foundations underlying each of our models. We begin with single-asset models, also referred to as univariate models. While these are typically applied to individual assets, they can also be used for portfolios when returns are aggregated appropriately.
+We present the mathematical foundations underlying each of our models. We begin with single-asset models, also referred to as univariate models, which focus on the return dynamics of a single asset or of a portfolio treated as a single aggregated position.
 
-We then introduce a range of portfolio-level models, including analytical and simulation-based approaches. The section concludes with the backtesting methods used to evaluate the accuracy and reliability of our risk estimates.
+We then introduce a range of portfolio-level models, which explicitly consider the joint distribution of multiple asset returns. These include both analytical and simulation-based approaches. The section concludes with the backtesting methods used to evaluate the accuracy and reliability of our risk estimates.
 
 
-\subsection{Basic VaR Models}
+\section{Basic VaR Models}
 
 Value-at-Risk (VaR) at tail probability level $\alpha$ is defined as the smallest threshold $z_{\alpha}$ such that the probability of a loss exceeding it is $\alpha$. Equivalently, it is the $(1 - \alpha)$ quantile of the return distribution:
 \[
 \Pr\left(r_t < -z_{\alpha}\right) = \alpha.
 \]
+In monetary terms, this is typically scaled by \( W \), where \( W \) denotes the portfolio wealth. For simplicity, in single-asset models we omit \( W \) and use percentage-based notation.
 
 We start with models that assume constant volatility over time. In the non-parametric (historical) approach:
 \[
@@ -66,7 +67,7 @@ and for portfolios this naturally extends to the normal parametric form. Expecte
 \]
 where $\phi$ is the standard normal density and $f_{t_\nu}$ is the density of the Student-$t$ distribution with $\nu$ degrees of freedom.
 
-Normal and Student-$t$ VaR and ES estimates scale with the holding period as $\sqrt{h}$. These measures can be expressed in monetary terms by multiplying by portfolio wealth $W$, or as percentages if $W$ is omitted. For the single-asset models, we will always omit $W$ from the notation for simplicity.
+Normal and Student-$t$ VaR and ES estimates scale with the holding period as $\sqrt{h}$. These measures can be expressed in monetary terms by multiplying by portfolio wealth $W$, or as percentages if $W$ is omitted. For the single-asset models, we will always omit $W$ from the notation for simplicity. If a longer horizon is desired for historical VaR, one can simply use historical data aggregated over the corresponding horizon.
 
 Despite their simplicity, these models have important drawbacks. The parametric normal VaR often underestimates risk, as daily financial returns typically exhibit fat tails. The Student-$t$ model improves tail fit but cannot capture the asymmetry of return distributions. The GED is sometimes used as an alternative, but we do not implement it here due to its overlap with skew-$t$, which is also not included.
 
@@ -74,7 +75,7 @@ Historical methods are the most widely used among basic VaR models due to their 
 
 
 
-\subsection{Extreme Value Theory}
+\section{Extreme Value Theory}
 
 Technically still a parametric model, EVT is more sophisticated than the methods discussed above. We implement it with the Peaks-Over-Threshold (POT) approach: once a high threshold $u$ (e.g., the 99th-percentile loss) is chosen, a Generalized Pareto Distribution (GPD) is fitted to the excesses above $u$. 
 
@@ -95,7 +96,7 @@ Among parametric methods, EVT offers significantly greater precision in the esti
 However, EVT models are more complex to estimate and rely heavily on sufficient data in the tail. The results are highly sensitive to the chosen threshold $u$, and poor threshold selection can compromise accuracy. As such, EVT is most suitable when modeling extreme risks with a sufficiently large dataset.
 
 
-\subsection{Volatility Models}
+\section{Volatility Models}
 
 We have implemented the most popular univariate volatility models.
 
@@ -103,7 +104,7 @@ The GARCH(1,1) model is specified as:
 \[
   \sigma_t^2 = \omega + a\, r_{t-1}^2 + b\, \sigma_{t-1}^2, \qquad r_t = \sigma_t z_t,
 \]
-where \( z_t \) are i.i.d.\ standardized shocks. Value-at-Risk is then computed as:
+where \( z_t \) are i.i.d.\ standardized shocks. VaR is then computed as:
 \[
   \text{VaR}_{t,\alpha} = -\hat{\sigma}_t z_\alpha.
 \]
@@ -148,7 +149,7 @@ All our volatility models use a semi-empirical approach for the VaR computation,
 Despite being slightly more complex than basic models, volatility models offer a major improvement by capturing the time-varying nature of financial risk.
 
 
-\subsection{Time-Varying Correlation Models}
+\section{Time-Varying Correlation Models}
 
 We now introduce models designed to capture time-varying correlations at the portfolio level, extending beyond single assets. Specifically, we implement two simple approaches: moving average (MA) and exponentially weighted moving average (EWMA), which mirror their univariate volatility counterparts.
 
@@ -169,9 +170,7 @@ However, modeling the full variance-covariance (VCV) matrix \( \Sigma_t \) is mo
 More advanced multivariate models, such as DCC-GARCH or VEC(1,1), are not included due to limited support in Python and their increased estimation complexity.
 
 
-
-
-\subsection{Factor Models}
+\section{Factor Models}
 
 We implement the Sharpe model and Fama-French three factor models to estimate portfolio VaR and ES. These models use asset betas with respect to systematic risk factors, allowing us to infer portfolio-level risk from exposures to common sources of variation.
 
@@ -210,9 +209,9 @@ Factor models are particularly powerful for dimensionality reduction in large po
 However, this approach requires additional data—specifically factor returns and proper asset mapping. The interpretation of portfolio risk also shifts: factor VaR can be viewed as the risk equivalent of holding a leveraged position in the market or factors, rather than in the assets themselves. Like other models assuming normality, it tends to underestimate tail risk.
 
 
-\subsection{Specific Portfolio Metrics}
+\section{Analytic VaR}
 
-We compute several (specific) portfolio-level Value-at-Risk (VaR) measures using the previously defined monetary position vector \( x_t = (x_{1,t}, \dots, x_{N,t})^\top \) and the covariance matrix \( \Sigma \).
+We compute several Analytic VaR measures using the previously defined monetary position vector \( x_t = (x_{1,t}, \dots, x_{N,t})^\top \) and the covariance matrix \( \Sigma \). 
 
 The quantile \( z_\alpha \) corresponds to the desired tail probability level and is always derived from the standard normal distribution, as the underlying assumption is that asset returns are normally distributed.
 
@@ -250,10 +249,12 @@ For a vector \( a \) representing changes in the portfolio allocation, the incre
 \]
 which estimates the change in total VaR resulting from shifting the portfolio by \( a \).
 
-Each of these portfolio-level VaR metrics can be complemented with a corresponding Expected Shortfall (ES), computed under the normality assumption.
+Each of these VaR metrics can be complemented with a corresponding Expected Shortfall (ES), computed under the normality assumption.
+
 Since most of these portfolio risk metrics lack closed-form expressions under more realistic distributions, we are effectively constrained to the normal assumption—despite its well-known shortcomings in capturing heavy tails and asymmetry in financial returns.
 
-\subsection{Simulation Methods}
+
+\section{Simulation Methods}
 
 Simulation methods are powerful tools for computing VaR and ES in portfolios that include complex instruments such as options, which exhibit non-linear payoffs.
 
@@ -301,7 +302,7 @@ This approach is fully non-parametric and captures fat tails and nonlinear depen
 It is important to note that this is a simplified simulation framework: we do not account for interest rate risk, exchange rate risk, or volatility risk. Additionally, the Black-Scholes-Merton pricing model used for options is itself a stylized and limited approximation, especially under non-normal dynamics. While the normality assumption in Monte Carlo is a known limitation, relaxing it would lead to significantly more complex mathematical and computational challenges. Finally, we do not backtest simulation-based methods, as doing so would require a full rolling re-estimation of simulated distributions at each time step—a process that is extremely computationally intensive, and in many practical contexts, intractable.
 
 
-\subsection{Backtesting}
+\section{Backtesting}
 
 
 Backtesting assesses whether the observed losses are consistent with the VaR predictions by checking the frequency and structure of violations (exceptions). The objective is to test whether the model is correctly calibrated.
