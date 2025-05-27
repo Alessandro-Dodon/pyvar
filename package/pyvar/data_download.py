@@ -30,7 +30,7 @@ Contents
 - get_raw_prices: Download adjusted closing prices using yfinance
 - convert_to_base: Convert raw prices to a common base currency
 - create_portfolio: Convert prices into monetary exposures using share quantities
-- summary_statistics: Compute returns, means, and covariance matrix
+- compute_returns: Compute percentage returns
 - validate_matrix: Run basic stability checks on matrices (e.g., prices, returns, positions)
 """
 
@@ -286,23 +286,18 @@ def create_portfolio(prices: pd.DataFrame, shares: pd.Series) -> pd.DataFrame:
     return positions
 
 
-#----------------------------------------------------------
-# Summary Statistics
 # ----------------------------------------------------------
-def summary_statistics(matrix: pd.DataFrame): 
+# Compute Returns
+# ----------------------------------------------------------
+def compute_returns(matrix: pd.DataFrame) -> pd.DataFrame:
     """
     Main
     ----
-    Compute daily returns, mean returns, and the return covariance matrix.
+    Compute daily percentage returns from a price or monetary position matrix.
 
-    This function works both with raw asset prices and with monetary positions
-    obtained by multiplying prices by fixed share quantities. Since percentage 
-    returns are unaffected by fixed multipliers, the output will be the same in 
-    both cases if no trading occurs (i.e., shares are constant over time).
-
-    This makes the function flexible: users can apply it after building a 
-    monetary portfolio or after converting prices to a base currency, 
-    without affecting the computed return series or statistics.
+    This function supports both raw asset prices and fixed-share monetary positions.
+    Since returns are invariant to constant multipliers, the output is valid in both cases
+    if there is no trading over time.
 
     Parameters
     ----------
@@ -313,30 +308,19 @@ def summary_statistics(matrix: pd.DataFrame):
     -------
     returns : pd.DataFrame
         Daily percentage returns per asset.
-    mean_returns : pd.Series
-        Mean daily return per asset.
-    covariance_matrix : pd.DataFrame
-        Covariance matrix of the return series.
 
     Raises
     ------
     Warning
-        If matrix structure is unstable or contains issues for downstream analysis.
+        If the matrix structure is unsuitable for return analysis.
 
     Notes
     -----
-    - If shares are constant over time, returns and return-based statistics
-    (means, covariance matrix) will be exactly the same as those computed 
-    from raw prices.
-    - If shares vary over time (e.g., due to trading or rebalancing),
-    the return series will differ.
+    - Constant share positions yield identical returns to raw prices.
+    - Varying positions (e.g., due to trading) will produce different return series.
     """
     returns = matrix.pct_change().dropna()
 
-    # Properly validate the returns matrix now
-    validate_matrix(returns, context="summary statistics returns")
+    validate_matrix(returns, context="returns")
 
-    mean_returns = returns.mean()
-    covariance_matrix = returns.cov()
-
-    return returns, mean_returns, covariance_matrix
+    return returns
