@@ -58,11 +58,11 @@ We introduce \texttt{pyvar}, a Python package that automates the full VaR estima
 
 \section{Project Plan}
 
-The project began with a presentation of our idea on April 16. Initially, we envisioned a minimal package focused on VaR, with core modules for normal parametric and historical VaR, simple volatility models, a Monte Carlo simulation module, basic backtesting via violation counting, and an interface for interaction with LLMs. Following a suggestion from our professor, we also added support for Expected Shortfall (ES), making the package more comprehensive and aligned with current risk management standards.
+The project began with a presentation of our idea on April 16. Initially, we envisioned a minimal package focused on VaR only, with core modules for normal parametric and historical VaR, simple volatility models, a Monte Carlo simulation module, basic backtesting via violation counting, and an interface for interaction with LLMs. Following a suggestion from our professor, we also added support for Expected Shortfall (ES), making the package more comprehensive and aligned with current risk management standards.
 
-As development progressed—alongside our Risk Management course—we expanded the scope to include advanced volatility models, Extreme Value Theory, multivariate correlation structures, options-based P\&L modeling, factor models, and a complete suite of portfolio-level risk metrics.
+As development progressed—alongside our Risk Management course—we expanded the scope to include advanced volatility models, Extreme Value Theory, time varying correlation structures, options-based P\&L modeling, factor models, and a complete suite of portfolio-level risk metrics.
 
-Work was divided collaboratively. Alessandro Dodon implemented the volatility models, Extreme Value Theory, and backtesting routines. He also handled multivariate correlation modeling and portfolio risk decomposition. Marco Gasparetti developed the simulation modules (parametric and historical Monte Carlo), multi-day forecasting, and the options pricing framework. Niccolò Lecce integrated the large language model interface for natural language interpretation of results.
+Work was divided collaboratively. Alessandro Dodon implemented the volatility models, Extreme Value Theory, and backtesting routines. He also handled time varying correlation modeling and portfolio risk decomposition. Marco Gasparetti developed the simulation modules (parametric and historical Monte Carlo), multi-day forecasting, and the options pricing framework. Niccolò Lecce integrated the large language model interface for natural language interpretation of results.
 
 Factor models, extensive documentation and data download were jointly handled by Marco and Niccolò. All components were reviewed and tested as a team to ensure coherence and robustness.
 
@@ -272,7 +272,9 @@ Each of these VaR metrics can be complemented with a corresponding Expected Shor
 
 Simulation methods are powerful tools for computing VaR and ES in portfolios that include complex instruments such as options, which exhibit non-linear payoffs.
 
-We implement a one-day parametric Monte Carlo simulation approach under the assumption of multivariate normality. Future returns are simulated as:
+We implement a Monte Carlo simulation approach to estimate the one-day ahead distribution of portfolio returns under the assumption of multivariate normality. 
+
+Future returns are simulated as:
 \[
 \mu = \mathbb{E}[r_t], \quad \Sigma = \operatorname{Cov}(r_t), \quad L = \operatorname{Cholesky}(\Sigma),
 \]
@@ -298,18 +300,18 @@ From the empirical distribution \( \{\Delta P^{(i)}\}_{i=1}^N \), we compute:
 
 We also implement a multi-day version of Monte Carlo, which forecasts VaR and ES over a longer horizon. This version is limited to pure equity portfolios.
 
-As a non-parametric alternative, we implement Historical Simulation, both with and without replacement. We simulate alternative return paths by re-applying historical return vectors to the current portfolio. For each scenario \( i \), we define:
+As a non-parametric alternative, we implement Historical Simulation and its bootstrap variant (with replacement). We simulate alternative return paths by re-applying historical return vectors to the current portfolio. For each scenario \( i \), we define:
 \[
 S^{(i)} = S_0 \circ (1 + r_{\pi(i)}),
 \]
 where \( r_{\pi(i)} \) is the \( i \)-th sampled return vector, and \( \pi(i) \) is either the chronological index (historical simulation) or a random draw (bootstrap simulation).
 
-The corresponding portfolio P\&L is:
+The corresponding one-day ahead portfolio P\&L is:
 \[
 \Delta P^{(i)} = w^\top (S^{(i)} - S_0).
 \]
 
-Risk measures are computed as in the parametric case.
+Var and ES are computed as in the parametric case.
 
 This approach is fully non-parametric and captures fat tails and nonlinear dependence in historical returns. When bootstrap is enabled, repeated resampling improves robustness in small-sample settings.
 
@@ -346,13 +348,13 @@ Our back-testing framework covers every method except the simulation models. Eac
 
 We present backtesting results for two VaR models under a simple strategy: investing 100\,000 in the Vanguard Total World Stock ETF (VT).
 
-The \textit{Parametric Normal} model recorded 77 violations (1.85\%), with highly significant test statistics for both Kupiec and Christoffersen tests, indicating poor fit. As seen in Figure 1 in the appendix, this model assumes i.i.d.\ returns and fails to account for time-varying volatility, which contributes to its inability to pass the independence and conditional coverage tests.
+The Parametric Normal model recorded 77 violations (1.85\%), with highly significant test statistics for both Kupiec and Christoffersen tests, indicating poor fit. As seen in Figure 1 in the appendix, this model assumes i.i.d.\ returns and fails to account for time-varying volatility, which contributes to its inability to pass the independence and conditional coverage tests.
 
-In contrast, the \textit{GJR-GARCH with skewed-$t$ innovations} model had only 42 violations (1.01\%) and passed all backtesting tests with high p-values, indicating better accuracy and reliability. This was one of the best performing models in our evaluation (see Figure 2 in the appendix).
+In contrast, the GJR-GARCH with skewed-$t$ innovations model had only 42 violations (1.01\%) and passed all backtesting tests with high p-values, indicating better accuracy and reliability. This was one of the best performing models in our evaluation (see Figure 2 in the appendix).
 
 These results highlight that the normality assumption is too strong for daily financial returns, even for relatively stable assets such as the ETF considered.
 
-We also report results for a globally diversified portfolio (value: CHF 105\,181.93) including equities and options (CHF 1\,106.37, priced via the BS model). The \textit{Monte Carlo simulation} estimated a 1-day 99\% VaR of CHF 2\,481.02 and ES of CHF 2\,835.28, showing a nearly normal P\&L distribution (Figure~3 in the appendix). In comparison, the \textit{Historical Simulation} yielded a higher VaR (CHF 2\,582.21) and ES (CHF 3\,356.69), with a clearly non-normal distribution that better captures heavy tails and asymmetry (Figure~4 in the appendix).
+We also report results for a globally diversified portfolio (value: CHF 105\,181.93) including equities and options (CHF 1\,106.37, priced via the BS model). The Monte Carlo simulation estimated a 1-day 99\% VaR of CHF 2\,481.02 and ES of CHF 2\,835.28, showing a nearly normal P\&L distribution (Figure~3 in the appendix). In comparison, the Historical Simulation yielded a higher VaR (CHF 2\,582.21) and ES (CHF 3\,356.69), with a clearly non-normal distribution that better captures heavy tails and asymmetry (Figure~4 in the appendix).
 
 The full analysis and many more results can be found in the notebook \texttt{pyvar\_example\_usage.ipynb}, available in the \texttt{examples/} folder of the GitHub repository.
 

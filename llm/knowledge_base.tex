@@ -69,7 +69,7 @@ where $\phi$ is the standard normal density and $f_{t_\nu}$ is the density of th
 
 Normal and Student-$t$ VaR and ES estimates scale with the holding period as $\sqrt{h}$. If a longer horizon is desired for historical VaR, one can simply use historical data aggregated over the corresponding horizon.
 
-Despite their simplicity, these models have important drawbacks. The parametric normal VaR often underestimates risk, as daily financial returns typically exhibit fat tails. The Student-$t$ model improves tail fit but cannot capture the asymmetry of return distributions. The GED is sometimes used as an alternative, but we do not implement it here due to its overlap with skew-$t$, which is also not included.
+Despite their simplicity, these models have important drawbacks. The parametric normal VaR often underestimates risk, as daily financial returns typically exhibit fat tails. The Student-$t$ model improves tail fit but cannot capture the asymmetry of return distributions. 
 
 Historical methods are the most widely used among basic VaR models due to their simplicity and minimal assumptions. Parametric models usually assume i.i.d.\ returns, which limits their realism—especially since financial markets exhibit time-varying volatility. Still, parametric normal VaR remains popular thanks to its closed-form ES expression and ease of scaling by time horizon.
 
@@ -91,7 +91,7 @@ VaR and ES are then derived analytically from the fitted GPD parameters. This al
 
 where $\hat{\xi}$ and $\hat{\beta}$ are the estimated shape and scale parameters, $n$ is the sample size, and $n_u$ is the number of exceedances.
 
-Among parametric methods, EVT offers significantly greater precision in the estimation of tail risk. It naturally accommodates very high confidence levels and is based on solid asymptotic statistical theory, unlike the normal distribution which is largely ad hoc and unrealistic for financial losses.
+Among parametric methods, EVT offers significantly greater precision in the estimation of tail risk. It naturally accommodates very high confidence levels and is based on solid statistical theory, unlike the normal distribution which is unrealistic for financial losses.
 
 However, EVT models are more complex to estimate and rely heavily on sufficient data in the tail. The results are highly sensitive to the chosen threshold $u$, and poor threshold selection can compromise accuracy. As such, EVT is most suitable when modeling extreme risks with a sufficiently large dataset.
 
@@ -129,7 +129,7 @@ We also support:
 
 - APARCH, which introduces a power term in the volatility equation, allowing flexible tail behavior and better control over asymmetry.
 
-All models are estimated by maximum likelihood using different innovation distributions: Normal, Student-\( t \), Generalized Error Distribution (GED), and Skew-\( t \). The choice of innovation distribution can significantly improve tail risk estimates.
+All models are estimated by maximum likelihood using different innovation distributions: Normal, Student-\( t \), Generalized Error Distribution (GED), and Skew-\( t \). The choice of innovation distribution can improve tail risk estimates.
 
 For simpler benchmarks we include ARCH(\( p \)) and two rolling estimators, Moving Average (MA) and Exponentially Weighted Moving Average (EWMA):
 
@@ -258,7 +258,9 @@ Since most of these portfolio risk metrics lack closed-form expressions under mo
 
 Simulation methods are powerful tools for computing VaR and ES in portfolios that include complex instruments such as options, which exhibit non-linear payoffs.
 
-We implement a one-day parametric Monte Carlo simulation approach under the assumption of multivariate normality. Future returns are simulated as:
+We implement a Monte Carlo simulation approach to estimate the one-day ahead distribution of portfolio returns under the assumption of multivariate normality. 
+
+Future returns are simulated as:
 \[
 \mu = \mathbb{E}[r_t], \quad \Sigma = \operatorname{Cov}(r_t), \quad L = \operatorname{Cholesky}(\Sigma),
 \]
@@ -284,18 +286,18 @@ From the empirical distribution \( \{\Delta P^{(i)}\}_{i=1}^N \), we compute:
 
 We also implement a multi-day version of Monte Carlo, which forecasts VaR and ES over a longer horizon. This version is limited to pure equity portfolios.
 
-As a non-parametric alternative, we implement Historical Simulation, both with and without replacement. We simulate alternative return paths by re-applying historical return vectors to the current portfolio. For each scenario \( i \), we define:
+As a non-parametric alternative, we implement Historical Simulation and its bootstrap variant (with replacement). We simulate alternative return paths by re-applying historical return vectors to the current portfolio. For each scenario \( i \), we define:
 \[
 S^{(i)} = S_0 \circ (1 + r_{\pi(i)}),
 \]
 where \( r_{\pi(i)} \) is the \( i \)-th sampled return vector, and \( \pi(i) \) is either the chronological index (historical simulation) or a random draw (bootstrap simulation).
 
-The corresponding portfolio P\&L is:
+The corresponding one-day ahead portfolio P\&L is:
 \[
 \Delta P^{(i)} = w^\top (S^{(i)} - S_0).
 \]
 
-Risk measures are computed as in the parametric case.
+VaR and ES are computed as in the parametric case.
 
 This approach is fully non-parametric and captures fat tails and nonlinear dependence in historical returns. When bootstrap is enabled, repeated resampling improves robustness in small-sample settings.
 
@@ -327,6 +329,5 @@ The joint test combines both:
 
 Rejecting the null in any of the tests suggests that the VaR model is either miscalibrated (too many or too few violations) or fails to capture time dependence in risk (e.g., volatility clustering).
 
-Our back-testing framework covers every method except the simulation models. 
 In practice, the Kupiec test is often passed by well-calibrated models such as the Student-$t$ parametric model, historical simulation, or EVT. However, the Christoffersen and joint tests are frequently failed by models that ignore time-varying volatility—such as the normal parametric model—since they tend to underestimate clustering in violations. Being statistical tests, these results are also subject to randomness: even a basic normal VaR model may occasionally pass all tests over short, quiet periods or for low-volatility assets. We generally recommend using at least one year of data for meaningful inference. Finally, while the joint test aggregates both components, it is important to examine each test individually: passing one and failing the other may still result in a non-rejection overall, but masks which specific assumption (coverage or independence) is violated.
 \end{document}
