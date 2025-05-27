@@ -58,13 +58,13 @@ We introduce \texttt{pyvar}, a Python package that automates the full VaR estima
 
 \section{Project Plan}
 
-The project began with a presentation of our idea on April 16. Initially, we envisioned a minimal package focused on Value-at-Risk (VaR), with core modules for normal parametric and historical VaR, simple volatility models, a Monte Carlo simulation module, basic backtesting via violation counting, and an interface for interaction with LLMs. Following a suggestion from our professor, we also added support for Expected Shortfall (ES), making the package more comprehensive and aligned with current risk management standards.
+The project began with a presentation of our idea on April 16. Initially, we envisioned a minimal package focused on VaR, with core modules for normal parametric and historical VaR, simple volatility models, a Monte Carlo simulation module, basic backtesting via violation counting, and an interface for interaction with LLMs. Following a suggestion from our professor, we also added support for Expected Shortfall (ES), making the package more comprehensive and aligned with current risk management standards.
 
 As development progressed—alongside our Risk Management course—we expanded the scope to include advanced volatility models, Extreme Value Theory, multivariate correlation structures, options-based P\&L modeling, factor models, and a complete suite of portfolio-level risk metrics.
 
-Work was divided collaboratively. Alessandro Dodon implemented the volatility models, VaR methods, Extreme Value Theory, and backtesting routines. He also handled multivariate correlation modeling and portfolio risk decomposition. Marco Gasparetti developed the simulation modules (parametric and historical Monte Carlo), multi-day forecasting, and the options pricing framework. Niccolò Lecce integrated the large language model interface for natural language interpretation of results.
+Work was divided collaboratively. Alessandro Dodon implemented the volatility models, Extreme Value Theory, and backtesting routines. He also handled multivariate correlation modeling and portfolio risk decomposition. Marco Gasparetti developed the simulation modules (parametric and historical Monte Carlo), multi-day forecasting, and the options pricing framework. Niccolò Lecce integrated the large language model interface for natural language interpretation of results.
 
-Factor models, extensive documentation, data ingestion, and interface design were jointly handled by Marco and Niccolò. All components were reviewed and tested as a team to ensure coherence and robustness.
+Factor models, extensive documentation and data download were jointly handled by Marco and Niccolò. All components were reviewed and tested as a team to ensure coherence and robustness.
 
 
 \section{Project Diary}
@@ -81,9 +81,9 @@ A detailed development history is available in our GitHub repository.
 
 \section{Theoretical Foundation}
 
-In this section, we present the mathematical foundations underlying each of our models. We begin with single-asset models, also referred to as univariate models. While these are typically applied to individual assets, they can also be used for portfolios when returns are aggregated appropriately.
+In this section, we present the mathematical foundations underlying each of our models. We begin with single-asset models, also referred to as univariate models, which focus on the return dynamics of a single asset or of a portfolio treated as a single aggregated position.
 
-We then introduce a range of portfolio-level models, including analytical and simulation-based approaches. The section concludes with the backtesting methods used to evaluate the accuracy and reliability of our risk estimates.
+We then introduce a range of portfolio-level models, which explicitly consider the joint distribution of multiple asset returns. These include both analytical and simulation-based approaches. The section concludes with the backtesting methods used to evaluate the accuracy and reliability of our risk estimates.
 
 
 \subsection{Basic VaR Models}
@@ -92,7 +92,7 @@ Value-at-Risk (VaR) at tail probability level $\alpha$ is defined as the smalles
 \[
 \Pr\left(r_t < -z_{\alpha}\right) = \alpha.
 \]
-
+In monetary terms, this is typically scaled by \( W \), where \( W \) denotes the portfolio wealth. For simplicity, in single-asset models we omit \( W \) and use percentage-based notation.
 
 We start with models that assume constant volatility over time. In the non-parametric (historical) approach:
 \[
@@ -109,8 +109,7 @@ and for portfolios this naturally extends to the normal parametric form. Expecte
 \]
 where $\phi$ is the standard normal density and $f_{t_\nu}$ is the density of the Student-$t$ distribution with $\nu$ degrees of freedom.
 
-Normal and Student-$t$ VaR and ES estimates scale with the holding period as $\sqrt{h}$. These measures can be expressed in monetary terms by multiplying by portfolio wealth $W$, or as percentages if $W$ is omitted. For the single-asset models, we will always omit $W$ from the notation for simplicity.
-
+Normal and Student-$t$ VaR and ES estimates scale with the holding period as $\sqrt{h}$. For historical VaR, no scaling is needed—one can simply use weekly or monthly return data to estimate risk over longer horizons.
 
 
 \subsection{Extreme Value Theory}
@@ -139,7 +138,7 @@ The GARCH(1,1) model is specified as:
 \[
   \sigma_t^2 = \omega + a\, r_{t-1}^2 + b\, \sigma_{t-1}^2, \qquad r_t = \sigma_t z_t,
 \]
-where \( z_t \) are i.i.d.\ standardized shocks. Value-at-Risk is then computed as:
+where \( z_t \) are i.i.d.\ standardized shocks. VaR is then computed as:
 \[
   \text{VaR}_{t,\alpha} = -\hat{\sigma}_t z_\alpha.
 \]
@@ -226,9 +225,9 @@ Let $B$ be the $N \times 3$ matrix of estimated factor loadings, $\Sigma_f$ the 
 Once the portfolio variance is known, we compute VaR and ES as we did for the single factor model.
 
 
-\subsection{Specific Portfolio Metrics}
+\subsection{Analytic VaR}
 
-We compute several (specific) portfolio-level Value-at-Risk (VaR) measures using the previously defined monetary position vector \( x_t = (x_{1,t}, \dots, x_{N,t})^\top \) and the covariance matrix \( \Sigma \).
+We compute several Analytic VaR measures using the previously defined monetary position vector \( x_t = (x_{1,t}, \dots, x_{N,t})^\top \) and the covariance matrix \( \Sigma \). 
 
 The quantile \( z_\alpha \) corresponds to the desired tail probability level and is always derived from the standard normal distribution, as the underlying assumption is that asset returns are normally distributed.
 
@@ -266,7 +265,7 @@ For a vector \( a \) representing changes in the portfolio allocation, the incre
 \]
 which estimates the change in total VaR resulting from shifting the portfolio by \( a \).
 
-Each of these portfolio-level VaR metrics can be complemented with a corresponding Expected Shortfall (ES), computed under the normality assumption.
+Each of these VaR metrics can be complemented with a corresponding Expected Shortfall (ES), computed under the normality assumption.
 
 
 \subsection{Simulation Methods}
@@ -345,7 +344,7 @@ Our back-testing framework covers every method except the simulation models. Eac
 
 \section{Results and Applications}
 
-We present backtesting results for two Value-at-Risk (VaR) models under a simple strategy: investing 100\,000 in the Vanguard Total World Stock ETF (VT).
+We present backtesting results for two VaR models under a simple strategy: investing 100\,000 in the Vanguard Total World Stock ETF (VT).
 
 The \textit{Parametric Normal} model recorded 77 violations (1.85\%), with highly significant test statistics for both Kupiec and Christoffersen tests, indicating poor fit. As seen in Figure 1 in the appendix, this model assumes i.i.d.\ returns and fails to account for time-varying volatility, which contributes to its inability to pass the independence and conditional coverage tests.
 
@@ -374,17 +373,28 @@ ChatGPT-o3 supported us with theoretical clarifications, while ChatGPT-4o was al
 The full codebase, examples, and documentation are available on GitHub:  
 \url{https://github.com/Alessandro-Dodon/pyvar}
 
-
 \section{References}
 
-This work draws on material from the following courses offered at USI as part of the MSc in Quantitative Finance:
+The following textbooks constitute the main references for this project:
+
+\begin{itemize}
+  \item John C. Hull, \textit{Risk Management and Financial Institutions}, 2023, John Wiley \& Sons.
+  \item Peter Christoffersen, \textit{Elements of Financial Risk Management} (2nd Edition), Academic Press, 2011.
+  \item Philippe Jorion, \textit{Value at Risk}, McGraw-Hill, 2006.
+  \item Andrea Resti and Andrea Sironi, \textit{Risk Management and Shareholders’ Value in Banking}, John Wiley \& Sons, 2007.
+  \item John C. Hull, \textit{Options, Futures, and Other Derivatives}, latest edition, Pearson.
+\end{itemize}
+
+\vspace{1em}
+
+Additional insights and context were drawn from the following MSc in Quantitative Finance courses at USI:
 
 \begin{itemize}
   \item \textit{Risk Management}, taught by Prof. A. Plazzi
   \item \textit{Derivatives and Financial Econometrics}, taught by Prof. L. Mancini
 \end{itemize}
 
-In particular, we referred to lecture slides and coursework provided throughout the semester.
+In particular, we referred to lecture slides and coursework provided throughout the semester as supplementary material.
 
 
 \section{Appendix}

@@ -5,7 +5,7 @@ setup(
     version='0.1',
     packages=find_packages(),
     install_requires=[
-        'numpy',
+        'numpy<2.0',          # ⬅️ Restrict to NumPy < 2.0
         'pandas',
         'scipy',
         'yfinance',
