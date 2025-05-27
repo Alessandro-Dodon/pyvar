@@ -136,10 +136,12 @@ if __name__ == "__main__":
     # 3) EQUITY DATA PREP
     START_DATE       = (pd.Timestamp.today() - BDay(300)).strftime("%Y-%m-%d")
     raw_prices       = pv.get_raw_prices(TICKERS, start=START_DATE)
+    raw_prices = raw_prices.ffill().bfill()
     currency_map     = {t: yf.Ticker(t).fast_info.get("currency", BASE) or BASE for t in TICKERS}
     converted_prices = pv.convert_to_base(raw_prices, currency_mapping=currency_map, base_currency=BASE)
+    converted_prices = converted_prices.ffill().bfill()
     positions_df,    = [pv.create_portfolio(converted_prices, SHARES)]
-    returns, mu, cov = pv.summary_statistics(converted_prices)
+    returns = pv.compute_returns(converted_prices)
 
     last_prices      = converted_prices.iloc[-1]
     portfolio_value  = float((last_prices * SHARES).sum())
@@ -166,7 +168,8 @@ if __name__ == "__main__":
             currency_mapping={t: BASE for t in all_tks},
             base_currency=BASE
         )
-        returns_all, mu_all, cov_all = pv.summary_statistics(prices_all)
+        prices_all = prices_all.ffill().bfill()
+        returns_all = pv.compute_returns(prices_all).dropna()
         hist_vol     = returns_all.std() * np.sqrt(252)
 
         for opt in options_list:
