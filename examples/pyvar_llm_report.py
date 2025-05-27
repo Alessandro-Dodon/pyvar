@@ -2,13 +2,13 @@
 # VaR and ES Risk Report for Equity + Options Portfolio (with plots)
 # ================================================================
 import os, sys
+import pandas as pd
+import pandas_datareader.data as web
 
-# individua la cartella root del progetto (tre livelli sopra questo file)
-project_root = os.path.abspath(
-    os.path.join(__file__, os.pardir, os.pardir, os.pardir)
-)
+project_root = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
+
 
 import pandas as pd
 import numpy as np
@@ -57,7 +57,7 @@ plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
 
 
 if __name__ == "__main__":
-    # 1) INPUT UTENTE
+    '''# 1) INPUT UTENTE
     BASE     = "EUR"
     TICKERS  = ["NVDA", "MSFT"]
     SHARES   = pd.Series({"NVDA": 3, "MSFT": 4})
@@ -67,7 +67,7 @@ if __name__ == "__main__":
     # 2) OPTIONS INPUT (demo)
     options_list = [
         {"under": "AAPL", "type": "call", "contracts": 1, "multiplier": 100,
-         "qty": 100, "K": 210.0, "T": 1.0}]
+         "qty": 100, "K": 210.0, "T": 1.0}]'''
     
 
 
@@ -81,39 +81,39 @@ if __name__ == "__main__":
     rag.API_PATH          = "/v1/completions"
     rag.MODEL_NAME        = "qwen-3-4b-instruct"
     #--------------------------------------------------------------
-    '''
-    # Base valutaria
-    BASE = input("Valuta base [EUR]: ").strip().upper() or "EUR"
+    
+    # Base currency
+    BASE = input("Choose a base currency [e.g. EUR]: ").strip().upper() or "EUR"
 
-    # Ticker equity
-    TICKERS = input("Tickers equity (separati da spazio): ").upper().split()
+    # Equity tickers
+    TICKERS = input("Enter equity tickers (space separated): ").upper().split()
     if not TICKERS:
-        print("Nessun ticker inserito, esco.")
+        print("No tickers entered, exiting.")
         sys.exit(1)
 
-    # Numero di azioni per ticker
+    # Number of shares per ticker
     SHARES = {}
     for t in TICKERS:
         while True:
             try:
-                q = float(input(f"  Shares {t:<6}: "))
+                q = float(input(f"  Number of shares for {t:<6}: "))
                 SHARES[t] = q
                 break
             except ValueError:
-                print("    Numero non valido, riprova.")
+                print("    Invalid number, please try again.")
 
-    # Opzioni
+    # Options
     options_list = []
-    if input("Hai opzioni? (s/n): ").lower().startswith("s"):
+    if input("Do you have options? (y/n): ").lower().startswith("y"):
         while True:
-            u = input("  Sottostante (ENTER per terminare): ").upper()
+            u = input("  Underlying (ENTER to finish): ").upper()
             if not u:
                 break
-            typ = input("    Tipo (call/put): ").lower()
-            contr = float(input("    Contratti (numero): "))
+            typ = input("    Type (call/put): ").lower()
+            contr = float(input("    Number of contracts: "))
             mult = int(input("    Multiplier [100]: ") or 100)
-            K = float(input("    Strike: "))
-            T = float(input("    Time-to-maturity (anni): "))
+            K = float(input("    Strike price: "))
+            T = float(input("    Time to maturity (years): "))
             options_list.append({
                 "under": u,
                 "type": typ,
@@ -123,10 +123,11 @@ if __name__ == "__main__":
                 "K": K,
                 "T": T
             })
-            print(f"    → {typ.upper()} {u}  {contr}×{mult}  K={K}")
+            print(f"    → {typ.upper()} {u}  {contr}×{mult}  Strike={K}")
+
 
     # Trasforma SHARES in pd.Series
-    SHARES = pd.Series(SHARES)'''
+    SHARES = pd.Series(SHARES)
 
 
     CONF = 0.99
@@ -146,7 +147,12 @@ if __name__ == "__main__":
 
     # Debug: risk-free
     try:
-        rf_rate = yf.Ticker("^IRX").history(period="1d")["Close"].iloc[-1] / 100
+        
+        end = pd.Timestamp.today()
+        start = end - pd.Timedelta(days=7)
+         # 'DGS3' è il 3-month Treasury constant maturity rate
+        df = web.DataReader("DGS3", "fred", start, end).dropna()
+        rf_rate = df.iloc[-1,0] / 100
     except:
         rf_rate = 0.02
 
@@ -319,7 +325,6 @@ if __name__ == "__main__":
     })
     df_evt_bt["VaR Violation"] = df_evt_bt["Returns"] < -df_evt_bt["VaR"]
 
-    # Inserisci in backtest_data
     
 
     # 6) BACKTESTING (PARAMETRIC + VOLATILITY-BASED)
@@ -456,7 +461,8 @@ if __name__ == "__main__":
           f"{summary_text}\n")
 
     # get vectorstore (or use cached summary)
-    vectordb = rag.get_vectorstore([r"C:\Users\nickl\Documents\GitHub\VaR\llm\knowledge_base.pdf"])
+    vectordb = rag.get_vectorstore(r"C:\Users\nickl\Documents\GitHub\VaR\llm\knowledge_base.pdf")
+
     combined = {
         "VaR & ES Metrics": metrics_eq,
         "Backtest Summary": results_df.to_dict(orient="index")
