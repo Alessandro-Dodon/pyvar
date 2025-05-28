@@ -1,5 +1,5 @@
 #================================================================
-# VaR and ES Risk Report for Equity + Options Portfolio (with plots)
+# VaR and ES Risk Report for Equity + Options Portfolio 
 # ================================================================
 import os, sys
 import pandas as pd
@@ -333,14 +333,14 @@ if __name__ == "__main__":
     }
 
     
-    '''
+    
     # --- 6b) Plot backtests (interactive, each in its own browser tab) ---
     for name, df_bt in backtest_data.items():
         plot_backtest(
             df_bt,
             interactive=True,
             title=f"Backtest {name}"
-        )'''
+        )
 
     # 7) ADDITIONAL PLOTS (interactive)
     plot_volatility(df_garch_var["Volatility"], interactive=True, title="Volatility Estimate")
