@@ -56,31 +56,24 @@ plot_risk_contribution_lines = _auto_show_wrapper(plot_risk_contribution_lines)
 plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
 
 
+# --- LLM CONFIGURATION ---
+rag.LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
+rag.API_PATH          = "/v1/completions"
+rag.MODEL_NAME        = "qwen-3-4b-instruct"
+#--------------------------------------------------------------
+
+
+
+
 if __name__ == "__main__":
-    '''# 1) INPUT UTENTE
-    BASE     = "EUR"
-    TICKERS  = ["NVDA", "MSFT"]
-    SHARES   = pd.Series({"NVDA": 3, "MSFT": 4})
-    CONF     = 0.99
 
+    CONF = 0.99
+    days_window = 300   #Number of business days to include in the analysis
+    START_DATE = (pd.Timestamp.today() - BDay(days_window)).strftime("%Y-%m-%d")
 
-    # 2) OPTIONS INPUT (demo)
-    options_list = [
-        {"under": "AAPL", "type": "call", "contracts": 1, "multiplier": 100,
-         "qty": 100, "K": 210.0, "T": 1.0}]'''
-    
-
-
-
-     # ——————————————————————————————
-    # 1) INPUT UTENTE INTERATTIVO
     # ——————————————————————————————
-
-    # --- LLM CONFIGURATION ---
-    rag.LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
-    rag.API_PATH          = "/v1/completions"
-    rag.MODEL_NAME        = "qwen-3-4b-instruct"
-    #--------------------------------------------------------------
+    # 1) INTERACTIVE INPUTS
+    # ——————————————————————————————
     
     # Base currency
     BASE = input("Choose a base currency [e.g. EUR]: ").strip().upper() or "EUR"
@@ -126,371 +119,474 @@ if __name__ == "__main__":
             print(f"    → {typ.upper()} {u}  {contr}×{mult}  Strike={K}")
 
 
-    # Trasforma SHARES in pd.Series
+    # Transform SHARES in pd.Series
     SHARES = pd.Series(SHARES)
 
 
-    CONF = 0.99
-    START_DATE = (pd.Timestamp.today() - BDay(300)).strftime("%Y-%m-%d")
-
     # 3) EQUITY DATA PREP
-    START_DATE       = (pd.Timestamp.today() - BDay(300)).strftime("%Y-%m-%d")
-    raw_prices       = pv.get_raw_prices(TICKERS, start=START_DATE)
-    raw_prices = raw_prices.ffill().bfill()
-    currency_map     = {t: yf.Ticker(t).fast_info.get("currency", BASE) or BASE for t in TICKERS}
-    converted_prices = pv.convert_to_base(raw_prices, currency_mapping=currency_map, base_currency=BASE)
-    converted_prices = converted_prices.ffill().bfill()
-    positions_df,    = [pv.create_portfolio(converted_prices, SHARES)]
+    # Fetch, fill, convert in one go
+    raw = pv.get_raw_prices(TICKERS, start=START_DATE).ffill().bfill()
+    currency_map = {t: yf.Ticker(t).fast_info.get("currency", BASE) or BASE for t in TICKERS}
+    converted_prices = pv.convert_to_base(raw, currency_mapping=currency_map, base_currency=BASE).ffill().bfill()
+
+    # Drop tickers that have no valid data at all
+    #  (e.g. AAPL failed to download)
+    valid_equities = raw.columns[raw.notna().any()]
+    dropped = set(raw.columns) - set(valid_equities)
+    if dropped:
+        print(f"[warning] dropping tickers with no data: {dropped}")
+        raw = raw[valid_equities]
+        converted_prices = converted_prices[valid_equities]
+        SHARES = SHARES.loc[valid_equities]
+
+    # 2) Recompute returns and check length
     returns = pv.compute_returns(converted_prices)
+    if len(returns) < 2:
+        sys.exit("Not enough data points after cleaning to compute VaR.")
 
-    last_prices      = converted_prices.iloc[-1]
-    portfolio_value  = float((last_prices * SHARES).sum())
-    weights          = (last_prices * SHARES) / portfolio_value
+    # Portfolio stats
+    positions_df = pv.create_portfolio(converted_prices, SHARES)
+    returns = pv.compute_returns(converted_prices)
+    last_prices = converted_prices.iloc[-1]
+    portfolio_value = (last_prices * SHARES).sum()
+    weights = (last_prices * SHARES) / portfolio_value
 
-    # Debug: risk-free
+    # Risk‐free
     try:
-        
-        end = pd.Timestamp.today()
-        start = end - pd.Timedelta(days=7)
-         # 'DGS3' è il 3-month Treasury constant maturity rate
-        df = web.DataReader("DGS3", "fred", start, end).dropna()
-        rf_rate = df.iloc[-1,0] / 100
-    except:
+        df_rf = web.DataReader("DGS3", "fred",
+                            pd.Timestamp.today() - pd.Timedelta(days=7),
+                            pd.Timestamp.today()).dropna()
+        rf_rate = df_rf.iloc[-1, 0] / 100
+    except Exception:
         rf_rate = 0.02
 
     # 4) OPTIONS DATA PREP
     option_value = 0.0
     if options_list:
-        all_tks      = sorted(set(TICKERS) | {o["under"] for o in options_list})
-        raw_all      = pv.get_raw_prices(all_tks, start=START_DATE)
-        prices_all   = pv.convert_to_base(
+        # 1) Aggregate all underlyings + equities in one fetch
+        all_tickers = sorted(set(TICKERS) | {opt['under'] for opt in options_list})
+        raw_all = pv.get_raw_prices(all_tickers, start=START_DATE).ffill().bfill()
+        converted_all = pv.convert_to_base(
             raw_all,
-            currency_mapping={t: BASE for t in all_tks},
+            currency_mapping={t: BASE for t in all_tickers},
             base_currency=BASE
-        )
-        prices_all = prices_all.ffill().bfill()
-        returns_all = pv.compute_returns(prices_all).dropna()
-        hist_vol     = returns_all.std() * np.sqrt(252)
+        ).ffill().bfill()
 
+        # 2) Historical volatility for each ticker
+        returns_all = pv.compute_returns(converted_all).dropna()
+        hist_vol = returns_all.std() * np.sqrt(252)
+
+        # 3) Map column order for Monte Carlo and compute each option
+        price_cols = list(converted_all.columns)
         for opt in options_list:
-            opt.update({
-                "asset_index": all_tks.index(opt["under"]),
-                "sigma": float(hist_vol.get(opt["under"], hist_vol.mean())),
-                "r": rf_rate
-            })
-            S = last_prices.get(opt["under"]) \
-                or yf.Ticker(opt["under"]).history(period="1d")["Close"].iloc[-1]
-            price_opt = pv.black_scholes(
-                S, opt["K"], opt["T"], opt["r"], opt["sigma"], opt["type"]
+            if opt['under'] not in price_cols:
+                raise ValueError(f"Underlying {opt['under']} not in price data")
+            opt['asset_index'] = price_cols.index(opt['under'])
+            opt['sigma'] = float(hist_vol.get(opt['under'], hist_vol.mean()))
+            opt['r'] = rf_rate
+
+            # get last spot directly from the converted series
+            spot_price = converted_all[opt['under']].iloc[-1]
+            unit_price = pv.black_scholes(
+                spot_price, opt['K'], opt['T'], opt['r'], opt['sigma'], opt['type']
             )
-            option_value += price_opt * opt["qty"]
+            option_value += unit_price * opt['qty']
 
     total_value = portfolio_value + option_value
 
-    # Debug prints
-    print("\n\n=== DEBUG PORTFOLIO ===")
-    # valori singole posizioni
-    for ticker, qty in SHARES.items():
-        price = last_prices[ticker]
-        print(f"  {ticker}: {qty} × {price:.2f} = {qty * price:.2f} {BASE}")
-    # valore equity
-    print(f"\n  Portfolio equity value: {portfolio_value:.2f} {BASE}")
-    
-    # valore singole opzioni
-    print("\n=== DEBUG OPTIONS ===")
-    for opt in options_list:
-        # prezzo unitario dell'opzione
-        price_opt = pv.black_scholes(
-            last_prices.get(opt["under"]) or yf.Ticker(opt["under"])
-                                     .history(period="1d")["Close"].iloc[-1],
-            opt["K"], opt["T"], rf_rate, opt["sigma"], opt["type"]
+
+
+     # === DEBUG SUMMARY TABLES ===
+    # Portfolio positions
+    positions_summary = pd.DataFrame({
+        'Ticker': SHARES.index,
+        'Shares': SHARES.values,
+        'Price': last_prices.loc[SHARES.index].values
+    })
+    positions_summary['Value'] = positions_summary['Shares'] * positions_summary['Price']
+    print("\n\n=== EQUITY POSITIONS ===")
+    print(positions_summary.to_string(index=False, float_format=lambda x: f"{x:.2f}"))
+    print(f"\n  Portfolio equity value: {portfolio_value:.2f} {BASE}\n")
+
+    # Options positions (if any)
+    if options_list:
+        options_summary = pd.DataFrame(options_list)
+        options_summary['MarketPrice'] = options_summary.apply(
+            lambda row: pv.black_scholes(
+                last_prices.get(row['under'])
+                or yf.Ticker(row['under']).history(period="1d")['Close'].iloc[-1],
+                row['K'], row['T'], rf_rate, row['sigma'], row['type']
+            ), axis=1
         )
-        opt_val = opt["contracts"] * opt["multiplier"] * price_opt
+        options_summary['Value'] = (
+            options_summary['contracts']
+            * options_summary['multiplier']
+            * options_summary['MarketPrice']
+        )
+        display_cols = ['under', 'type', 'contracts', 'multiplier', 'MarketPrice', 'Value']
+        print("=== OPTIONS POSITIONS ===")
         print(
-            f"  {opt['contracts']}×{opt['multiplier']} {opt['type'].upper()} on {opt['under']}  "
-            f"@ {price_opt:.2f} → {opt_val:.2f} {BASE}"
+            options_summary[display_cols]
+                .rename(columns={
+                    'under':'Underlying','type':'OptionType',
+                    'contracts':'Contracts','multiplier':'Multiplier',
+                    'MarketPrice':'Price','Value':'Value'
+                })
+                .to_string(index=False, float_format=lambda x: f"{x:.2f}")
         )
-    print(f"\n  Options total value:    {option_value:.2f} {BASE}")
-    print("======================\n")
-    
-    # totale equity + opzioni
-    print(f"  Total portfolio value:  {total_value:.2f} {BASE}")
-    
-    # tasso risk-free
-    print(f"  Risk-free rate:         {rf_rate:.4%}")
-    print("=========================\n")
+        print(f"\n  Options total value: {option_value:.2f} {BASE}\n")
+
+    # Totals
+    print(f"=== TOTAL PORTFOLIO VALUE: {total_value:.2f} {BASE} ===")
+    print(f"=== RISK-FREE RATE: {rf_rate:.4%} ===\n")
+
+
+
+
+
+
 
     # 5) VAR + ES CALCULATION
-    df_an   = pv.asset_normal_var(positions_df, confidence_level=CONF)
-    var_an  = df_an["Diversified_VaR"].iloc[-1]
 
-    var_mc_eq, pnl_mc_eq = pv.monte_carlo_var(converted_prices, SHARES.values, [], confidence_level=CONF)
-    es_mc_eq = pv.simulation_es(var_mc_eq, pnl_mc_eq)
+    returns_portfolio = returns.dot(weights)
 
-    var_mc_opt, pnl_mc_opt = pv.monte_carlo_var(converted_prices, SHARES.values, options_list, confidence_level=CONF)
-    es_mc_opt = pv.simulation_es(var_mc_opt, pnl_mc_opt)
+    def compute_var_and_es(var_func, *args, **kwargs):
+        """Runs var_func, then computes ES on its output."""
+        var, pnl = var_func(*args, **kwargs)
+        return var, pv.simulation_es(var, pnl)
 
-    var_hist_eq, pnl_hist_eq = pv.historical_simulation_var(converted_prices, SHARES.values, [], confidence_level=CONF)
-    es_hist_eq = pv.simulation_es(var_hist_eq, pnl_hist_eq)
+    #  — Asset Normal 
+    df_asset_normal = pv.asset_normal_var(positions_df, confidence_level=CONF)
+    var_asset_normal = df_asset_normal["Diversified_VaR"].iloc[-1]
 
-    var_hist_opt, pnl_hist_opt = pv.historical_simulation_var(converted_prices, SHARES.values, options_list, confidence_level=CONF)
-    es_hist_opt = pv.simulation_es(var_hist_opt, pnl_hist_opt)
-
-    
-    # SINGGLE FACTOR MODEL con SPY come benchmark
-
-    # 1) Scarica SPY e convertilo in EUR
-    spy_raw = pv.get_raw_prices(["SPY"], start=START_DATE)
-    # se SPY è in USD, fai la conversione reale
-    spy_prices = pv.convert_to_base(
-        spy_raw,
-        currency_mapping={"SPY": "USD"},
-        base_currency=BASE
-    )
-    
-    # 2) Rendimenti SPY
-    spy_ret = spy_prices["SPY"].pct_change().dropna()
-    
-    # 3) Allinea indici con returns
-    common_idx         = returns.index.intersection(spy_ret.index)
-    returns_aligned    = returns.loc[common_idx]
-    spy_ret_aligned    = spy_ret.loc[common_idx]
-    # (i pesi verranno riallineati internamente, ma puoi allinearli esplicitamente)
-    weights_aligned    = weights.loc[returns_aligned.columns]
-    
-    # 4) Chiamata con SPY
-    df_sf, vol_sf = pv.single_factor_var(
-        returns_aligned,
-        spy_ret_aligned,
-        weights_aligned,
-        portfolio_value,
+    #  — Monte Carlo SImulations (equity only)
+    var_mc_eq, es_mc_eq = compute_var_and_es(
+        pv.monte_carlo_var,
+        converted_prices, SHARES.values, [], 
         confidence_level=CONF
     )
-    df_sf = pv.factor_models_es(df_sf, vol_sf, confidence_level=CONF)
-    var_sf, es_sf = (
-        df_sf["VaR_monetary"].iloc[-1],
-        df_sf["ES_monetary"].iloc[-1]
+
+    #  — Monte Carlo Simulations (equity + options)
+    var_mc_opt, es_mc_opt = compute_var_and_es(
+        pv.monte_carlo_var,
+        converted_prices, SHARES.values, options_list,
+        confidence_level=CONF
     )
 
+    #  — Historical Simulations (equity only)
+    var_hist_sim_eq, es_hist_sim_eq = compute_var_and_es(
+        pv.historical_simulation_var,
+        converted_prices, SHARES.values, [],
+        confidence_level=CONF
+    )
 
+    #  — Historical Simulations (equity + options)
+    var_hist_sim_opt, es_hist_sim_opt = compute_var_and_es(
+        pv.historical_simulation_var,
+        converted_prices, SHARES.values, options_list,
+        confidence_level=CONF
+    )
+
+    # Sharpe model using SPY as benchmark
+    spy_raw = pv.get_raw_prices(["SPY"], start=START_DATE)
+    spy_prices = pv.convert_to_base(spy_raw, {"SPY":"USD"}, base_currency=BASE).ffill().bfill()
+    spy_ret = spy_prices["SPY"].pct_change().dropna()
+    common_idx = returns.index.intersection(spy_ret.index)
+    aligned_returns = returns.loc[common_idx]
+    aligned_spy     = spy_ret.loc[common_idx]
+    aligned_weights = weights.loc[aligned_returns.columns]
+    df_sharpe_model, vol_sharpe_model = pv.single_factor_var(
+        aligned_returns, aligned_spy, aligned_weights,
+        portfolio_value, confidence_level=CONF
+    )
+    df_sharpe_model = pv.factor_models_es(df_sharpe_model, vol_sharpe_model, confidence_level=CONF)
+    var_sharpe_model, es_sharpe_model = df_sharpe_model["VaR_monetary"].iat[-1], df_sharpe_model["ES_monetary"].iat[-1]
+
+
+
+    # Fama-French 3 Factor Model
     df_ff3, vol_ff3 = pv.fama_french_var(
         returns, weights, portfolio_value, confidence_level=CONF
     )
-    df_ff3          = pv.factor_models_es(df_ff3, vol_ff3, confidence_level=CONF)
-    var_ff3, es_ff3 = (
-        df_ff3["VaR_monetary"].iloc[-1],
-        df_ff3["ES_monetary"].iloc[-1]
+    df_ff3 = pv.factor_models_es(df_ff3, vol_ff3, confidence_level=CONF)
+    var_ff3, es_ff3 = df_ff3["VaR_monetary"].iat[-1], df_ff3["ES_monetary"].iat[-1]
+
+
+
+    # Volatility-based Moving Average & EWMA VaR
+    df_ma_var, _ = pv.ma_var(
+        returns_portfolio,
+        confidence_level=CONF,
+        window=20,
+        wealth=portfolio_value
+    )
+    df_ewma_var, _ = pv.ewma_var(
+        returns_portfolio,
+        confidence_level=CONF,
+        decay_factor=0.94,
+        wealth=portfolio_value
     )
 
-    df_ma           = pv.ma_correlation_var(positions_df, distribution="normal", confidence_level=CONF)
-    df_ma           = pv.correlation_es(df_ma)
-    var_ma, es_ma   = (
-        df_ma["VaR Monetary"].iloc[-1],
-        df_ma["ES Monetary"].iloc[-1]
+    # Moving Average (ma) & Exponential Weighted Moving Average (ewma) correlations
+    df_ma = pv.ma_correlation_var(
+        positions_df,
+        distribution="normal",
+        confidence_level=CONF
     )
+    df_ma = pv.correlation_es(df_ma)
+    var_ma, es_ma = df_ma["VaR Monetary"].iat[-1], df_ma["ES Monetary"].iat[-1]
 
-    df_ewma         = pv.ewma_correlation_var(positions_df, distribution="normal", confidence_level=CONF)
-    df_ewma         = pv.correlation_es(df_ewma)
-    var_ewma, es_ewma = (
-        df_ewma["VaR Monetary"].iloc[-1],
-        df_ewma["ES Monetary"].iloc[-1]
+    df_ewma = pv.ewma_correlation_var(
+        positions_df,
+        distribution="normal",
+        confidence_level=CONF
     )
+    df_ewma = pv.correlation_es(df_ewma)
+    var_ewma, es_ewma = df_ewma["VaR Monetary"].iat[-1], df_ewma["ES Monetary"].iat[-1]
 
-    ret_port        = returns.dot(weights)
-    df_evt          = pv.evt_var(ret_port, wealth=portfolio_value)
-    df_evt          = pv.evt_es(df_evt, wealth=portfolio_value)
-    var_evt, es_evt = (
-        df_evt["VaR_monetary"].iloc[-1],
-        df_evt["ES_monetary"].iloc[-1]
-    )
+    # Extreme Value Theory (EVT)
 
-    df_garch_var, _     = pv.garch_var(ret_port, confidence_level=CONF, wealth=portfolio_value)
-    df_garch_var        = pv.volatility_es(df_garch_var, confidence_level=CONF, wealth=portfolio_value)
-    var_garch, es_garch = (
-        df_garch_var["VaR_monetary"].iloc[-1],
-        df_garch_var["ES_monetary"].iloc[-1]
-    )
-    df_garch_bt = df_garch_var[["Returns", "VaR", "VaR Violation"]]
+    df_evt   = pv.evt_var(returns_portfolio, wealth=portfolio_value)
+    df_evt   = pv.evt_es(df_evt, wealth=portfolio_value)
+    var_evt, es_evt = df_evt["VaR_monetary"].iat[-1], df_evt["ES_monetary"].iat[-1]
 
-    df_arch_var, _   = pv.arch_var(ret_port, confidence_level=CONF, wealth=portfolio_value)
-    df_arch_var      = pv.volatility_es(df_arch_var, confidence_level=CONF, wealth=portfolio_value)
-    df_arch_bt       = df_arch_var[["Returns", "VaR", "VaR Violation"]]
+    # GARCH(1,1)
+    df_garch, intercept = pv.garch_var(returns_portfolio, confidence_level=CONF, wealth=portfolio_value)
+    df_garch    = pv.volatility_es(df_garch, confidence_level=CONF, wealth=portfolio_value)
+    var_garch, es_garch = df_garch["VaR_monetary"].iat[-1], df_garch["ES_monetary"].iat[-1]
 
-    df_ewma_var2, _  = pv.ewma_var(ret_port, confidence_level=CONF, decay_factor=0.94, wealth=portfolio_value)
-    df_ewma_bt2      = df_ewma_var2[["Returns", "VaR", "VaR Violation"]]
 
-    df_ma_var2, _    = pv.ma_var(ret_port, confidence_level=CONF, window=20, wealth=portfolio_value)
-    df_ma_bt2        = df_ma_var2[["Returns", "VaR", "VaR Violation"]]
-
-    df_evt_bt = pd.DataFrame({
-    "Returns": ret_port,
-    "VaR": df_evt["VaR_monetary"] / portfolio_value
-    })
-    df_evt_bt["VaR Violation"] = df_evt_bt["Returns"] < -df_evt_bt["VaR"]
+    # Component VaR
+    component_var_df = pv.component_var(positions_df, confidence_level=CONF)
 
     
 
-    # 6) BACKTESTING (PARAMETRIC + VOLATILITY-BASED)
-    df_an_bt = pd.DataFrame({
-        "Returns": ret_port,
-        "VaR": df_an["Diversified_VaR"] / portfolio_value
-    })
-    df_an_bt["VaR Violation"] = df_an_bt["Returns"] < -df_an_bt["VaR"]
-
-    backtest_data = {
-        "Asset-Normal" : df_an_bt,
-        "Sharpe-Factor": df_sf[["Returns", "VaR", "VaR Violation"]],
-        "FF3-Factor"   : df_ff3[["Returns", "VaR", "VaR Violation"]],
-        "GARCH(1,1)"   : df_garch_bt,
-        "ARCH(p)"      : df_arch_bt,
-        "EWMA(λ=0.94)" : df_ewma_bt2,
-        "MA (20d)"     : df_ma_bt2,
-        "EVT": df_evt_bt
+    # 6) BACKTESTING
+    # Map each model name to its DataFrame of VaR results
+    model_data = {
+        "Asset-Normal":     df_asset_normal,
+        "Sharpe-Factor":    df_sharpe_model,
+        "FF3-Factor":       df_ff3,
+        "GARCH(1,1)":       df_garch,
+        "EWMA(λ=0.94)":     df_ewma_var,
+        "MA (20d)":         df_ma_var,
+        "EVT":               df_evt
     }
 
+    backtest_data = {}
+    for name, df_model in model_data.items():
+        # pick the last column containing "VaR"
+        var_col = [c for c in df_model.columns if "VaR" in c][-1]
+        # build the backtest DataFrame
+        df_bt = pd.DataFrame({
+            "Returns": returns_portfolio,
+            "VaR":      df_model[var_col] / portfolio_value
+        }, index=returns_portfolio.index)
+        df_bt["VaR Violation"] = df_bt["Returns"] < -df_bt["VaR"]
+        backtest_data[name] = df_bt
+
     
     
-    # --- 6b) Plot backtests (interactive, each in its own browser tab) ---
-    for name, df_bt in backtest_data.items():
-        plot_backtest(
-            df_bt,
-            interactive=True,
-            title=f"Backtest {name}"
+    # 7) PLOT DATA 
+    for model_name, df_bt in backtest_data.items():
+        plot_backtest(df_bt, interactive=True, title=f"Backtest {model_name}")
+
+
+    # Define all extra plots as (function, data, title)
+    additional_plots = [
+        (plot_volatility,          df_garch["Volatility"],                "Volatility Estimate"),
+        (plot_var_series,          df_asset_normal,                       "Diversified vs Undiversified VaR"),
+        (plot_risk_contribution_bar,   component_var_df,                   "Average Component VaR"),
+        (plot_risk_contribution_lines, component_var_df,                   "Component VaR Over Time"),
+        (plot_correlation_matrix,  positions_df,                          "Return Correlation Matrix"),
+    ]
+
+    for plot_fn, data, title in additional_plots:
+        plot_fn(data, interactive=True, title=title)
+
+
+
+    # 8) SYNTHESIS – EQUITY VaR & ES
+    # define raw VaR and ES mappings
+    var_table = {
+        "Asset-Normal":       var_asset_normal,
+        "Sharpe-Factor":      var_sharpe_model,
+        "FF3":                var_ff3,
+        "Monte Carlo":        var_mc_eq,
+        "Hist Sim":           var_hist_sim_eq,
+        "MA":                  var_ma,
+        "EWMA":                var_ewma,
+        "EVT":                 var_evt,
+        "GARCH":               var_garch
+    }
+
+    es_table = {
+        "Monte Carlo":        es_mc_eq,
+        "Hist Sim":           es_hist_sim_eq,
+        "Sharpe-Factor":      es_sharpe_model,
+        "FF3":                es_ff3,
+        "MA":                  es_ma,
+        "EWMA":                es_ewma,
+        "EVT":                 es_evt,
+        "GARCH":               es_garch
+    }
+
+    # build the final metrics_eq
+    metrics_eq = {
+        f"{name} VaR": value
+        for name, value in var_table.items()
+    }
+    metrics_eq.update({
+        f"{name} ES": value
+        for name, value in es_table.items()
+    })
+
+    # 8b) SYNTHESIS PRINTOUTS
+
+    # Equity metrics DataFrame
+    df_metrics = (
+    pd.DataFrame.from_dict(metrics_eq, orient='index', columns=['Value'])
+      .assign(
+          Type=lambda df: np.where(df.index.str.contains('VaR'), 'VaR', 'ES'),
+          Pct_of_Port=lambda df: df['Value'] / portfolio_value
+      )
+    )
+
+    # Print VaR and ES tables
+    for metric_type in ['VaR', 'ES']:
+        title = f"\n===== SYNTHESIS – EQUITY {metric_type} =====\n"
+        print(title)
+        df_sub = df_metrics[df_metrics['Type'] == metric_type] \
+                    .sort_values('Value', ascending=False)
+        print(
+            df_sub[['Value','Pct_of_Port']]
+            .to_string(
+                float_format=lambda x: f"{x:,.2f}"
+            )
         )
 
-    # 7) ADDITIONAL PLOTS (interactive)
-    plot_volatility(df_garch_var["Volatility"], interactive=True, title="Volatility Estimate")
-    plot_var_series(df_an, interactive=True, title="Diversified vs Undiversified VaR")
-    comp_df = pv.component_var(positions_df, confidence_level=CONF)
-    plot_risk_contribution_bar(comp_df, interactive=True, title="Average Component VaR")
-    plot_risk_contribution_lines(comp_df, interactive=True, title="Component VaR Over Time")
-    plot_correlation_matrix(positions_df, interactive=True, title="Return Correlation Matrix")
-
-    # 8) SINTESI – EQUITY VaR & ES
-    metrics_eq = {
-        "Asset-Normal VaR": var_an,
-        "Sharpe-Factor VaR": var_sf,
-        "FF3 VaR": var_ff3,
-        "Monte Carlo VaR": var_mc_eq,
-        "Hist Sim VaR": var_hist_eq,
-        "MA VaR": var_ma,
-        "EWMA VaR": var_ewma,
-        "EVT VaR": var_evt,
-        "GARCH VaR": var_garch,
-        "Monte Carlo ES": es_mc_eq,
-        "Hist Sim ES": es_hist_eq,
-        "Sharpe-Factor ES": es_sf,
-        "FF3 ES": es_ff3,
-        "MA ES": es_ma,
-        "EWMA ES": es_ewma,
-        "EVT ES": es_evt,
-        "GARCH ES": es_garch
-    }
-
-    print("\n===== SYNTHESIS – EQUITY VaR =====\n")
-    var_keys = [k for k in metrics_eq if "VaR" in k]
-    table_v = pd.Series({k: metrics_eq[k] for k in var_keys}, name="Value").to_frame()
-    table_v["Pct_of_Port"] = table_v["Value"] / portfolio_value
-    print(table_v.sort_values("Value", ascending=False).to_string(float_format=lambda x: f"{x:,.2f}"))
-
-    print("\n===== SYNTHESIS – EQUITY ES =====\n")
-    es_keys = [k for k in metrics_eq if "ES" in k]
-    table_e = pd.Series({k: metrics_eq[k] for k in es_keys}, name="Value").to_frame()
-    table_e["Pct_of_Port"] = table_e["Value"] / portfolio_value
-    print(table_e.sort_values("Value", ascending=False).to_string(float_format=lambda x: f"{x:,.2f}"))
-
+    # Options metrics, if any
     if options_list:
         metrics_opt = {
             "Monte Carlo VaR (EQ+OPT)": var_mc_opt,
-            "Hist Sim VaR (EQ+OPT)": var_hist_opt,
-            "Monte Carlo ES (EQ+OPT)": es_mc_opt,
-            "Hist Sim ES (EQ+OPT)": es_hist_opt
+            "Hist Sim VaR (EQ+OPT)":     var_hist_sim_opt,
+            "Monte Carlo ES (EQ+OPT)":   es_mc_opt,
+            "Hist Sim ES (EQ+OPT)":      es_hist_sim_opt
         }
+        df_opt = (
+            pd.DataFrame.from_dict(metrics_opt, orient='index', columns=['Value'])
+            .assign(Pct_of_Port=lambda df: df['Value'] / total_value)
+            .sort_values('Value', ascending=False)
+        )
         print("\n===== SYNTHESIS – EQUITY + OPTIONS =====\n")
-        tbl = pd.Series(metrics_opt, name="Value").to_frame()
-        tbl["Pct_of_Port"] = tbl["Value"] / total_value
-        print(tbl.sort_values("Value", ascending=False).to_string(float_format=lambda x: f"{x:,.2f}"))
+        print(
+            df_opt[['Value','Pct_of_Port']]
+            .to_string(
+                float_format=lambda x: f"{x:,.2f}"
+            )
+        )
 
-    # 9) BACKTEST RESULTS: violations, rate & p-values
-    records = []
-    for name, df_bt in backtest_data.items():
-        n_viol, rate = count_violations(df_bt)
-        kup = kupiec_test(n_viol, len(df_bt), CONF)
-        ch  = christoffersen_test(df_bt)
-        jn  = joint_lr_test(kup["LR_uc"], ch["LR_c"])
-        records.append({
-            "Model": name,
-            "Violations": n_viol,
-            "Violation Rate": rate,
-            "Kupiec p-value": kup["p_value"],
-            "Christoffersen p-value": ch["p_value"],
-            "Joint p-value": jn["p_value"]
-        })
-    results_df = pd.DataFrame(records).set_index("Model")
+
+    # --- 9) BACKTEST RESULTS: violations, rates & p-values ---
+
+    def summarize_backtest(df):
+        violations, violation_rate = count_violations(df)
+        kup_stats = kupiec_test(violations, len(df), CONF)
+        ch_stats  = christoffersen_test(df)
+        jn_stats  = joint_lr_test(kup_stats["LR_uc"], ch_stats["LR_c"])
+        return (
+            violations,
+            violation_rate,
+            kup_stats["p_value"],
+            ch_stats["p_value"],
+            jn_stats["p_value"]
+        )
+
+    # Build a DataFrame directly from the summaries
+    results_df = pd.DataFrame.from_dict(
+        {
+            name: summarize_backtest(df_bt)
+            for name, df_bt in backtest_data.items()
+        },
+        orient="index",
+        columns=[
+            "Violations",
+            "Violation Rate",
+            "Kupiec p-value",
+            "Christoffersen p-value",
+            "Joint p-value"
+        ]
+    )
+
     print("\n===== BACKTEST RESULTS =====\n")
     print(results_df.to_string(float_format=lambda x: f"{x:.3f}"))
 
 
-    # --- BUILD SUMMARY_TEXT FOR PROMPT (PATCHED: ONLY VaR) ---
+
+    # --- BUILD SUMMARY TEXT FOR PROMPT LLM (ONLY VaR) ---
+
+    # 1) Precompute backtest summaries by model name
+    backtest_summaries = {
+        model: (
+            f"backtest showed {int(row['Violations'])} violations "
+            f"({row['Violation Rate']:.3f}), "
+            f"Kupiec p={row['Kupiec p-value']:.3f}, "
+            f"Christoffersen p={row['Christoffersen p-value']:.3f}, "
+            f"Joint p={row['Joint p-value']:.3f}"
+        )
+        for model, row in results_df.iterrows()
+    }
+
+    # 2) Build the summary lines in one pass
     summary_lines = []
-    for name, value in metrics_eq.items():
-        # skip everything that non contenga "VaR"
-        if "VaR" not in name:
+    for metric_name, value in metrics_eq.items():
+        if not metric_name.endswith(" VaR"):
             continue
-        
-        # tolgo il suffisso per creare la chiave di ricerca
-        base_key = name.replace(" VaR", "")
-        # match “Asset-Normal” → “Asset-Normal”, “FF3” → “FF3-Factor”, ecc.
-        matches = [idx for idx in results_df.index if base_key in idx]
-    
-        if matches:
-            d = results_df.loc[matches[0]]
-            summary_lines.append(
-                f"{name} has a value of {value:.2f} {BASE}, "
-                f"backtest showed {int(d['Violations'])} violations "
-                f"({d['Violation Rate']:.3f}), "
-                f"Kupiec p={d['Kupiec p-value']:.3f}, "
-                f"Christoffersen p={d['Christoffersen p-value']:.3f}, "
-                f"Joint p={d['Joint p-value']:.3f}."
-            )
-        else:
-            summary_lines.append(
-                f"{name} has a value of {value:.2f} {BASE}, backtest not performed."
-            )
-    
+        base_key = metric_name[:-4]  # strip " VaR"
+        # find the first backtest model whose name contains this key
+        match = next((m for m in backtest_summaries if base_key in m), None)
+        stats = backtest_summaries[match] if match else "backtest not performed"
+        summary_lines.append(
+            f"{metric_name} has a value of {value:.2f} {BASE}, {stats}."
+        )
+
     summary_text = "\n".join(summary_lines)
 
-    print("\n===== SUMMARY TEXT =====\n"
-          f"{summary_text}\n")
+    print("\n===== SUMMARY TEXT =====\n" + summary_text + "\n")
 
-    # get vectorstore (or use cached summary)
-    vectordb = rag.get_vectorstore(r"llm\knowledge_base.pdf")
 
-    combined = {
+
+
+    # --- 10) LLM INTERPRETATION & PDF REPORT ---
+
+    # 1) Load or cache your knowledge base
+    vector_store = rag.get_vectorstore(r"llm\knowledge_base.pdf")
+
+    # 2) Prepare the combined payload for RAG
+    combined_content = {
         "VaR & ES Metrics": metrics_eq,
         "Backtest Summary": results_df.to_dict(orient="index")
     }
 
-    # build prompt including summary_text prefix
+    # 3) Build and send the prompt, then print the LLM’s answer
     prompt = rag.build_rag_prompt(
-        combined=combined,
-        vectordb=vectordb,
+        combined=combined_content,
+        vectordb=vector_store,
         portfolio_value=portfolio_value,
         base=BASE,
         confidence_level=CONF,
-        summary_text=summary_text  # new kwarg
+        summary_text=summary_text
     )
-
-    llm_output = rag.ask_llm(prompt, max_tokens=1000, temperature=0.1)
+    interpretation = rag.ask_llm(prompt, max_tokens=1000, temperature=0.1)
 
     print("===== LLM INTERPRETATION =====")
-    print(llm_output)
+    print(interpretation)
 
-    # generate PDF
+    # 4) Generate the PDF report in one call
     open_report_as_pdf(
         metrics=metrics_eq,
         weights=weights,
-        interpretation=llm_output,
+        interpretation=interpretation,
         opt_list=options_list,
         backtest_results=results_df
     )
