@@ -14,5 +14,6 @@ langchain-community
 # PDF generation
 reportlab
 
-# package
-pyvar
+# pyvar package
+git+https://github.com/Alessandro-Dodon/pyvar.git
+
