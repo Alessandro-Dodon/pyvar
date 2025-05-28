@@ -39,25 +39,30 @@
 
 \section{Introduction}
 
-We present the mathematical foundations underlying each of our models. We begin with single-asset models, also referred to as univariate models, which focus on the return dynamics of a single asset or of a portfolio treated as a single aggregated position.
-
-We then introduce a range of portfolio-level models, which explicitly consider the joint distribution of multiple asset returns. These include both analytical and simulation-based approaches. The section concludes with the backtesting methods used to evaluate the accuracy and reliability of our risk estimates.
+This section outlines the mathematical foundations of our risk models. For simplicity, we group them into two categories: univariate and portfolio-level models. We begin with univariate models, which describe the return dynamics of a single asset or, equivalently, a portfolio treated as a single aggregated position. These models typically assume a specific distribution of returns and are used to compute risk measures for individual positions.
+We then introduce portfolio-level models, which consider the joint distribution of multiple asset returns. These multivariate approaches capture dependencies between assets and allow for a more accurate assessment of portfolio risk. Both analytical and simulation-based methods are discussed in this context.
+The section concludes with a presentation of the backtesting techniques used to evaluate the performance and reliability of the risk estimates produced by our models.
 
 
 \section{Basic VaR Models}
 
-Value-at-Risk (VaR) at tail probability level $\alpha$ is defined as the smallest threshold $z_{\alpha}$ such that the probability of a loss exceeding it is $\alpha$. Equivalently, it is the $(1 - \alpha)$ quantile of the return distribution:
+Let \( c \in (0,1) \) denote the confidence level, and define \( \alpha = 1 - c \) as the corresponding probability of a large loss. Value-at-Risk (VaR) at level \( \alpha \) is defined as the worst loss \( L \) over a fixed horizon such that the probability of observing a larger loss is at most \( \alpha \):
 \[
-\Pr\left(r_t < -z_{\alpha}\right) = \alpha.
+\Pr(L > \text{VaR}_\alpha) \le \alpha.
 \]
-In monetary terms, this is typically scaled by \( W \), where \( W \) denotes the portfolio wealth. For simplicity, in single-asset models we omit \( W \) and use percentage-based notation.
+
+Intuitively, this means we are confident that with probability \( c \), losses will not exceed \( \text{VaR}_\alpha \) over the given horizon.
+
+By convention, VaR is expressed as a positive monetary amount. For simplicity, in single-asset models we omit the scaling by \( W \) (wealth invested) and use percentage-based notation.
 
 We start with models that assume constant volatility over time. In the non-parametric (historical) approach:
 \[
-\mathrm{VaR}_{\alpha}^{\mathrm{hist}} = -\,\widehat{Q}_{\alpha}(r_t), \qquad
+\mathrm{VaR}_{\alpha}^{\mathrm{hist}} =\,\widehat{Q}_{\alpha}(r_t), \qquad
 \mathrm{VaR}_{\alpha}^{\mathrm{normal}} = z_{\alpha} \sigma,
 \]
-and for portfolios this naturally extends to the normal parametric form. Expected Shortfall (ES), also known as Conditional VaR, is computed as:
+where \( z_\alpha \) is the \( \alpha \)-quantile of the standard normal distribution.
+
+Expected Shortfall (ES), also known as Conditional VaR, is computed as:
 \[
 \begin{aligned}
 \mathrm{ES}_{\mathrm{hist}} &= -\mathbb{E}\left[r_t \mid r_t < -z_{\alpha}\right], &
@@ -84,7 +89,7 @@ VaR and ES are then derived analytically from the fitted GPD parameters. This al
 \[
 \begin{aligned}
 {\text{VaR}}_\alpha &= u + \frac{\hat{\beta}}{\hat{\xi}}
-\Bigl[\bigl(\tfrac{n}{n_u}(1-\alpha)\bigr)^{-\hat{\xi}} - 1\Bigr],\qquad
+\Bigl[\bigl(\tfrac{n}{n_u}(1-c)\bigr)^{-\hat{\xi}} - 1\Bigr],\qquad
 {\text{ES}}_\alpha &= \frac{{\text{VaR}}_\alpha + \hat{\beta} - \hat{\xi} u}{1 - \hat{\xi}},
 \end{aligned}
 \]
@@ -109,6 +114,8 @@ where \( z_t \) are i.i.d.\ standardized shocks. VaR is then computed as:
   \text{VaR}_{t,\alpha} = -\hat{\sigma}_t z_\alpha.
 \]
 
+Here, \( z_\alpha \) denotes the \( \alpha \)-quantile of the distribution of standardized innovations \( z_t \).
+
 Future volatility can be forecasted analytically using GARCH(1,1).
 
 The \( \tau \)-step ahead forecast and cumulative \( T \)-step forecast are:
@@ -120,6 +127,7 @@ The \( \tau \)-step ahead forecast and cumulative \( T \)-step forecast are:
 which naturally allow multi-period VaR estimation.
 
 These models—especially GARCH and its extensions—are among the best performing in practice for financial data. They are designed to capture the volatility clustering, leptokurtosis, and persistence seen in asset returns.
+
 
 We also support:
 
@@ -144,7 +152,7 @@ ES for volatility models becomes:
   \text{ES}_{t,\alpha} = -\hat{\sigma}_t \, \mathbb{E}[z_t \mid z_t < z_\alpha].
 \] 
 
-All our volatility models use a semi-empirical approach for the VaR computation, first calculating the empirical distribution of innovations with their respective volatility estimate and then using the required percentile of those innovations as \( z \).
+All our volatility models use a semi-empirical approach for VaR computation: we first estimate the empirical distribution of standardized innovations \( z_t \), then compute the required quantile \( z_\alpha \).
 
 Despite being slightly more complex than basic models, volatility models offer a major improvement by capturing the time-varying nature of financial risk.
 
@@ -157,8 +165,9 @@ Let \( x_t = (x_{1,t}, \dots, x_{N,t})^\top \) denote the vector of monetary pos
 
 VaR is computed as:
 \[
-\text{VaR}_t = z_\alpha \cdot \sqrt{w_t^\top \Sigma_t w_t},
+\text{VaR}_{t,\alpha} = z_\alpha \cdot \sqrt{w_t^\top \Sigma_t w_t},
 \]
+
 where \( \Sigma_t \) is the time-varying covariance matrix estimated by the model.
 
 Expected Shortfall is computed either using the analytical formula under the normal distribution or with the semi-empirical method used for univariate volatility models.
@@ -178,7 +187,8 @@ For the Sharpe Model, we assume that each asset’s return $r_i$ follows the lin
 \[
 r_i = \alpha_i + \beta_i r_m + \varepsilon_i,
 \]
-where $r_m$ is the return on the market portfolio, $\beta_i$ is the asset's sensitivity to the market factor, and $\varepsilon_i$ is a zero-mean idiosyncratic shock uncorrelated with $r_m$ and other residuals. The market return $r_m$ has variance $\sigma_m^2$, and $\mathrm{Var}(\varepsilon_i) = \sigma_{\varepsilon_i}^2$.
+where $r_m$ is the return on the market portfolio, $\beta_i$ is the asset's sensitivity to the market factor, \( \alpha_i \) is the asset's abnormal return, and $\varepsilon_i$ is a zero-mean idiosyncratic shock uncorrelated with $r_m$ and other residuals. The market return $r_m$ has variance $\sigma_m^2$, and $\mathrm{Var}(\varepsilon_i) = \sigma_{\varepsilon_i}^2$.
+
 
 The total portfolio variance is:
 \[
