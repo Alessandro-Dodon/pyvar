@@ -31,9 +31,10 @@ Version
 -------
 0.1
 """
-from .data_download import (
+
+from .create_portfolio import (
     get_raw_prices,
-    convert_to_base,
+    convert_to_base_currency,
     create_portfolio,
     compute_returns,
     validate_matrix
@@ -62,7 +63,7 @@ from .volatility import (
     volatility_es
 )
 
-from .portfolio_metrics import (
+from .analytic_var import (
     asset_normal_var,
     marginal_var,
     component_var,
@@ -106,9 +107,9 @@ from .plots import (
     plot_backtest,
     plot_volatility,
     get_asset_color_map,
-    plot_var_series,
-    plot_risk_contribution_bar,
-    plot_risk_contribution_lines,
+    plot_var_vs_uvar,
+    plot_component_var_bar,
+    plot_component_var_lines,
     plot_correlation_matrix,
     plot_simulated_distribution,
     plot_simulated_paths

@@ -4,6 +4,7 @@ Volatility-Based VaR and Expected Shortfall Estimation Module
 
 Provides functions to compute Value-at-Risk (VaR) and Expected Shortfall (ES)
 using volatility models such as GARCH, ARCH, EWMA, and Moving Average. 
+
 A semi-parametric approach is adopted consistently, based on empirical quantiles of standardized residuals.
 
 Authors
@@ -59,7 +60,7 @@ def forecast_garch_variance(returns, steps_ahead=10, cumulative=False):
     Returns
     -------
     float
-        Forecasted variance (squared returns).
+        Forecasted variance.
 
     Raises
     ------
@@ -108,7 +109,7 @@ def forecast_garch_var(returns, steps_ahead=10, confidence_level=0.99, cumulativ
     Forecast empirical Value-at-Risk (VaR) using a GARCH(1,1) model and empirical quantiles.
 
     Computes variance forecast using a GARCH(1,1) model and scales volatility by
-    the empirical quantile of standardized residuals.
+    the empirical quantile of standardized residuals to obtain a VaR estimate.
 
     Parameters
     ----------
@@ -470,7 +471,7 @@ def ma_var(returns, confidence_level=0.99, window=20, wealth=None):
 
 
 #----------------------------------------------------------
-# Expected Shortfall Volatility
+# Expected Shortfall Volatility (General)
 #----------------------------------------------------------
 def volatility_es(result_data, confidence_level, wealth=None):
     """
@@ -478,8 +479,10 @@ def volatility_es(result_data, confidence_level, wealth=None):
     ----
     Estimate Expected Shortfall (ES) using standardized residuals and model-implied volatility.
 
-    This function computes dynamic Expected Shortfall (ES) by averaging standardized residuals 
-    (innovations) that fall below a quantile threshold, then scales the tail mean by the conditional 
+    This is a general ES function which works with any volatility model above.
+
+    This function computes dynamic ES by averaging standardized innovations
+    that fall below a quantile threshold, then scales the tail mean by the conditional 
     volatility. It is designed for models that return both time-varying volatility and residuals.
 
     Parameters

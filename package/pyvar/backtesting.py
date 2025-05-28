@@ -15,6 +15,8 @@ Specifically, it includes:
 These tools help assess whether a risk model is correctly calibrated in terms
 of both the quantity and timing of its risk forecasts.
 
+This module can be used with each of our models except simulation methods.
+
 Authors
 -------
 Alessandro Dodon, Niccolò Lecce, Marco Gasparetti
@@ -31,7 +33,6 @@ Contents
 - joint_lr_test: Combined test for both coverage and independence
 """
 
-# TODO: check formulas
 
 #----------------------------------------------------------
 # Packages
@@ -165,9 +166,9 @@ def christoffersen_test(violations):
     ----
     This is the Christoffersen Independence Test.
 
-    Tests whether VaR violations are independent over time using a 2-state Markov 
-    transition matrix. Rejection indicates clustering of exceptions, suggesting 
-    model misspecification or missing dynamics (e.g., volatility persistence).
+    Tests whether VaR violations are independent over time.
+    Rejection indicates clustering of exceptions, suggesting model 
+    misspecification or missing dynamics (e.g., volatility persistence).
 
     Parameters
     ----------
@@ -236,7 +237,7 @@ def joint_lr_test(LR_uc, LR_c):
     """
     Main
     ----
-    This is the Joint Likelihood Ratio Test (Kupiec + Christoffersen)
+    This is the Joint Likelihood Ratio Test (Kupiec + Christoffersen).
 
     Combines unconditional coverage and independence tests to assess whether a 
     VaR model produces both the correct number and timing of violations. 

@@ -96,9 +96,7 @@ def single_factor_var(
     -----
     - Residuals are assumed to be uncorrelated across assets (i.e., off-diagonal terms in residual covariance are zero).
     - This VaR assumes factor returns are normally distributed.
-    - This function estimates 1-day VaR. For other horizons like weekly or monthly, scale the reported VaR by √h.
     - Weights are supposed to be perfectly constant during the period.
-
     """
     if not returns.index.equals(benchmark.index):
         raise ValueError("Benchmark and asset returns must share the same index.")
@@ -293,7 +291,7 @@ def fama_french_var(
 
 
 # -------------------------------------------------------
-# Factor Model ES — Inferred Portfolio Value
+# Factor Model ES (General)
 # -------------------------------------------------------
 def factor_models_es(
     result_data,
@@ -333,7 +331,6 @@ def factor_models_es(
     Notes
     -----
     - This ES assumes factor returns are normally distributed.
-    - This function estimates 1-day ES.
     """
     if "VaR" not in result_data.columns or "VaR_monetary" not in result_data.columns:
         raise ValueError("Missing 'VaR' or 'VaR_monetary' columns in result_data.")

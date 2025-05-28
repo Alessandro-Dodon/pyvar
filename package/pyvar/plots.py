@@ -1,6 +1,6 @@
 """
-Interactive Visualization Module for Risk and Portfolio Analysis
-----------------------------------------------------------------
+Visualization Module for Risk and Portfolio Analysis
+----------------------------------------------------
 
 Provides plotting utilities for risk metrics, portfolio contributions, 
 and correlation structures using Plotly and Matplotlib. All Plotly-based 
@@ -43,7 +43,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 import itertools
-import kaleido  # Required for static image export via Plotly
+import kaleido  
 from IPython.display import display, HTML
 from plotly.io import to_image
 from io import BytesIO
@@ -61,6 +61,7 @@ def display_high_dpi_inline(png_bytes, width):
     ----
     Display a high-resolution PNG image inline in a notebook.
     Encodes the image in base64 and renders it with a specified width.
+
     This is a support function.
 
     Parameters
@@ -319,7 +320,7 @@ def get_asset_color_map(assets):
 #----------------------------------------------------------
 # VaR and UVaR Plot 
 #----------------------------------------------------------
-def plot_var_series(var_df, interactive=True, output_path=None):
+def plot_var_vs_uvar(var_df, interactive=True, output_path=None):
     """
     Main
     ----
@@ -395,7 +396,7 @@ def plot_var_series(var_df, interactive=True, output_path=None):
 # ----------------------------------------------------------
 # Risk Contribution Bar Chart 
 # ----------------------------------------------------------
-def plot_risk_contribution_bar(component_df, interactive=True, output_path=None):
+def plot_component_var_bar(component_df, interactive=True, output_path=None):
     """
     Main
     ----
@@ -474,7 +475,7 @@ def plot_risk_contribution_bar(component_df, interactive=True, output_path=None)
 #----------------------------------------------------------
 # Component VaR Over Time 
 #----------------------------------------------------------
-def plot_risk_contribution_lines(component_df, interactive=True, output_path=None):
+def plot_component_var_lines(component_df, interactive=True, output_path=None):
     """
     Plot Component VaR contributions by asset over time.
 

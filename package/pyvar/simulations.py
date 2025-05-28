@@ -5,6 +5,8 @@ Simulation-Based VaR and ES Module
 Provides functions for estimating Value-at-Risk (VaR) and Expected Shortfall (ES)
 using simulation-based techniques. These include parametric Monte Carlo methods,
 and both historical and bootstrapped historical simulation methods.
+
+Volatility or interest rate risk are not considered.
 Notice that backtesting is not implemented for this module.
 
 Assumes a buy-and-hold portfolio strategy. If shares drastically change, the 
@@ -93,7 +95,7 @@ def monte_carlo_var(price_data, shares, options,
     """
     Main
     ----
-    Monte Carlo Value-at-Risk (VaR) for a 1-day horizon.
+    Monte Carlo Value-at-Risk (VaR) for 1-day ahead.
 
     Simulates correlated arithmetic returns to estimate 1-day profit-and-loss
     (P&L) for an equity + options portfolio, and computes the Value-at-Risk
@@ -255,7 +257,7 @@ def historical_simulation_var(
     """
     Main
     ----
-    Compute 1-day Value-at-Risk (VaR) using Historical Simulation or
+    Computes 1-day ahead Value-at-Risk (VaR) using Historical Simulation or
     Bootstrapped Historical Simulation for an equity + options portfolio.
 
     Simulates daily P&L by applying historical (or resampled) return shocks 
@@ -350,6 +352,8 @@ def simulation_es(var: float, profit_and_loss: np.ndarray) -> float:
     Monte Carlo, multiday Monte Carlo, historical simulation, and bootstrapped
     historical simulation — and returns the Expected Shortfall corresponding to
     the same confidence level used to compute the given Value-at-Risk (VaR).
+
+    The VaR and P&L must be provided and come from the same simulation method.
 
     Parameters
     ----------

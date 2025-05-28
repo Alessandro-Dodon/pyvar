@@ -1,20 +1,21 @@
 """
-Risk Decomposition Module: VaR and ES Attribution
---------------------------------------------------
+Analytic VaR Module
+-------------------
 
-Implements risk attribution and decomposition tools for Value-at-Risk (VaR) and 
-Expected Shortfall (ES), based on the asset-normal approach. 
+Provides analytical tools to compute and decompose Value-at-Risk (VaR) and Expected Shortfall (ES)
+under the assumption of normally distributed portfolio assets.
 
-Notice that the portfolio normal VaR and ES can be replicated using the 
-parametric function in the basic_var.py module.
+Uses the asset-normal approximation to derive closed-form expressions for portfolio risk,
+based on positions and the covariance matrix of returns.
 
-Each measure is decomposed into marginal, component, relative, and incremental 
-contributions, using portfolio positions and the return covariance structure.
+Supports full risk decomposition into marginal, component, relative, and incremental contributions.
+Assumes a static covariance structure and a buy-and-hold strategy.
 
-Assumes normally distributed returns and a static covariance matrix over time.
+Risk estimates should be updated if portfolio weights change significantly.
+Portfolio-level VaR and ES can also be obtained using the parametric method in basic_var.py.
 
-Assumes a buy-and-hold portfolio strategy. If shares drastically change, the 
-risk measures in this module should be recalculated.
+Some functions are internally linked and call each other when needed, allowing users to directly 
+invoke the desired VaR or ES function without computing the entire set of risk measures.
 
 Authors
 -------
@@ -29,7 +30,7 @@ Contents
 - asset_normal_var: Diversified and undiversified VaR with diversification benefit
 - marginal_var / marginal_es: Marginal contributions to VaR or ES
 - component_var / component_es: Component contributions (position × marginal)
-- relative_component_var / relative_component_es: Share of total VaR or ES per asset
+- relative_component_var / relative_component_es: Percentage contribution to total VaR or ES
 - incremental_var / incremental_es: Impact of hypothetical changes in position size
 """
 
@@ -58,7 +59,7 @@ def asset_normal_var(position_data, confidence_level=0.99, holding_period=1):
 
     Parameters
     ----------
-    position_data : pd.DataFrame or np.ndarray
+    position_data : pd.DataFrame 
         Monetary positions over time (T × N).
     confidence_level : float, optional
         Confidence level for VaR (e.g., 0.99). Default is 0.99.
@@ -69,8 +70,8 @@ def asset_normal_var(position_data, confidence_level=0.99, holding_period=1):
     -------
     pd.DataFrame
         DataFrame indexed by date, with columns:
-        - 'Diversified_VaR': Portfolio VaR using correlations (decimal loss)
-        - 'Undiversified_VaR': VaR assuming full correlation (decimal loss)
+        - 'Diversified_VaR': Portfolio VaR using correlations (monetary amount)
+        - 'Undiversified_VaR': VaR assuming full correlation (monetary amount)
         - 'Diversification_Benefit': Difference between undiversified and diversified VaR
 
     Raises
@@ -123,7 +124,7 @@ def marginal_var(position_data, confidence_level=0.99, holding_period=1):
 
     Parameters
     ----------
-    position_data : pd.DataFrame or np.ndarray
+    position_data : pd.DataFrame 
         Monetary positions over time (T × N).
     confidence_level : float, optional
         Confidence level for VaR (e.g., 0.99). Default is 0.99.
@@ -133,7 +134,7 @@ def marginal_var(position_data, confidence_level=0.99, holding_period=1):
     Returns
     -------
     pd.DataFrame
-        Time series of marginal VaR values (T × N), in monetary units.
+        Time series of marginal VaR values (T × N).
 
     Raises
     ------
@@ -247,7 +248,8 @@ def relative_component_var(position_data, confidence_level=0.99, holding_period=
     Returns
     -------
     pd.DataFrame
-        Time series of relative Component VaR values (T × N).
+        Time series of relative Component VaR values (T × N), expressed as decimals 
+        representing percentage contributions (e.g., 0.25 = 25%).
     """
     position_data = pd.DataFrame(position_data)
 
@@ -286,7 +288,7 @@ def incremental_var(position_data, change_vector, confidence_level=0.99, holding
     position_data : pd.DataFrame
         Monetary positions over time (T × N).
     change_vector : array-like
-        Change in asset positions (length N).
+        Monetary change in asset positions (length N).
     confidence_level : float, optional
         Confidence level for VaR (e.g., 0.99). Default is 0.99.
     holding_period : int, optional
@@ -342,7 +344,7 @@ def marginal_es(position_data, confidence_level=0.99, holding_period=1):
     Returns
     -------
     pd.DataFrame
-        Time series of marginal ES values (T × N), in monetary units.
+        Time series of marginal ES values (T × N).
 
     Raises
     ------
@@ -449,7 +451,8 @@ def relative_component_es(position_data, confidence_level=0.99, holding_period=1
     Returns
     -------
     pd.DataFrame
-        Time series of relative Component ES values (T × N).
+        Time series of relative Component ES values (T × N), expressed as decimals 
+        representing percentage contributions (e.g., 0.25 = 25%).
     """
     position_data = pd.DataFrame(position_data)
 
@@ -482,7 +485,7 @@ def incremental_es(position_data, change_vector, confidence_level=0.99, holding_
     position_data : pd.DataFrame
         Monetary positions over time (T × N).
     change_vector : array-like
-        Change in asset positions (length N).
+        Monetary change in asset positions (length N).
     confidence_level : float, optional
         Confidence level for ES (e.g., 0.99). Default is 0.99.
     holding_period : int, optional
