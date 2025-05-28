@@ -31,8 +31,7 @@ from pyvar.plots import (
     plot_correlation_matrix
 )
 
-import llm.llm_rag as rag
-from llm.pdf_reporting import save_report_as_pdf, open_report_as_pdf
+
 
 # ----------------------------------------------------------
 # Patch: override the imported plot functions to auto-show + title
@@ -57,17 +56,7 @@ plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
 
 
 if __name__ == "__main__":
-    '''# 1) INPUT UTENTE
-    BASE     = "EUR"
-    TICKERS  = ["NVDA", "MSFT"]
-    SHARES   = pd.Series({"NVDA": 3, "MSFT": 4})
-    CONF     = 0.99
-
-
-    # 2) OPTIONS INPUT (demo)
-    options_list = [
-        {"under": "AAPL", "type": "call", "contracts": 1, "multiplier": 100,
-         "qty": 100, "K": 210.0, "T": 1.0}]'''
+    
     
 
 
@@ -76,11 +65,6 @@ if __name__ == "__main__":
     # 1) INPUT UTENTE INTERATTIVO
     # ——————————————————————————————
 
-    # --- LLM CONFIGURATION ---
-    rag.LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
-    rag.API_PATH          = "/v1/completions"
-    rag.MODEL_NAME        = "qwen-3-4b-instruct"
-    #--------------------------------------------------------------
     
     # Base currency
     BASE = input("Choose a base currency [e.g. EUR]: ").strip().upper() or "EUR"
@@ -349,14 +333,14 @@ if __name__ == "__main__":
     }
 
     
-    
+    '''
     # --- 6b) Plot backtests (interactive, each in its own browser tab) ---
     for name, df_bt in backtest_data.items():
         plot_backtest(
             df_bt,
             interactive=True,
             title=f"Backtest {name}"
-        )
+        )'''
 
     # 7) ADDITIONAL PLOTS (interactive)
     plot_volatility(df_garch_var["Volatility"], interactive=True, title="Volatility Estimate")
@@ -431,67 +415,6 @@ if __name__ == "__main__":
     print(results_df.to_string(float_format=lambda x: f"{x:.3f}"))
 
 
-    # --- BUILD SUMMARY_TEXT FOR PROMPT (PATCHED: ONLY VaR) ---
-    summary_lines = []
-    for name, value in metrics_eq.items():
-        # skip everything that non contenga "VaR"
-        if "VaR" not in name:
-            continue
-        
-        # tolgo il suffisso per creare la chiave di ricerca
-        base_key = name.replace(" VaR", "")
-        # match “Asset-Normal” → “Asset-Normal”, “FF3” → “FF3-Factor”, ecc.
-        matches = [idx for idx in results_df.index if base_key in idx]
     
-        if matches:
-            d = results_df.loc[matches[0]]
-            summary_lines.append(
-                f"{name} has a value of {value:.2f} {BASE}, "
-                f"backtest showed {int(d['Violations'])} violations "
-                f"({d['Violation Rate']:.3f}), "
-                f"Kupiec p={d['Kupiec p-value']:.3f}, "
-                f"Christoffersen p={d['Christoffersen p-value']:.3f}, "
-                f"Joint p={d['Joint p-value']:.3f}."
-            )
-        else:
-            summary_lines.append(
-                f"{name} has a value of {value:.2f} {BASE}, backtest not performed."
-            )
+
     
-    summary_text = "\n".join(summary_lines)
-
-    print("\n===== SUMMARY TEXT =====\n"
-          f"{summary_text}\n")
-
-    # get vectorstore (or use cached summary)
-    vectordb = rag.get_vectorstore(r"llm\knowledge_base.pdf")
-
-    combined = {
-        "VaR & ES Metrics": metrics_eq,
-        "Backtest Summary": results_df.to_dict(orient="index")
-    }
-
-    # build prompt including summary_text prefix
-    prompt = rag.build_rag_prompt(
-        combined=combined,
-        vectordb=vectordb,
-        portfolio_value=portfolio_value,
-        base=BASE,
-        confidence_level=CONF,
-        summary_text=summary_text  # new kwarg
-    )
-
-    llm_output = rag.ask_llm(prompt, max_tokens=1000, temperature=0.1)
-
-    print("===== LLM INTERPRETATION =====")
-    print(llm_output)
-
-    # generate PDF
-    open_report_as_pdf(
-        metrics=metrics_eq,
-        weights=weights,
-        interpretation=llm_output,
-        opt_list=options_list,
-        backtest_results=results_df
-    )
-    print("!! PDF report generated !!")
