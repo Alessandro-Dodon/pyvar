@@ -28,5 +28,4 @@ For a complete walkthrough of the package, including:
 - Practical implementation with real data
 - Model results and interpretation
 
-Refer to the notebook:  
-`examples/pyvar_example_usage.ipynb`
+Refer to the notebook `examples/pyvar_example_usage.ipynb`.
