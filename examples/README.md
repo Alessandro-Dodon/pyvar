@@ -24,20 +24,96 @@ It’s designed as a real-life walkthrough for new users.
 
 ## pyvar_llm_report.py
 
-A minimal, practical example showing how to combine the **pyvar** package with a local LLM (via **llm.llm_rag**) to:
+A practical example showing how to combine the **pyvar** package with a local LLM (via **llm.llm_rag**) to:
 
-- Calculate VaR & ES on an equity + options portfolio  
-- Backtest your VaR models (Kupiec, Christoffersen, joint tests)  
-- (Optionally) plot risk charts interactively  
-- (Optionally) query an LLM for automated interpretation and generate a PDF report  
+1. Calculate **VaR** & **ES** on an equity + options portfolio  
+2. Backtest multiple VaR models (Kupiec, Christoffersen, joint tests)  
+3. _(Optional)_ Display interactive charts  
+4. _(Optional)_ Ask an LLM for automated interpretation and produce a PDF report 
+
+## 🔧 Configuration
+Open `pyvar_llm_report.py` and adjust at the top:
+
+```python
+# VaR & ES confidence level
+CONFIDENCE_LEVEL       = 0.99
+
+# History window (business days)
+LOOKBACK_BUSINESS_DAYS = 300
+
+# Toggle interactive charts
+SHOW_PLOTS             = True   # or False
+
+# Toggle LLM interpretation & PDF report
+RUN_LLM_INTERPRETATION = True   # or False
+
+# Local LLM endpoint & model
+rag.LMSTUDIO_ENDPOINT  = "http://<your-host>:<port>"
+rag.API_PATH           = "/v1/completions"
+rag.MODEL_NAME         = "qwen-3-4b-instruct"
+```
+
+
+## ▶️ Quick Start
+Run `pyvar_llm_report.py`
+
+Enter when prompted:
+
+- **Base currency**
+  Input one base currecy (e.g. _EUR_, _CHF_, _USD_...), then press Enter.
+
+- **Equity tickers**
+  enter all equity tickers at once, space-separated and exactly as on Yahoo Finance (e.g. _MSFT_ _ISP.MI_ _NESN.SW_), then press Enter.
+
+- **Number of shares per ticker**  
+  When prompted for each ticker, type the number of shares you hold and press **Enter** to confirm. Repeat until you’ve entered a value for every ticker.
+
+
+- **Option positions** (**y** if you have options position in the portfolio, **n** if not)
+ - if **y**, for each option input:
+   - **Underlying stock** (e.g. AAPL)
+   - **Type of options**: call or put
+   - **Number of contracts**
+   - **Multiplier** (number of stock x contract, default is 100)
+   - **Strike price**
+   - **Time to maturity** (in years) (e.g. 1 day = 0,00396)
+- To add another option repeat the steps above or click enter to launch the analysis  
+
+## 📂 Output
+
+When the script finishes, you’ll get:
+
+- **Console**:  
+  - Portfolio positions table  
+  - VaR & ES metrics  
+  - Backtest summary  
+
+<details>
+<summary>📊 Charts (optional)</summary> 
+
+If `SHOW_PLOTS = True`, interactive charts will open in your browser.
+</details>
+
+<details>
+<summary>📑 PDF Report (optional)</summary>
+
+If `RUN_LLM_INTERPRETATION = True`, the LLM interpretation runs automatically and a PDF report is generated (e.g., in `./reports/`).
+</details>
 
 ---
 
-### 📋 Prerequisites
+## 🛠️ Troubleshooting
 
-- **Python 3.8+**  
-- A working **virtual environment** (recommended)  
-- The following packages installed (see `requirements.txt` if provided):
+- **Missing data / NaN**  
+  Tickers without valid price history are dropped automatically (check console warnings).
+
+- **Error “At least two time steps are required”**  
+  Increase `LOOKBACK_BUSINESS_DAYS` or verify data availability.
+
+- **LLM connection issues**  
+  Ensure `rag.LMSTUDIO_ENDPOINT` is reachable and the service is running.
+
+
 
 
 ---
@@ -45,98 +121,7 @@ A minimal, practical example showing how to combine the **pyvar** package with a
 Feel free to run or adapt these examples to suit your own analysis!
 
 
-VaR & ES Risk Report for Equity + Options Portfolio
-An example of combining pyvar with a local LLM (llm.llm_rag) to:
-
-- Compute Value-at-Risk (VaR) and Expected Shortfall (ES) for equity and options portfolios
-
-- Backtest each VaR model (Kupiec, Christoffersen, joint tests)
-
-- Optionally display interactive risk charts
-
-- Optionally invoke an LLM for automated interpretation and output a PDF report
-
-📋 Prerequisites
-Python 3.8+
-
-Virtual environment (recommended)
-
-Install required packages:
-
-bash
-Copy
-Edit
-pip install pandas numpy yfinance pandas_datareader pyvar llm_rag
-If you enable LLM interpretation, have your LLM endpoint running (e.g. LM Studio).
-
-## 🔧 Configuration
-Open pyvar_llm_report.py and adjust at the top:
-
-### VaR/ES confidence level
-CONFIDENCE_LEVEL       = 0.99
-
-### Number of days to include in the backtest
-LOOKBACK_BUSINESS_DAYS = 300
-
-### Toggle features
-SHOW_PLOTS             = True   # set False to skip interactive charts
-RUN_LLM_INTERPRETATION = True   # set False to skip LLM + PDF
-
-### Local LLM endpoint (we use the model qwen-3-4b-instruct)
-- rag.LMSTUDIO_ENDPOINT  = "http://xxx.x.x.x:xxxx"
-- rag.API_PATH           = "/v1/completions"
-- rag.MODEL_NAME         = "qwen-3-4b-instruct"
 
 
-## ▶️ Quick Start
-Run python pyvar_llm_report.py
 
-Enter when prompted:
 
-- Base currency (e.g. EUR, CHF, USD...)
-
-- Equity tickers (space separated and as they are on yahoo finance, e.g. NVDA ISP.MI NESN.SW)
-
-- Number of shares per ticker
-
-- Option positions (y if you have options position in the portfolio, n if not)
-   - if y, for each option input:
-   - Underlying stock (e.g. AAPL)
-   - Type of options: call or put
-   - Number of contracts
-   - Multiplier (number of stock x contract, default is 100)
-   - Strike price
-   - Time to maturity (in years) (e.g. 1 day = 0,00396)
-- Then add another option by repeating the steps above or click enter to launch the analysis  
-
-Watch the console for tables of positions, VaR/ES metrics, backtest summaries.
-
-(Optional) Charts will pop up if SHOW_PLOTS=True.
-
-(Optional) LLM interpretation will run and PDF report generate if RUN_LLM_INTERPRETATION=True.
-
-📂 Output
-Console:
-
-Equity & options positions
-
-VaR & ES values by model
-
-Backtest results (violations, rates, p-values)
-
-LLM commentary (if enabled)
-
-Interactive windows (if enabled):
-
-VaR series, volatility estimates, risk contributions, correlation matrix, backtest charts
-
-PDF report (if enabled):
-
-Comprehensive report embedding metrics, plots, and AI-generated insights
-
-🛠 Troubleshooting
-Missing data / NaNs: tickers with no valid price history are dropped automatically (you’ll see a warning).
-
-Error “At least two time steps are required”: increase LOOKBACK_BUSINESS_DAYS or verify data availability.
-
-LLM connection issues: confirm your rag.LMSTUDIO_ENDPOINT is reachable and the service is running.
