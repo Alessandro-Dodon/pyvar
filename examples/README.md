@@ -37,7 +37,7 @@ A practical example showing how to combine the **pyvar** package with a local LL
    ```bash
    git clone https://github.com/Alessandro-Dodon/pyvar.git
    cd pyvar
-   cd example
+   cd examples
 
 2. **Install core dependencies**:  
    ```bash
