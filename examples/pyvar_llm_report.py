@@ -17,15 +17,13 @@ from pyvar.plots import (
 )
 
 
-
 # ----------------------------------------------------------
 # PROJECT-ROOT for llm_rag and pdf_reporting
 # ----------------------------------------------------------
 project_root = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-import llm.llm_rag as rag
-from llm.pdf_reporting import save_report_as_pdf, open_report_as_pdf
+
 
 # ----------------------------------------------------------
 # CONFIGURATION CONSTANTS
@@ -36,13 +34,14 @@ LOOKBACK_BUSINESS_DAYS = 300 # Number of business days to include in the analysi
 # ----------------------------------------------------------
 # OPTIONAL FEATURES (set to False to skip)
 # ----------------------------------------------------------
-SHOW_PLOTS = False        # when False, skips all interactive charts
-RUN_LLM_INTERPRETATION = False  # when False, skips the LLM call & PDF
+SHOW_PLOTS = True        # when False, skips all interactive charts
+RUN_LLM_INTERPRETATION = True  # when False, skips the LLM call & PDF
 
 # LLM endpoint & model
-rag.LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
-rag.API_PATH          = "/v1/completions"
-rag.MODEL_NAME        = "qwen-3-4b-instruct"
+LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
+API_PATH          = "/v1/completions"
+MODEL_NAME        = "qwen-3-4b-instruct"
+
 
 
 
@@ -557,6 +556,14 @@ if __name__ == "__main__":
 
     # 10) LLM INTERPRETATION & PDF REPORT (only if RUN_LLM_INTERPRETATION)
     if RUN_LLM_INTERPRETATION:
+        import llm.llm_rag as rag
+        from llm.pdf_reporting import open_report_as_pdf
+
+        rag.LMSTUDIO_ENDPOINT = LMSTUDIO_ENDPOINT
+        rag.API_PATH          = API_PATH
+        rag.MODEL_NAME        = MODEL_NAME
+
+
         vector_store = rag.get_vectorstore(r"llm\knowledge_base.pdf")
         combined_content = {
             "VaR & ES Metrics": metrics_eq,
