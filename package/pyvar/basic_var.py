@@ -1,9 +1,12 @@
 """
-Basic VaR and Expected Shortfall Estimation Module
---------------------------------------------------
+Basic VaR and ES Estimation Module
+----------------------------------
 
 Provides functions to compute Value-at-Risk (VaR) and Expected Shortfall (ES) using the two most
 basic methods, both non-parametric (historical) and parametric methods (Normal and Student-t distributions).
+
+All the following methods require simplifying assumptions, like iid returns, and don't consider
+time-varying volatility or correlations. 
 
 Authors
 ------
@@ -234,19 +237,18 @@ def parametric_es(result_data, confidence_level, distribution="normal", wealth=N
     - This function estimates 1-day VaR. For other horizons like weekly or monthly, scale the reported VaR by √h.
     """
     returns = result_data["Returns"]
-    alpha = confidence_level
 
     if distribution == "normal":
         std_dev = returns.std()
-        z = norm.ppf(alpha)
-        es_value = std_dev * norm.pdf(z) / (1 - alpha)
+        z = norm.ppf(confidence_level)
+        es_value = std_dev * norm.pdf(z) / (1 - confidence_level)
 
     elif distribution == "t":
         df, loc, scale = t.fit(returns)
-        t_alpha = t.ppf(alpha, df)
-        pdf_val = t.pdf(t_alpha, df)
-        factor = (df + t_alpha**2) / (df - 1)
-        es_value = scale * pdf_val * factor / (1 - alpha)
+        t_quantile = t.ppf(confidence_level, df)
+        pdf_val = t.pdf(t_quantile, df)
+        factor = (df + t_quantile**2) / (df - 1)
+        es_value = scale * pdf_val * factor / (1 - confidence_level)
 
     else:
         raise ValueError("Supported distributions: 'normal', 't'")
