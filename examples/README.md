@@ -35,8 +35,9 @@ A practical example showing how to combine the **pyvar** package with a local LL
 
 1. **Clone the repository** and go into the `examples` folder:  
    ```bash
-  git clone https://github.com/Alessandro-Dodon/pyvar.git
-  cd pyvar
+   git clone https://github.com/Alessandro-Dodon/pyvar.git
+   cd pyvar
+   cd example
 
 2. **Install core dependencies**:  
    ```bash
