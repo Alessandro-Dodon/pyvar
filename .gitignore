@@ -44,3 +44,4 @@ dist/
 *.orig
 *.rej
 
+kb_chroma/

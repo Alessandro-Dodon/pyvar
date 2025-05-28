@@ -35,8 +35,8 @@ A practical example showing how to combine the **pyvar** package with a local LL
 
 1. **Clone the repository** and go into the `examples` folder:  
    ```bash
-   git clone https://github.com/<your-org>/<your-repo>.git
-   cd <your-repo>/examples
+  git clone https://github.com/Alessandro-Dodon/pyvar.git
+  cd pyvar
 
 2. **Install core dependencies**:  
    ```bash
@@ -44,10 +44,8 @@ A practical example showing how to combine the **pyvar** package with a local LL
 
 3. **LM Studio setup** (_OPTIONAL_):
    
-   To download and configure your local LM Studio correctly, follow the step-by-step notebook in
-   ```bash
-   llm/tutorial_llm.ipynb
-   ``` 
+   To download and configure your local LM Studio correctly, follow the step-by-step notebook:
+  `llm/tutorial_llm.ipynb`
 
 
 ## 🔧 Configuration

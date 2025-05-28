@@ -1,5 +1,6 @@
 #================================================================
-# VaR and ES Risk Report for Equity + Options Portfolio (Calculate VaR(CONF;1), backtest it, and generate a PDF report with pdf interpretation)
+# VaR and ES Risk Report for Equity + Options Portfolio 
+# (Calculate VaR(CONF;1), backtest it, and generate a PDF report with pdf interpretation)
 #================================================================
 
 import os, sys
@@ -31,6 +32,7 @@ if project_root not in sys.path:
 CONFIDENCE_LEVEL = 0.99 # Confidence level for VaR and ES calculations
 LOOKBACK_BUSINESS_DAYS = 300 # Number of business days to include in the analysis
 
+
 # ----------------------------------------------------------
 # OPTIONAL FEATURES (set to False to skip)
 # ----------------------------------------------------------
@@ -41,10 +43,6 @@ RUN_LLM_INTERPRETATION = True  # when False, skips the LLM call & PDF
 LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
 API_PATH          = "/v1/completions"
 MODEL_NAME        = "qwen-3-4b-instruct"
-
-
-
-
 
 
 # ----------------------------------------------------------
@@ -77,8 +75,6 @@ plot_var_series              = _auto_show_wrapper(plot_var_series)
 plot_risk_contribution_bar   = _auto_show_wrapper(plot_risk_contribution_bar)
 plot_risk_contribution_lines = _auto_show_wrapper(plot_risk_contribution_lines)
 plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
-
-
 
 
 if __name__ == "__main__":
@@ -211,7 +207,6 @@ if __name__ == "__main__":
     total_value = portfolio_value + option_value
 
 
-
      # === DEBUG SUMMARY TABLES ===
     # Portfolio positions
     positions_summary = pd.DataFrame({
@@ -257,13 +252,7 @@ if __name__ == "__main__":
     print(f"=== RISK-FREE RATE: {rf_rate:.4%} ===\n")
 
 
-
-
-
-
-
     # 5) VAR + ES CALCULATION
-
     returns_portfolio = returns.dot(weights)
 
     #  — Asset Normal 
@@ -314,14 +303,12 @@ if __name__ == "__main__":
     var_sharpe_model, es_sharpe_model = df_sharpe_model["VaR_monetary"].iat[-1], df_sharpe_model["ES_monetary"].iat[-1]
 
 
-
     # Fama-French 3 Factor Model
     df_ff3, vol_ff3 = pv.fama_french_var(
         returns, weights, portfolio_value, confidence_level=CONF
     )
     df_ff3 = pv.factor_models_es(df_ff3, vol_ff3, confidence_level=CONF)
     var_ff3, es_ff3 = df_ff3["VaR_monetary"].iat[-1], df_ff3["ES_monetary"].iat[-1]
-
 
 
     # Volatility-based Moving Average & EWMA VaR
@@ -355,8 +342,8 @@ if __name__ == "__main__":
     df_ewma = pv.correlation_es(df_ewma)
     var_ewma, es_ewma = df_ewma["VaR Monetary"].iat[-1], df_ewma["ES Monetary"].iat[-1]
 
-    # Extreme Value Theory (EVT)
 
+    # Extreme Value Theory (EVT)
     df_evt   = pv.evt_var(returns_portfolio, wealth=portfolio_value)
     df_evt   = pv.evt_es(df_evt, wealth=portfolio_value)
     var_evt, es_evt = df_evt["VaR_monetary"].iat[-1], df_evt["ES_monetary"].iat[-1]
@@ -366,11 +353,8 @@ if __name__ == "__main__":
     df_garch    = pv.volatility_es(df_garch, confidence_level=CONF, wealth=portfolio_value)
     var_garch, es_garch = df_garch["VaR_monetary"].iat[-1], df_garch["ES_monetary"].iat[-1]
 
-
     # Component VaR
     component_var_df = pv.component_var(positions_df, confidence_level=CONF)
-
-    
 
     # 6) BACKTESTING
     # Map each model name to its DataFrame of VaR results
@@ -412,8 +396,6 @@ if __name__ == "__main__":
         ]
         for fn, data, title in additional_plots:
             fn(data, interactive=True, title=title)
-
-
 
 
     # 8) SYNTHESIS – EQUITY VaR & ES
