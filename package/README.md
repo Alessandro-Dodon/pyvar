@@ -1,4 +1,4 @@
-# 📦 pyvar Package
+# pyvar Package
 
 This folder contains the **installable core Python package** for pyvar.
 
