@@ -29,4 +29,4 @@ For a complete walkthrough of the package, including:
 - Model results and interpretation
 
 Refer to the notebook:  
-**`examples/pyvar_example_usage.ipynb`**
+`examples/pyvar_example_usage.ipynb`
