@@ -29,7 +29,18 @@ A practical example showing how to combine the **pyvar** package with a local LL
 1. Calculate **VaR** & **ES** on an equity + options portfolio  
 2. Backtest multiple VaR models (Kupiec, Christoffersen, joint tests)  
 3. _(Optional)_ Display interactive charts  
-4. _(Optional)_ Ask an LLM for automated interpretation and produce a PDF report 
+4. _(Optional)_ Ask an LLM for automated interpretation and produce a PDF report
+
+## 🛠️ Installation
+
+1. **Clone the repository** and go into the `examples` folder:  
+   ```bash
+   git clone https://github.com/<your-org>/<your-repo>.git
+   cd <your-repo>/examples
+
+2. **Install core dependencies**:  
+   ```bash
+   pip install -r requirements.txt
 
 ## 🔧 Configuration
 Open `pyvar_llm_report.py` and adjust at the top:
