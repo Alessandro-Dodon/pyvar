@@ -1,53 +1,77 @@
 #================================================================
-# VaR and ES Risk Report for Equity + Options Portfolio (with plots)
-# ================================================================
+# VaR and ES Risk Report for Equity + Options Portfolio (Calculate VaR(CONF;1), backtest it, and generate a PDF report with pdf interpretation)
+#================================================================
+
 import os, sys
-import pandas as pd
-import pandas_datareader.data as web
-
-project_root = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
-
 import pandas as pd
 import numpy as np
 import yfinance as yf
 from pandas.tseries.offsets import BDay
-
+import pandas_datareader.data as web
 import pyvar as pv
-from pyvar.backtesting import (
-    count_violations,
-    kupiec_test,
-    christoffersen_test,
-    joint_lr_test
-)
+from pyvar.backtesting import count_violations, kupiec_test, christoffersen_test, joint_lr_test
 from pyvar.plots import (
-    plot_backtest,
-    plot_volatility,
-    plot_var_series,
-    plot_risk_contribution_bar,
-    plot_risk_contribution_lines,
+    plot_backtest, plot_volatility, plot_var_series,
+    plot_risk_contribution_bar, plot_risk_contribution_lines,
     plot_correlation_matrix
 )
 
+
+
+# ----------------------------------------------------------
+# PROJECT-ROOT for llm_rag and pdf_reporting
+# ----------------------------------------------------------
+project_root = os.path.abspath(os.path.join(__file__, os.pardir, os.pardir))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 import llm.llm_rag as rag
 from llm.pdf_reporting import save_report_as_pdf, open_report_as_pdf
 
 # ----------------------------------------------------------
-# Patch: override the imported plot functions to auto-show + title
+# CONFIGURATION CONSTANTS
 # ----------------------------------------------------------
+CONFIDENCE_LEVEL = 0.99 # Confidence level for VaR and ES calculations
+LOOKBACK_BUSINESS_DAYS = 300 # Number of business days to include in the analysis
+
+# ----------------------------------------------------------
+# OPTIONAL FEATURES (set to False to skip)
+# ----------------------------------------------------------
+SHOW_PLOTS = False        # when False, skips all interactive charts
+RUN_LLM_INTERPRETATION = False  # when False, skips the LLM call & PDF
+
+# LLM endpoint & model
+rag.LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
+rag.API_PATH          = "/v1/completions"
+rag.MODEL_NAME        = "qwen-3-4b-instruct"
+
+
+
+
+
+# ----------------------------------------------------------
+# HELPERS
+# ----------------------------------------------------------
+def compute_var_and_es(var_func, *args, **kwargs):
+    var, pnl = var_func(*args, **kwargs)
+    return var, pv.simulation_es(var, pnl)
+
+def summarize_backtest(df):
+    violations, rate = count_violations(df)
+    kup = kupiec_test(violations, len(df), CONFIDENCE_LEVEL)
+    ch  = christoffersen_test(df)
+    jn  = joint_lr_test(kup["LR_uc"], ch["LR_c"])
+    return violations, rate, kup["p_value"], ch["p_value"], jn["p_value"]
+
 def _auto_show_wrapper(fn):
     def inner(*args, interactive=True, title=None, **kwargs):
         fig = fn(*args, interactive=interactive, **kwargs)
-        if fig is not None:
-            if title:
-                fig.update_layout(title=title)
-            if interactive:
-                fig.show()
+        if fig is not None and interactive:
+            if title: fig.update_layout(title=title)
+            fig.show()
         return fig
     return inner
 
+# patch plots
 plot_backtest                = _auto_show_wrapper(plot_backtest)
 plot_volatility              = _auto_show_wrapper(plot_volatility)
 plot_var_series              = _auto_show_wrapper(plot_var_series)
@@ -56,19 +80,12 @@ plot_risk_contribution_lines = _auto_show_wrapper(plot_risk_contribution_lines)
 plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
 
 
-# --- LLM CONFIGURATION ---
-rag.LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
-rag.API_PATH          = "/v1/completions"
-rag.MODEL_NAME        = "qwen-3-4b-instruct"
-#--------------------------------------------------------------
-
-
 
 
 if __name__ == "__main__":
 
-    CONF = 0.99
-    days_window = 300   #Number of business days to include in the analysis
+    CONF = CONFIDENCE_LEVEL  # Confidence level for VaR and ES calculations
+    days_window = LOOKBACK_BUSINESS_DAYS   #Number of business days to include in the analysis
     START_DATE = (pd.Timestamp.today() - BDay(days_window)).strftime("%Y-%m-%d")
 
     # ——————————————————————————————
@@ -250,11 +267,6 @@ if __name__ == "__main__":
 
     returns_portfolio = returns.dot(weights)
 
-    def compute_var_and_es(var_func, *args, **kwargs):
-        """Runs var_func, then computes ES on its output."""
-        var, pnl = var_func(*args, **kwargs)
-        return var, pv.simulation_es(var, pnl)
-
     #  — Asset Normal 
     df_asset_normal = pv.asset_normal_var(positions_df, confidence_level=CONF)
     var_asset_normal = df_asset_normal["Diversified_VaR"].iloc[-1]
@@ -387,22 +399,21 @@ if __name__ == "__main__":
 
     
     
-    # 7) PLOT DATA 
-    for model_name, df_bt in backtest_data.items():
-        plot_backtest(df_bt, interactive=True, title=f"Backtest {model_name}")
+    # 7) PLOT DATA  (only if SHOW_PLOTS)
+    if SHOW_PLOTS:
+        for model_name, df_bt in backtest_data.items():
+            plot_backtest(df_bt, interactive=True, title=f"Backtest {model_name}")
 
+        additional_plots = [
+            (plot_volatility,          df_garch["Volatility"],                "Volatility Estimate"),
+            (plot_var_series,          df_asset_normal,                       "Diversified vs Undiversified VaR"),
+            (plot_risk_contribution_bar,   component_var_df,                   "Average Component VaR"),
+            (plot_risk_contribution_lines, component_var_df,                   "Component VaR Over Time"),
+            (plot_correlation_matrix,  positions_df,                          "Return Correlation Matrix"),
+        ]
+        for fn, data, title in additional_plots:
+            fn(data, interactive=True, title=title)
 
-    # Define all extra plots as (function, data, title)
-    additional_plots = [
-        (plot_volatility,          df_garch["Volatility"],                "Volatility Estimate"),
-        (plot_var_series,          df_asset_normal,                       "Diversified vs Undiversified VaR"),
-        (plot_risk_contribution_bar,   component_var_df,                   "Average Component VaR"),
-        (plot_risk_contribution_lines, component_var_df,                   "Component VaR Over Time"),
-        (plot_correlation_matrix,  positions_df,                          "Return Correlation Matrix"),
-    ]
-
-    for plot_fn, data, title in additional_plots:
-        plot_fn(data, interactive=True, title=title)
 
 
 
@@ -489,19 +500,6 @@ if __name__ == "__main__":
 
     # --- 9) BACKTEST RESULTS: violations, rates & p-values ---
 
-    def summarize_backtest(df):
-        violations, violation_rate = count_violations(df)
-        kup_stats = kupiec_test(violations, len(df), CONF)
-        ch_stats  = christoffersen_test(df)
-        jn_stats  = joint_lr_test(kup_stats["LR_uc"], ch_stats["LR_c"])
-        return (
-            violations,
-            violation_rate,
-            kup_stats["p_value"],
-            ch_stats["p_value"],
-            jn_stats["p_value"]
-        )
-
     # Build a DataFrame directly from the summaries
     results_df = pd.DataFrame.from_dict(
         {
@@ -523,9 +521,9 @@ if __name__ == "__main__":
 
 
 
-    # --- BUILD SUMMARY TEXT FOR PROMPT LLM (ONLY VaR) ---
+    # --- BUILD SUMMARY TEXT FOR PROMPT LLM (ONLY for VaR) ---
 
-    # 1) Precompute backtest summaries by model name
+    # Precompute backtest summaries by model name
     backtest_summaries = {
         model: (
             f"backtest showed {int(row['Violations'])} violations "
@@ -537,7 +535,7 @@ if __name__ == "__main__":
         for model, row in results_df.iterrows()
     }
 
-    # 2) Build the summary lines in one pass
+    # Build the summary lines in one pass
     summary_lines = []
     for metric_name, value in metrics_eq.items():
         if not metric_name.endswith(" VaR"):
@@ -557,37 +555,30 @@ if __name__ == "__main__":
 
 
 
-    # --- 10) LLM INTERPRETATION & PDF REPORT ---
+    # 10) LLM INTERPRETATION & PDF REPORT (only if RUN_LLM_INTERPRETATION)
+    if RUN_LLM_INTERPRETATION:
+        vector_store = rag.get_vectorstore(r"llm\knowledge_base.pdf")
+        combined_content = {
+            "VaR & ES Metrics": metrics_eq,
+            "Backtest Summary": results_df.to_dict(orient="index")
+        }
+        prompt = rag.build_rag_prompt(
+            combined=combined_content,
+            vectordb=vector_store,
+            portfolio_value=portfolio_value,
+            base=BASE,
+            confidence_level=CONFIDENCE_LEVEL,
+            summary_text=summary_text
+        )
+        interpretation = rag.ask_llm(prompt, max_tokens=1000, temperature=0.1)
+        print("===== LLM INTERPRETATION =====")
+        print(interpretation)
 
-    # 1) Load or cache your knowledge base
-    vector_store = rag.get_vectorstore(r"llm\knowledge_base.pdf")
-
-    # 2) Prepare the combined payload for RAG
-    combined_content = {
-        "VaR & ES Metrics": metrics_eq,
-        "Backtest Summary": results_df.to_dict(orient="index")
-    }
-
-    # 3) Build and send the prompt, then print the LLM’s answer
-    prompt = rag.build_rag_prompt(
-        combined=combined_content,
-        vectordb=vector_store,
-        portfolio_value=portfolio_value,
-        base=BASE,
-        confidence_level=CONF,
-        summary_text=summary_text
-    )
-    interpretation = rag.ask_llm(prompt, max_tokens=1000, temperature=0.1)
-
-    print("===== LLM INTERPRETATION =====")
-    print(interpretation)
-
-    # 4) Generate the PDF report in one call
-    open_report_as_pdf(
-        metrics=metrics_eq,
-        weights=weights,
-        interpretation=interpretation,
-        opt_list=options_list,
-        backtest_results=results_df
-    )
-    print("!! PDF report generated !!")
+        open_report_as_pdf(
+            metrics=metrics_eq,
+            weights=weights,
+            interpretation=interpretation,
+            opt_list=options_list,
+            backtest_results=results_df
+        )
+        print("!! PDF report generated !!")

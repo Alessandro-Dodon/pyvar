@@ -22,14 +22,23 @@ It’s designed as a real-life walkthrough for new users.
 
 ## 🤖 Script for LLM Integration
 
-### `pyvar_llm_report.py` 
+## pyvar_llm_report.py
 
-This Python script shows how to combine the pyvar package with the LLM module to:
+A minimal, practical example showing how to combine the **pyvar** package with a local LLM (via **llm.llm_rag**) to:
 
-- Automatically generate risk management reports
-- Ask questions about your model results using a local LLM
+- Calculate VaR & ES on an equity + options portfolio  
+- Backtest your VaR models (Kupiec, Christoffersen, joint tests)  
+- (Optionally) plot risk charts interactively  
+- (Optionally) query an LLM for automated interpretation and generate a PDF report  
 
-It serves as a minimal and practical example of pyvar + LLM in action.
+---
+
+### 📋 Prerequisites
+
+- **Python 3.8+**  
+- A working **virtual environment** (recommended)  
+- The following packages installed (see `requirements.txt` if provided):
+
 
 ---
 
