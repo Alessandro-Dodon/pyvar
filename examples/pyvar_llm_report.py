@@ -36,8 +36,8 @@ LOOKBACK_BUSINESS_DAYS = 300 # Number of business days to include in the analysi
 # ----------------------------------------------------------
 # OPTIONAL FEATURES (set to False to skip)
 # ----------------------------------------------------------
-SHOW_PLOTS = True        # when False, skips all interactive charts
-RUN_LLM_INTERPRETATION = True  # when False, skips the LLM call & PDF
+SHOW_PLOTS = False        # when False, skips all interactive charts
+RUN_LLM_INTERPRETATION = False  # when False, skips the LLM call & PDF
 
 # LLM endpoint & model
 LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
@@ -83,9 +83,9 @@ if __name__ == "__main__":
     days_window = LOOKBACK_BUSINESS_DAYS   #Number of business days to include in the analysis
     START_DATE = (pd.Timestamp.today() - BDay(days_window)).strftime("%Y-%m-%d")
 
-    # ——————————————————————————————
+    # -----------------------------------------------------------
     # 1) INTERACTIVE INPUTS
-    # ——————————————————————————————
+    # ------------------------------------------------------------
     
     # Base currency
     BASE = input("Choose a base currency [e.g. EUR]: ").strip().upper() or "EUR"
@@ -134,12 +134,18 @@ if __name__ == "__main__":
     # Transform SHARES in pd.Series
     SHARES = pd.Series(SHARES)
 
+   
+   
+    # ------------------------------------------------------------
+    # 2) EQUITY DATA PREPARATION
+    # ------------------------------------------------------------
 
-    # 3) EQUITY DATA PREP
     # Fetch, fill, convert in one go
     raw = pv.get_raw_prices(TICKERS, start=START_DATE).ffill().bfill()
     currency_map = {t: yf.Ticker(t).fast_info.get("currency", BASE) or BASE for t in TICKERS}
     converted_prices = pv.convert_to_base_currency(raw, currency_mapping=currency_map, base_currency=BASE).ffill().bfill()
+
+
 
     # Drop tickers that have no valid data at all
     #  (e.g. AAPL failed to download)
@@ -151,7 +157,11 @@ if __name__ == "__main__":
         converted_prices = converted_prices[valid_equities]
         SHARES = SHARES.loc[valid_equities]
 
-    # 2) Recompute returns and check length
+    # ----  ensure same column order  ----
+    converted_prices = converted_prices[SHARES.index]     
+    shares_eq = SHARES.values
+
+    # Recompute returns and check length
     returns = pv.compute_returns(converted_prices)
     if len(returns) < 2:
         sys.exit("Not enough data points after cleaning to compute VaR.")
@@ -172,10 +182,13 @@ if __name__ == "__main__":
     except Exception:
         rf_rate = 0.02
 
-    # 4) OPTIONS DATA PREP
+
+    # ------------------------------------------------------------
+    # 3) OPTIONS DATA PREPARATION
+    # ------------------------------------------------------------
     option_value = 0.0
     if options_list:
-        # 1) Aggregate all underlyings + equities in one fetch
+        # Aggregate all underlyings + equities in one fetch
         all_tickers = sorted(set(TICKERS) | {opt['under'] for opt in options_list})
         raw_all = pv.get_raw_prices(all_tickers, start=START_DATE).ffill().bfill()
         converted_all = pv.convert_to_base_currency(
@@ -184,11 +197,12 @@ if __name__ == "__main__":
             base_currency=BASE
         ).ffill().bfill()
 
-        # 2) Historical volatility for each ticker
+
+        # Historical volatility for each ticker
         returns_all = pv.compute_returns(converted_all).dropna()
         hist_vol = returns_all.std() * np.sqrt(252)
 
-        # 3) Map column order for Monte Carlo and compute each option
+        # Map column order for Monte Carlo and compute each option
         price_cols = list(converted_all.columns)
         for opt in options_list:
             if opt['under'] not in price_cols:
@@ -203,6 +217,18 @@ if __name__ == "__main__":
                 spot_price, opt['K'], opt['T'], opt['r'], opt['sigma'], opt['type']
             )
             option_value += unit_price * opt['qty']
+
+        # Extend shares vector to match all underlyings
+        shares_extended = pd.Series(0.0, index=converted_all.columns)
+        shares_extended.loc[SHARES.index] = SHARES.values
+
+        converted_all   = converted_all[shares_extended.index]
+        shares_all      = shares_extended.values
+
+    else:
+        # nessuna opzione: usa i soli titoli azionari
+        converted_all = converted_prices
+        shares_extended = SHARES.copy()
 
     total_value = portfolio_value + option_value
 
@@ -252,7 +278,11 @@ if __name__ == "__main__":
     print(f"=== RISK-FREE RATE: {rf_rate:.4%} ===\n")
 
 
-    # 5) VAR + ES CALCULATION
+
+
+    # ------------------------------------------------------------
+    # 4) VAR + ES CALCULATION
+    # ------------------------------------------------------------
     returns_portfolio = returns.dot(weights)
 
     #  — Asset Normal 
@@ -266,12 +296,15 @@ if __name__ == "__main__":
         confidence_level=CONF
     )
 
-    #  — Monte Carlo Simulations (equity + options)
+    #  — Monte Carlo SImulations (equity only)
     var_mc_opt, es_mc_opt = compute_var_and_es(
-        pv.monte_carlo_var,
-        converted_prices, SHARES.values, options_list,
-        confidence_level=CONF
+    pv.monte_carlo_var,
+    converted_all,          # serie con TUTTI gli underlying
+    shares_extended.values, # vector 0/qty allineato a converted_all
+    options_list,
+    confidence_level=CONF
     )
+
 
     #  — Historical Simulations (equity only)
     var_hist_sim_eq, es_hist_sim_eq = compute_var_and_es(
@@ -282,9 +315,11 @@ if __name__ == "__main__":
 
     #  — Historical Simulations (equity + options)
     var_hist_sim_opt, es_hist_sim_opt = compute_var_and_es(
-        pv.historical_simulation_var,
-        converted_prices, SHARES.values, options_list,
-        confidence_level=CONF
+    pv.historical_simulation_var,
+    converted_all,
+    shares_extended.values,
+    options_list,
+    confidence_level=CONF
     )
 
     # Sharpe model using SPY as benchmark
@@ -356,7 +391,13 @@ if __name__ == "__main__":
     # Component VaR
     component_var_df = pv.component_var(positions_df, confidence_level=CONF)
 
-    # 6) BACKTESTING
+
+
+
+    # ------------------------------------------------------------
+    # 5) BACKTESTING
+    # ------------------------------------------------------------
+    # Prepare the returns for backtesting
     # Map each model name to its DataFrame of VaR results
     model_data = {
         "Asset-Normal":     df_asset_normal,
@@ -381,8 +422,9 @@ if __name__ == "__main__":
         backtest_data[name] = df_bt
 
     
-    
-    # 7) PLOT DATA  (only if SHOW_PLOTS)
+    # -----------------------------------------
+    # 6) PLOT DATA  (only if SHOW_PLOTS = True)
+    # -----------------------------------------
     if SHOW_PLOTS:
         for model_name, df_bt in backtest_data.items():
             plot_backtest(df_bt, interactive=True, title=f"Backtest {model_name}")
@@ -397,8 +439,10 @@ if __name__ == "__main__":
         for fn, data, title in additional_plots:
             fn(data, interactive=True, title=title)
 
+    # -----------------------------------------
+    # 7) SYNTHESIS – EQUITY VaR & ES
+    # -----------------------------------------
 
-    # 8) SYNTHESIS – EQUITY VaR & ES
     # define raw VaR and ES mappings
     var_table = {
         "Asset-Normal":       var_asset_normal,
@@ -433,7 +477,7 @@ if __name__ == "__main__":
         for name, value in es_table.items()
     })
 
-    # 8b) SYNTHESIS PRINTOUTS
+    # 7b) SYNTHESIS PRINTOUTS
 
     # Equity metrics DataFrame
     df_metrics = (
@@ -479,8 +523,11 @@ if __name__ == "__main__":
         )
 
 
-    # --- 9) BACKTEST RESULTS: violations, rates & p-values ---
 
+    # -----------------------------------------
+    # 8) BACKTEST RESULTS: violations, rates & p-values
+    # -----------------------------------------
+    
     # Build a DataFrame directly from the summaries
     results_df = pd.DataFrame.from_dict(
         {
@@ -501,8 +548,10 @@ if __name__ == "__main__":
     print(results_df.to_string(float_format=lambda x: f"{x:.3f}"))
 
 
-
-    # --- BUILD SUMMARY TEXT FOR PROMPT LLM (ONLY for VaR) ---
+    
+    # -----------------------------------------
+    # 9) BUILD SUMMARY TEXT FOR PROMPT LLM (ONLY for VaR)
+    # ------------------------------------------
 
     # Precompute backtest summaries by model name
     backtest_summaries = {
@@ -535,8 +584,9 @@ if __name__ == "__main__":
 
 
 
-
-    # 10) LLM INTERPRETATION & PDF REPORT (only if RUN_LLM_INTERPRETATION)
+    # -----------------------------------------
+    # 10) LLM INTERPRETATION & PDF REPORT (only if RUN_LLM_INTERPRETATION = True)
+    # -----------------------------------------
     if RUN_LLM_INTERPRETATION:
         import llm.llm_rag as rag
         from llm.pdf_reporting import open_report_as_pdf
