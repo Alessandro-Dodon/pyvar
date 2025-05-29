@@ -6,6 +6,7 @@ This folder contains optional tools for integrating **local large language model
 
 ## 🔧 Main Scripts
 
+The two scripts are:
 - `llm_rag.py` — enables a local LLM to answer questions about your results using retrieval-augmented generation (RAG).
 - `pdf_reporting.py` — generates automated risk management reports from pyvar output.
 
