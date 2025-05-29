@@ -80,7 +80,7 @@ Enter when prompted:
   Input one base currecy (e.g. _EUR_, _CHF_, _USD_...), then press Enter.
 
 - **Equity tickers**
-  enter all equity tickers at once, space-separated and exactly as on Yahoo Finance (e.g. _MSFT_ _ISP.MI_ _NESN.SW_), then press Enter.
+  Enter all equity tickers at once, space-separated and exactly as on Yahoo Finance (e.g. _MSFT_ _ISP.MI_ _NESN.SW_), then press Enter.
 
 - **Number of shares per ticker**  
   When prompted for each ticker, type the number of shares you hold and press **Enter** to confirm. Repeat until you’ve entered a value for every ticker.
