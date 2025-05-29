@@ -72,9 +72,7 @@ rag.MODEL_NAME         = "qwen-3-4b-instruct"
 
 
 ### Quick Start
-Run `pyvar_llm_report.py`.
-
-Enter when prompted:
+Run `pyvar_llm_report.py`. Enter when prompted:
 
 - **Base currency**
   Input one base currecy (e.g. _EUR_, _CHF_, _USD_...), then press Enter.
