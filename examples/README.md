@@ -76,7 +76,7 @@ Run `pyvar_llm_report.py`
 
 Enter when prompted:
 
-- **Base currency**
+- Base currency
   Input one base currecy (e.g. _EUR_, _CHF_, _USD_...), then press Enter.
 
 - **Equity tickers**
