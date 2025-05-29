@@ -1,6 +1,6 @@
 """
 LLM Integration Module
---------------------------------------
+----------------------
 
 Provides functionality to:
 1. Query a local LM Studio model for interpretation of VaR/ES metrics.
@@ -30,9 +30,18 @@ Niccolò Lecce, Alessandro Dodon, Marco Gasparetti
 Created
 -------
 May 2025
+
+Contents
+--------
+- ask_llm: Sends a prompt to the locally running LM Studio LLM and retrieves the response.
+- get_vectorstore: Builds or loads a persistent Chroma vector store from PDF documents.
+- build_rag_prompt: Constructs a clear, plain-text prompt for RAG analysis.
 """
 
 
+#----------------------------------------------------------
+# Packages
+#----------------------------------------------------------
 import os
 import re
 import requests
@@ -41,6 +50,7 @@ from langchain_community.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import GPT4AllEmbeddings
 
+
 # ---------------- CONFIGURATION ----------------
 LMSTUDIO_ENDPOINT = "http://xxx.xxx.x.xxx:xxxx"  # Your LM Studio server URL
 API_PATH            = "/v1/completions"
@@ -48,11 +58,15 @@ MODEL_NAME          = "qwen-3-4b-instruct"    # Installed model name
 # -----------------------------------------------
 
 
+#----------------------------------------------------------
+# Ask the LLM Function
+#----------------------------------------------------------
 def ask_llm(prompt,
             max_tokens = 256,
             temperature = 0.2):
     """
-
+    Main
+    ----
     Sends a prompt to the locally running LM Studio LLM and retrieves the response.
 
     Parameters
@@ -68,7 +82,6 @@ def ask_llm(prompt,
     -------
     str
         The text output returned by the LLM.
-    
     """
     url = LMSTUDIO_ENDPOINT.rstrip("/") + API_PATH
     payload = {
@@ -83,8 +96,13 @@ def ask_llm(prompt,
     return data["choices"][0]["text"]
 
 
+#----------------------------------------------------------
+# Vectorstore Function
+#----------------------------------------------------------
 def get_vectorstore(pdf_paths, persist_dir: str = "kb_chroma"):
     """
+    Main
+    ----
     Builds or loads a persistent Chroma vector store from PDF documents.
 
     If a persisted directory exists, it loads the existing collection. Otherwise,
@@ -125,6 +143,9 @@ def get_vectorstore(pdf_paths, persist_dir: str = "kb_chroma"):
     return vectordb
 
 
+#----------------------------------------------------------
+# RAG Function
+#----------------------------------------------------------
 def build_rag_prompt(
     *,
     summary_text,
@@ -136,6 +157,8 @@ def build_rag_prompt(
     alfa = 0.05,
     k = 2):
     """
+    Main
+    ----
     Constructs a clear, plain-text prompt without markdown.
 
     Parameters

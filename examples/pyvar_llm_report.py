@@ -1,10 +1,10 @@
 """
 VaR and ES Risk Report for Equity + Options Portfolio with LLM Interpretation
-----------------------------------------------------
+-----------------------------------------------------------------------------
 
 Compute 1-day Value at Risk (VaR) and Expected Shortfall (ES) for a mixed equity
-+ options portfolio, defined by the user. Performs backtesting, runs a local LLM interpretation, and
-generates a PDF report with tables and commentary.
++ options portfolio, defined by the user. Performs backtesting, runs a local LLM 
+interpretation, and generates a PDF report with tables and commentary.
 
 Usage
 -----
@@ -21,7 +21,6 @@ Usage
 3. Run the script:
    python pyvar_llm_report.py
    
-
 Features
 --------
 - Equity data fetch & FX conversion
@@ -50,7 +49,9 @@ Created
 May 2025
 """
 
-
+#----------------------------------------------------------
+# Packages
+#----------------------------------------------------------
 import os, sys
 import pandas as pd
 import numpy as np
@@ -90,10 +91,6 @@ API_PATH          = "/v1/completions"
 MODEL_NAME        = "qwen-3-4b-instruct" # Installed model name
 
 
-
-
-
-
 # ----------------------------------------------------------
 # HELPERS
 # ----------------------------------------------------------
@@ -126,13 +123,9 @@ plot_component_var_lines = _auto_show_wrapper(plot_component_var_lines)
 plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
 
 
-
-
-
-
-
 # ----------------------------------------------------------
 # MAIN EXECUTION
+# ----------------------------------------------------------
 if __name__ == "__main__":
 
     CONF = CONFIDENCE_LEVEL  # Confidence level for VaR and ES calculations
@@ -142,7 +135,6 @@ if __name__ == "__main__":
     # -----------------------------------------------------------
     # 1) INTERACTIVE INPUTS
     # ------------------------------------------------------------
-    
     # Base currency
     BASE = input("Choose a base currency [e.g. EUR]: ").strip().upper() or "EUR"
 
@@ -191,17 +183,13 @@ if __name__ == "__main__":
     SHARES = pd.Series(SHARES)
 
    
-   
     # ------------------------------------------------------------
     # 2) EQUITY DATA PREPARATION
     # ------------------------------------------------------------
-
     # Fetch, fill, convert in one go
     raw = pv.get_raw_prices(TICKERS, start=START_DATE).ffill().bfill()
     currency_map = {t: yf.Ticker(t).fast_info.get("currency", BASE) or BASE for t in TICKERS}
     converted_prices = pv.convert_to_base_currency(raw, currency_mapping=currency_map, base_currency=BASE).ffill().bfill()
-
-
 
     # Drop tickers that have no valid data at all
     #  (e.g. AAPL failed to download)
@@ -213,7 +201,7 @@ if __name__ == "__main__":
         converted_prices = converted_prices[valid_equities]
         SHARES = SHARES.loc[valid_equities]
 
-    # ----  ensure same column order  ----
+    # Ensure same column order 
     converted_prices = converted_prices[SHARES.index]     
     shares_eq = SHARES.values
 
@@ -253,7 +241,6 @@ if __name__ == "__main__":
             base_currency=BASE
         ).ffill().bfill()
 
-
         # Historical volatility for each ticker
         returns_all = pv.compute_returns(converted_all).dropna()
         hist_vol = returns_all.std() * np.sqrt(252)
@@ -282,14 +269,14 @@ if __name__ == "__main__":
         shares_all      = shares_extended.values
 
     else:
-        # nessuna opzione: usa i soli titoli azionari
+        # No options: use equity data only
         converted_all = converted_prices
         shares_extended = SHARES.copy()
 
     total_value = portfolio_value + option_value
 
+    # === DEBUG SUMMARY TABLES ===
 
-     # === DEBUG SUMMARY TABLES ===
     # Portfolio positions
     positions_summary = pd.DataFrame({
         'Ticker': SHARES.index,
@@ -334,42 +321,39 @@ if __name__ == "__main__":
     print(f"=== RISK-FREE RATE: {rf_rate:.4%} ===\n")
 
 
-
-
     # ------------------------------------------------------------
     # 4) VAR + ES CALCULATION
     # ------------------------------------------------------------
     returns_portfolio = returns.dot(weights)
 
-    #  — Asset Normal 
+    # Asset Normal 
     df_asset_normal = pv.asset_normal_var(positions_df, confidence_level=CONF)
     var_asset_normal = df_asset_normal["Diversified_VaR"].iloc[-1]
 
-    #  — Monte Carlo SImulations (equity only)
+    # Monte Carlo SImulations (equity only)
     var_mc_eq, es_mc_eq = compute_var_and_es(
         pv.monte_carlo_var,
         converted_prices, SHARES.values, [], 
         confidence_level=CONF
     )
 
-    #  — Monte Carlo SImulations (equity only)
+    # Monte Carlo SImulations (equity only)
     var_mc_opt, es_mc_opt = compute_var_and_es(
     pv.monte_carlo_var,
-    converted_all,          # serie con TUTTI gli underlying
-    shares_extended.values, # vector 0/qty allineato a converted_all
+    converted_all,          
+    shares_extended.values, 
     options_list,
     confidence_level=CONF
     )
 
-
-    #  — Historical Simulations (equity only)
+    # Historical Simulations (equity only)
     var_hist_sim_eq, es_hist_sim_eq = compute_var_and_es(
         pv.historical_simulation_var,
         converted_prices, SHARES.values, [],
         confidence_level=CONF
     )
 
-    #  — Historical Simulations (equity + options)
+    #  Historical Simulations (equity + options)
     var_hist_sim_opt, es_hist_sim_opt = compute_var_and_es(
     pv.historical_simulation_var,
     converted_all,
@@ -393,14 +377,12 @@ if __name__ == "__main__":
     df_sharpe_model = pv.factor_models_es(df_sharpe_model, vol_sharpe_model, confidence_level=CONF)
     var_sharpe_model, es_sharpe_model = df_sharpe_model["VaR_monetary"].iat[-1], df_sharpe_model["ES_monetary"].iat[-1]
 
-
     # Fama-French 3 Factor Model
     df_ff3, vol_ff3 = pv.fama_french_var(
         returns, weights, portfolio_value, confidence_level=CONF
     )
     df_ff3 = pv.factor_models_es(df_ff3, vol_ff3, confidence_level=CONF)
     var_ff3, es_ff3 = df_ff3["VaR_monetary"].iat[-1], df_ff3["ES_monetary"].iat[-1]
-
 
     # Volatility-based Moving Average & EWMA VaR
     df_ma_var, _ = pv.ma_var(
@@ -433,7 +415,6 @@ if __name__ == "__main__":
     df_ewma = pv.correlation_es(df_ewma)
     var_ewma, es_ewma = df_ewma["VaR Monetary"].iat[-1], df_ewma["ES Monetary"].iat[-1]
 
-
     # Extreme Value Theory (EVT)
     df_evt   = pv.evt_var(returns_portfolio, wealth=portfolio_value)
     df_evt   = pv.evt_es(df_evt, wealth=portfolio_value)
@@ -446,8 +427,6 @@ if __name__ == "__main__":
 
     # Component VaR
     component_var_df = pv.component_var(positions_df, confidence_level=CONF)
-
-
 
 
     # ------------------------------------------------------------
@@ -478,9 +457,9 @@ if __name__ == "__main__":
         backtest_data[name] = df_bt
 
     
-    # -----------------------------------------
+    # ------------------------------------------------------------
     # 6) PLOT DATA  (only if SHOW_PLOTS = True)
-    # -----------------------------------------
+    # ------------------------------------------------------------
     if SHOW_PLOTS:
         for model_name, df_bt in backtest_data.items():
             plot_backtest(df_bt, interactive=True, title=f"Backtest {model_name}")
@@ -495,11 +474,11 @@ if __name__ == "__main__":
         for fn, data, title in additional_plots:
             fn(data, interactive=True, title=title)
 
-    # -----------------------------------------
-    # 7) SYNTHESIS – EQUITY VaR & ES
-    # -----------------------------------------
 
-    # define raw VaR and ES mappings
+    # ------------------------------------------------------------
+    # 7) SYNTHESIS – EQUITY VaR & ES
+    # ------------------------------------------------------------
+    # Define raw VaR and ES mappings
     var_table = {
         "Asset-Normal":       var_asset_normal,
         "Sharpe-Factor":      var_sharpe_model,
@@ -523,7 +502,7 @@ if __name__ == "__main__":
         "GARCH":               es_garch
     }
 
-    # build the final metrics_eq
+    # Build the final metrics_eq
     metrics_eq = {
         f"{name} VaR": value
         for name, value in var_table.items()
@@ -533,7 +512,7 @@ if __name__ == "__main__":
         for name, value in es_table.items()
     })
 
-    # 7b) SYNTHESIS PRINTOUTS
+    # 7B) === SYNTHESIS PRINTOUTS ===
 
     # Equity metrics DataFrame
     df_metrics = (
@@ -579,10 +558,9 @@ if __name__ == "__main__":
         )
 
 
-
-    # -----------------------------------------
+    # ------------------------------------------------------------
     # 8) BACKTEST RESULTS: violations, rates & p-values + Decision
-    # -----------------------------------------
+    # ------------------------------------------------------------
     results_df = pd.DataFrame.from_dict(
         {
             name: summarize_backtest(df_bt)
@@ -598,7 +576,7 @@ if __name__ == "__main__":
         ]
     )
 
-    # Aggiungi Decision basata solo sul Joint test
+    # Joint test
     alpha = 0.05
     results_df["Decision"] = np.where(
         results_df["Joint p-value"] > alpha,
@@ -609,11 +587,11 @@ if __name__ == "__main__":
     print("\n===== BACKTEST RESULTS =====\n")
     print(results_df.to_string(float_format=lambda x: f"{x:.3f}"))
 
-        # -----------------------------------------
-    # 9) BUILD SUMMARY TEXT FOR PROMPT LLM (ONLY for VaR)
-    # -----------------------------------------
 
-    # Estrai le informazioni di backtest per modello
+    # ------------------------------------------------------------
+    # 9) BUILD SUMMARY TEXT FOR PROMPT LLM (ONLY for VaR)
+    # ------------------------------------------------------------
+    # Backtest info for LLM
     backtest_info = {
         model: {
             "Decision":    row["Decision"],
@@ -623,13 +601,14 @@ if __name__ == "__main__":
         for model, row in results_df.iterrows()
     }
 
-    # Costruisci le righe di summary
+    # Summary lines
     summary_lines = []
     for metric_name, var_value in metrics_eq.items():
         if not metric_name.endswith(" VaR"):
             continue
-        base_key = metric_name[:-4]           # es. "Asset-Normal"
-        # trova il modello corrispondente
+        base_key = metric_name[:-4]           # e.g. "Asset-Normal"
+
+        # Find corresponding model
         match = next((m for m in backtest_info if base_key in m), None)
         if match:
             info = backtest_info[match]
@@ -648,10 +627,9 @@ if __name__ == "__main__":
     print("\n===== SUMMARY TEXT =====\n" + summary_text + "\n")
 
 
-
-    # -----------------------------------------
+    # ---------------------------------------------------------------------------
     # 10) LLM INTERPRETATION & PDF REPORT (only if RUN_LLM_INTERPRETATION = True)
-    # -----------------------------------------
+    # ---------------------------------------------------------------------------
     if RUN_LLM_INTERPRETATION:
         import llm.llm_rag as rag
         from llm.pdf_reporting import open_report_as_pdf
@@ -659,7 +637,6 @@ if __name__ == "__main__":
         rag.LMSTUDIO_ENDPOINT = LMSTUDIO_ENDPOINT
         rag.API_PATH          = API_PATH
         rag.MODEL_NAME        = MODEL_NAME
-
 
         vector_store = rag.get_vectorstore(r"llm\knowledge_base.pdf")
         combined_content = {

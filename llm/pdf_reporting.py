@@ -51,7 +51,9 @@ import tempfile
 from reportlab.lib.pagesizes import A4
 
 
-
+#----------------------------------------------------------
+# PDF Report Function
+#----------------------------------------------------------
 def open_report_as_pdf(metrics,
                        weights,
                        interpretation,
@@ -90,16 +92,12 @@ def open_report_as_pdf(metrics,
     fd, tmp_path = tempfile.mkstemp(suffix=".pdf")
     os.close(fd)
 
-
-
     # Set up the document
     doc = SimpleDocTemplate(
         tmp_path, pagesize=A4,
         rightMargin=2*cm, leftMargin=2*cm,
         topMargin=2*cm, bottomMargin=2*cm
     )
-
-
 
     # Define styles
     styles = getSampleStyleSheet()
@@ -110,18 +108,13 @@ def open_report_as_pdf(metrics,
     styles.add(ParagraphStyle("BodyTxt", fontName="Times-Roman", fontSize=12,
                               leading=14, spaceAfter=4))
 
-
-
     # Build the story
     story = []
-
 
     # Cover page
     story.append(Paragraph("Interpretation Report", styles["RptTitle"]))
     story.append(Paragraph(f"Date: {datetime.date.today():%d %B %Y}", styles["BodyTxt"]))
     story.append(Spacer(1, 0.7*cm))
-
-
 
     # VaR table
     story.append(Paragraph("VaR Metrics", styles["SectHead"]))
@@ -140,8 +133,6 @@ def open_report_as_pdf(metrics,
     story.append(tbl_var)
     story.append(Spacer(1, 0.7*cm))
 
-
-
     # ES table
     story.append(Paragraph("ES Metrics", styles["SectHead"]))
     story.append(Spacer(1, 0.5*cm))
@@ -158,11 +149,6 @@ def open_report_as_pdf(metrics,
     ]))
     story.append(tbl_es)
     story.append(Spacer(1, 0.7*cm))
-
-
-
-
-
 
     # Option positions
     if opt_list:
@@ -191,14 +177,14 @@ def open_report_as_pdf(metrics,
     story.append(Paragraph("Backtest Results", styles["SectHead"]))
     story.append(Spacer(1, 0.5*cm))
 
-    # create a header style that centers and wraps
+    # Create a header style that centers and wraps
     hdr_style = ParagraphStyle(
         "hdr", parent=styles["BodyTxt"],
         alignment=TA_CENTER,
         leading=12
     )
 
-    # header row as Paragraphs with explicit line‐breaks
+    # Header row as Paragraphs with explicit line‐breaks
     headers = [
         Paragraph("Model", hdr_style),
         Paragraph("Violations", hdr_style),
@@ -221,7 +207,7 @@ def open_report_as_pdf(metrics,
             row.get("Decision", "")               
         ])
 
-    # narrower columns for the long names
+    # Narrower columns for the long names
     col_widths = [3*cm, 2.5*cm, 3*cm, 2.5*cm, 3*cm, 2.5*cm, 3*cm]
 
     tbl_bt = Table(data_bt, colWidths=col_widths)
@@ -234,17 +220,11 @@ def open_report_as_pdf(metrics,
     story.append(tbl_bt)
     story.append(Spacer(1, 0.7*cm))
 
-
-
-
-
     # LLM Interpretation
     story.append(Paragraph("LLM Interpretation", styles["SectHead"]))
     for para in interpretation.split("\n\n"):
         story.append(Paragraph(para.replace("\n", " "), styles["BodyTxt"]))
         story.append(Spacer(1, 0.3*cm))
-
-
 
 
     # Footer callback
@@ -255,7 +235,6 @@ def open_report_as_pdf(metrics,
         canvas.drawCentredString(A4[0]/2, 1*cm,
                                  f"Page {doc.page} — Confidential")
         canvas.restoreState()
-
 
     if static_figs:
          for fig in static_figs:
@@ -269,7 +248,6 @@ def open_report_as_pdf(metrics,
              story.append(img)
              story.append(Spacer(1, 0.5*cm))
 
-        
     # Build PDF and open it
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
     if sys.platform.startswith("win"):
