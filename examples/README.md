@@ -116,6 +116,31 @@ If `SHOW_PLOTS = True`, interactive charts will open in your browser.
 If `RUN_LLM_INTERPRETATION = True`, the LLM interpretation runs automatically and a PDF report is generated (e.g., in `./reports/`).
 </details>
 
+### Output
+
+When the script finishes, you’ll get:
+
+- **Console**:  
+  - Portfolio positions table  
+  - VaR & ES metrics  
+  - Backtest summary  
+
+- **Charts (optional)**  
+  <details>
+  <summary>Show details</summary>
+
+  If `SHOW_PLOTS = True`, interactive charts will open in your browser.
+
+  </details>
+
+- **PDF Report (optional)**  
+  <details>
+  <summary>Show details</summary>
+
+  If `RUN_LLM_INTERPRETATION = True`, the LLM interpretation runs automatically and a PDF report is generated (e.g., in `./reports/`).
+
+  </details>
+  
 ### Troubleshooting
 
 - **Missing data / NaN**  
