@@ -65,9 +65,9 @@ SHOW_PLOTS             = True   # or False
 RUN_LLM_INTERPRETATION = True   # or False
 
 # Local LLM endpoint & model
-rag.LMSTUDIO_ENDPOINT  = "http://<your-host>:<port>"
-rag.API_PATH           = "/v1/completions"
-rag.MODEL_NAME         = "qwen-3-4b-instruct"
+LMSTUDIO_ENDPOINT  = "http://<your-host>:<port>"
+API_PATH           = "/v1/completions"
+MODEL_NAME         = "qwen-3-4b-instruct"
 ```
 
 **If you plan to use the LLM interpretation, make sure your LM Studio server is **running**, the `rag.LMSTUDIO_ENDPOINT` is reachable, and the specified `MODEL_NAME` is **loaded**.**
