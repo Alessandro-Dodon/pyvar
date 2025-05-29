@@ -94,27 +94,8 @@ Enter when prompted:
    - **Multiplier** (number of stock x contract, default is 100), click Enter
    - **Strike price**, click Enter
    - **Time to maturity** (in years) (e.g. 1 day = 0,00396), click Enter
-- To add another option repeat the steps above or click enter to launch the analysis  
-
-### Output
-
-When the script finishes, you’ll get:
-
-- **Console**:  
-  - Portfolio positions table  
-  - VaR & ES metrics  
-  - Backtest summary  
-
-
-<summary> Charts (optional)</summary> 
-
-If `SHOW_PLOTS = True`, interactive charts will open in your browser.
-
-
-<summary> PDF Report (optional)</summary>
-
-If `RUN_LLM_INTERPRETATION = True`, the LLM interpretation runs automatically and a PDF report is generated (e.g., in `./reports/`).
-</details>
+- To add another option repeat the steps above or click enter to launch the analysis
+  
 
 ### Output
 
