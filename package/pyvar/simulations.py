@@ -127,51 +127,40 @@ def monte_carlo_var(price_data, shares, options,
     np.random.seed(seed)
     alpha = 1 - confidence_level
 
-    # Estimate returns and covariance
     returns = price_data.pct_change().dropna()
-    mu = returns.mean().values
-    cov = returns.cov().values
+    mu = returns.mean()
+    cov = returns.cov()
     S0 = price_data.iloc[-1].values
-    n_assets = len(S0)
 
-    # Simulate correlated asset prices
     L = np.linalg.cholesky(cov)
-    Z = np.random.randn(simulations, n_assets)
-    returns_simulated = mu + Z @ L.T
+    Z = np.random.randn(simulations, len(S0))
+    returns_simulated = mu.values + Z.dot(L.T)
     S_simulated = S0 * (1 + returns_simulated)
 
-    # Current portfolio value
-    port_val_curr = np.dot(S0, shares)
-
-    # Initial option prices
     initial_option_prices = [
-        black_scholes(
-            S0[option['asset_index']],
-            option['K'], option['T'], option['r'], option['sigma'], option['type']
-        )
-        for option in options
+    black_scholes(
+        S0[option['asset_index']], 
+        option['K'], option['T'], option['r'], option['sigma'], option['type']
+    )
+    for option in options
     ]
 
-    # Simulate P&L
     profit_and_loss = np.empty(simulations)
     for i in range(simulations):
-        port_val_sim = np.dot(S_simulated[i], shares)
-        pnl_equity = port_val_sim - port_val_curr
-
+        pnl_equity = shares.dot(S_simulated[i] - S0)
         pnl_options = 0.0
         for j, option in enumerate(options):
-            tau = max(option['T'] - 1 / 252, 0)
+            tau = max(option['T'] - 1/252, 0)
             new_option_price = black_scholes(
                 S_simulated[i, option['asset_index']],
-                option['K'], tau, option['r'], option['sigma'], option['type']
+                option['K'], tau,
+                option['r'], option['sigma'], option['type']
             )
             pnl_options += option['qty'] * (new_option_price - initial_option_prices[j])
-
         profit_and_loss[i] = pnl_equity + pnl_options
 
     var = -np.percentile(profit_and_loss, alpha * 100)
     return var, profit_and_loss
-
 
 # ----------------------------------------------------------
 # Multiday Monte Carlo VaR (Equity-only)

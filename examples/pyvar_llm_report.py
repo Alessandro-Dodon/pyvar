@@ -36,8 +36,8 @@ LOOKBACK_BUSINESS_DAYS = 300 # Number of business days to include in the analysi
 # ----------------------------------------------------------
 # OPTIONAL FEATURES (set to False to skip)
 # ----------------------------------------------------------
-SHOW_PLOTS = False        # when False, skips all interactive charts
-RUN_LLM_INTERPRETATION = False  # when False, skips the LLM call & PDF
+SHOW_PLOTS = True        # when False, skips all interactive charts
+RUN_LLM_INTERPRETATION = True  # when False, skips the LLM call & PDF
 
 # LLM endpoint & model
 LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
