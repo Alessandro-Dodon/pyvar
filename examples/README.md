@@ -24,7 +24,7 @@ It’s designed as a real-life walkthrough for new users.
 
 ### pyvar_llm_report.py
 
-A practical example showing how to combine the **pyvar** package with a local LLM (via **llm.llm_rag**) to:
+A practical example showing how to combine the **pyvar** package with a local LLM to:
 
 - Calculate **VaR** & **ES** on an equity + options portfolio  
 - **Backtest** multiple VaR models (Kupiec, Christoffersen, joint tests)  
