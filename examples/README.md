@@ -136,7 +136,7 @@ When the script finishes, you’ll get:
 
 ## ⚠️ Disclaimer
 
-The LLM integration is **experimental**. Do **not** rely solely on its output—always verify results with traditional methods or a qualified expert.  
+The LLM integration is **experimental**. Do **not** rely solely on its output, always verify results with traditional methods or a qualified expert.  
 
 
 
