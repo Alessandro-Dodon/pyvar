@@ -10,11 +10,11 @@ This folder contains example scripts that demonstrate how to use the pyvar packa
 
 This is the main tutorial notebook. It:
 
-- Walks through most of the core functionality in the package
+- Walks through most of the **core functionality** in the package
 - Explains the logic behind each method with theory refreshers
-- Provides visualizations
+- Provides **visualizations**
 - Starts with single-asset risk models and ends with full portfolio analysis
-- Demonstrates two simple portfolio strategies with end-to-end risk evaluation
+- Demonstrates **two simple portfolio strategies** with end-to-end risk evaluation
 
 It’s designed as a real-life walkthrough for new users.
 
