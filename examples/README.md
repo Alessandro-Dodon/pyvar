@@ -22,7 +22,7 @@ It’s designed as a real-life walkthrough for new users.
 
 ## 🤖 Script for LLM Integration
 
-## pyvar_llm_report.py
+### pyvar_llm_report.py
 
 A practical example showing how to combine the **pyvar** package with a local LLM (via **llm.llm_rag**) to:
 
@@ -31,18 +31,24 @@ A practical example showing how to combine the **pyvar** package with a local LL
 3. _(Optional)_ Display interactive charts  
 4. _(Optional)_ Ask an LLM for automated interpretation and produce a PDF report
 
-## 🛠️ Installation
+### Installation
 
 1. **Clone the repository** and go into the `examples` folder:  
    ```bash
-   git clone https://github.com/<your-org>/<your-repo>.git
-   cd <your-repo>/examples
+   git clone https://github.com/Alessandro-Dodon/pyvar.git
+   cd pyvar
+   cd examples
 
 2. **Install core dependencies**:  
    ```bash
    pip install -r requirements.txt
 
-## 🔧 Configuration
+3. **LM Studio setup** (_OPTIONAL_):
+   
+   To download and configure your local LM Studio correctly, follow the step-by-step notebook:                 `llm/tutorial_llm.ipynb`
+
+
+### Configuration
 Open `pyvar_llm_report.py` and adjust at the top:
 
 ```python
@@ -65,7 +71,7 @@ rag.MODEL_NAME         = "qwen-3-4b-instruct"
 ```
 
 
-## ▶️ Quick Start
+### Quick Start
 Run `pyvar_llm_report.py`
 
 Enter when prompted:
@@ -82,15 +88,15 @@ Enter when prompted:
 
 - **Option positions** (**y** if you have options position in the portfolio, **n** if not)
  - if **y**, for each option input:
-   - **Underlying stock** (e.g. AAPL)
-   - **Type of options**: call or put
-   - **Number of contracts**
-   - **Multiplier** (number of stock x contract, default is 100)
-   - **Strike price**
-   - **Time to maturity** (in years) (e.g. 1 day = 0,00396)
+   - **Underlying stock** (e.g. AAPL), click Enter
+   - **Type of options**: call or put, click Enter
+   - **Number of contracts**, click Enter
+   - **Multiplier** (number of stock x contract, default is 100), click Enter
+   - **Strike price**, click Enter
+   - **Time to maturity** (in years) (e.g. 1 day = 0,00396), click Enter
 - To add another option repeat the steps above or click enter to launch the analysis  
 
-## 📂 Output
+### Output
 
 When the script finishes, you’ll get:
 
@@ -99,21 +105,18 @@ When the script finishes, you’ll get:
   - VaR & ES metrics  
   - Backtest summary  
 
-<details>
-<summary>📊 Charts (optional)</summary> 
+
+<summary> Charts (optional)</summary> 
 
 If `SHOW_PLOTS = True`, interactive charts will open in your browser.
-</details>
 
-<details>
-<summary>📑 PDF Report (optional)</summary>
+
+<summary> PDF Report (optional)</summary>
 
 If `RUN_LLM_INTERPRETATION = True`, the LLM interpretation runs automatically and a PDF report is generated (e.g., in `./reports/`).
 </details>
 
----
-
-## 🛠️ Troubleshooting
+### Troubleshooting
 
 - **Missing data / NaN**  
   Tickers without valid price history are dropped automatically (check console warnings).

@@ -3,6 +3,7 @@ pyvar: A Python Toolkit for Modern Financial Risk Management
 
 pyvar is a modular, extensible Python package for financial risk analysis, 
 with a primary focus on Value-at-Risk (VaR) and Expected Shortfall (ES). 
+
 It provides a full pipeline for risk estimation—from data ingestion and modeling 
 to simulation, backtesting, and visualization—suitable for both academic and professional use.
 
@@ -13,7 +14,7 @@ The package supports historical and parametric VaR/ES methods, GARCH-family mode
 Peaks-Over-Threshold (POT) approach. Rolling estimators such as EWMA, ARCH(p), and MA 
 are also included. For portfolio-level analysis, pyvar provides time-varying correlation 
 models (EWMA, MA), full risk decomposition (marginal, incremental, component, and relative 
-contributions), and factor models including CAPM and Fama-French 3-Factor.
+contributions), and factor models, including the single-factor model and the three-factor model.
 
 Simulation methods include parametric and historical Monte Carlo, with Black-Scholes 
 pricing support for options. Backtesting routines cover standard statistical 
