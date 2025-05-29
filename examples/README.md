@@ -92,7 +92,7 @@ Run `pyvar_llm_report.py`. Enter when prompted:
    - **Number of contracts**, click Enter
    - **Multiplier** (number of stock x contract, default is 100), click Enter
    - **Strike price**, click Enter
-   - **Time to maturity** (in years) (e.g. 1 day = 0,00396), click Enter
+   - **Time to maturity** (in years), click Enter
 - To add another option repeat the steps above or click enter to launch the analysis
   
 
