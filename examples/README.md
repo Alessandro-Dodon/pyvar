@@ -55,7 +55,7 @@ Open `pyvar_llm_report.py` and adjust at the top:
 # VaR & ES confidence level
 CONFIDENCE_LEVEL       = 0.99
 
-# History window (business days)
+# Lookback period (business days)
 LOOKBACK_BUSINESS_DAYS = 300
 
 # Toggle interactive charts
