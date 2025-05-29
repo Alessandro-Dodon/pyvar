@@ -1,6 +1,6 @@
 # pyvar LLM Module
 
-This folder contains optional tools for integrating **local large language models (LLMs)** with the pyvar package.
+This folder contains optional tools for integrating **local large language models (LLMs)** with the pyvar package. These tools are not included in the main Python package to keep the installation lightweight. However, integrating pyvar with LLM-based applications is straightforward.
 
 ---
 
