@@ -70,6 +70,7 @@ rag.API_PATH           = "/v1/completions"
 rag.MODEL_NAME         = "qwen-3-4b-instruct"
 ```
 
+**If you plan to use the LLM interpretation, make sure your LM Studio server is **running**, the `rag.LMSTUDIO_ENDPOINT` is reachable, and the specified `MODEL_NAME` is **loaded**.**
 
 ### Quick Start
 Run `pyvar_llm_report.py`. Enter when prompted:
@@ -131,6 +132,11 @@ When the script finishes, you’ll get:
 - **LLM connection issues**  
   Ensure `rag.LMSTUDIO_ENDPOINT` is reachable and the service is running.
 
+
+
+## ⚠️ Disclaimer
+
+The LLM integration is **experimental**. Do **not** rely solely on its output—always verify results with traditional methods or a qualified expert.  
 
 
 
