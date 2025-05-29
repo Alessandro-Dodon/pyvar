@@ -55,24 +55,25 @@ Intuitively, this means we are confident that with probability \( c \), losses w
 
 By convention, VaR is expressed as a positive monetary amount. For simplicity, in single-asset models we omit the scaling by \( W \) (wealth invested) and use percentage-based notation.
 
-We start with models that assume constant volatility over time. In the non-parametric (historical) approach:
+We define the loss variable as \( \ell_t = -r_t \). We start with models that assume constant volatility over time. In the non-parametric (historical) approach:
 \[
-\mathrm{VaR}_{\alpha}^{\mathrm{hist}} =\,\widehat{Q}_{\alpha}(r_t), \qquad
+\mathrm{VaR}_{\alpha}^{\mathrm{hist}} = \widehat{Q}_{\alpha}(\ell_t), \qquad
 \mathrm{VaR}_{\alpha}^{\mathrm{normal}} = z_{\alpha} \sigma,
 \]
-where \( z_\alpha \) is the \( \alpha \)-quantile of the standard normal distribution.
+where \( \widehat{Q}_{\alpha}(\ell_t) \) is the empirical \(\alpha\)-quantile of losses, and \( z_\alpha = \Phi^{-1}(1 - \alpha) \) is the positive quantile of the standard normal distribution.
 
 Expected Shortfall (ES), also known as Conditional VaR, is computed as:
 \[
 \begin{aligned}
-\mathrm{ES}_{\mathrm{hist}} &= -\mathbb{E}\left[r_t \mid r_t < -z_{\alpha}\right], &
+\mathrm{ES}_{\mathrm{hist}} &= \mathbb{E}\left[\ell_t \mid \ell_t \ge \text{VaR}_\alpha\right], &
 \mathrm{ES}_{\mathrm{normal}} &= \sigma \cdot \frac{\phi(z_{\alpha})}{\alpha}, &
-\mathrm{ES}_{t_\nu} &= \sigma \cdot \frac{f_{t_\nu}(z_{\alpha})}{\alpha} \cdot \frac{\nu + z_{\alpha}^2}{\nu - 1},
+\mathrm{ES}_{t_\nu} &= \sigma \cdot \frac{f_{t_\nu}(z_{\alpha})}{\alpha} \cdot \frac{\nu + z_{\alpha}^2}{\nu - 1}
 \end{aligned}
 \]
-where $\phi$ is the standard normal density and $f_{t_\nu}$ is the density of the Student-$t$ distribution with $\nu$ degrees of freedom.
 
-Normal and Student-$t$ VaR and ES estimates scale with the holding period as $\sqrt{h}$. If a longer horizon is desired for historical VaR, one can simply use historical data aggregated over the corresponding horizon.
+where \( \phi \) is the standard normal density and \( f_{t_\nu} \) is the density of the Student-\( t \) distribution with \( \nu \) degrees of freedom.
+
+Normal and Student-\( t \) VaR and ES estimates scale with the holding period as \( \sqrt{h} \). For historical VaR, no scaling is needed—one can simply use weekly or monthly return data to estimate risk over longer horizons.
 
 Despite their simplicity, these models have important drawbacks. The parametric normal VaR often underestimates risk, as daily financial returns typically exhibit fat tails. The Student-$t$ model improves tail fit but cannot capture the asymmetry of return distributions. 
 
@@ -111,10 +112,10 @@ The GARCH(1,1) model is specified as:
 \]
 where \( z_t \) are i.i.d.\ standardized shocks. VaR is then computed as:
 \[
-  \text{VaR}_{t,\alpha} = -\hat{\sigma}_t z_\alpha.
+  \text{VaR}_{t,\alpha} = \hat{\sigma}_t z_\alpha.
 \]
 
-Here, \( z_\alpha \) denotes the \( \alpha \)-quantile of the distribution of standardized innovations \( z_t \).
+Here, \( z_\alpha = -Q_\alpha(z_t) \) is the positive \( \alpha \)-quantile from standardized shocks.
 
 Future volatility can be forecasted analytically using GARCH(1,1).
 
@@ -149,7 +150,7 @@ For simpler benchmarks we include ARCH(\( p \)) and two rolling estimators, Movi
 
 ES for volatility models becomes:
 \[
-  \text{ES}_{t,\alpha} = -\hat{\sigma}_t \, \mathbb{E}[z_t \mid z_t < z_\alpha].
+    \text{ES}_{t,\alpha} = \hat{\sigma}_t \, \mathbb{E}[-z_t \mid z_t < -z_\alpha].
 \] 
 
 All our volatility models use a semi-empirical approach for VaR computation: we first estimate the empirical distribution of standardized innovations \( z_t \), then compute the required quantile \( z_\alpha \).
@@ -288,28 +289,20 @@ The simulated portfolio profit and loss is calculated as:
 \]
 where \( q_j \) is the number of option contracts, \( C(\cdot) \) is the Black-Scholes option price, and \( \tau_j' = \max(T_j - \tfrac{1}{252}, 0) \) is the adjusted time to maturity.
 
-From the empirical distribution \( \{\Delta P^{(i)}\}_{i=1}^N \), we compute:
+We define simulated portfolio losses as \( \ell^{(i)} = -\Delta P^{(i)} \). From the empirical distribution \( \{\ell^{(i)}\}_{i=1}^N \), we compute:
 \[
-\text{VaR}_\alpha = -\widehat{Q}_\alpha(\Delta P), \qquad
-\text{ES}_\alpha = -\mathbb{E}[\Delta P \mid \Delta P \le -\text{VaR}_\alpha].
+\text{VaR}_\alpha = \widehat{Q}_\alpha(\ell), \qquad
+\text{ES}_\alpha = \mathbb{E}[\ell \mid \ell \ge \text{VaR}_\alpha].
 \]
 
 We also implement a multi-day version of Monte Carlo, which forecasts VaR and ES over a longer horizon. This version is limited to pure equity portfolios.
 
-As a non-parametric alternative, we implement Historical Simulation and its bootstrap variant (with replacement). We simulate alternative return paths by re-applying historical return vectors to the current portfolio. For each scenario \( i \), we define:
-\[
-S^{(i)} = S_0 \circ (1 + r_{\pi(i)}),
-\]
-where \( r_{\pi(i)} \) is the \( i \)-th sampled return vector, and \( \pi(i) \) is either the chronological index (historical simulation) or a random draw (bootstrap simulation).
+As a non-parametric alternative, we implement Historical Simulation and its bootstrap variant (with replacement). Instead of generating returns from a parametric distribution, we simulate alternative return paths by re-applying historical or resampled return vectors to the current portfolio.
 
-The corresponding one-day ahead portfolio P\&L is:
-\[
-\Delta P^{(i)} = w^\top (S^{(i)} - S_0).
-\]
-
-VaR and ES are computed as in the parametric case.
+Losses \( \ell^{(i)} \) are computed as in the Monte Carlo method. VaR and ES are then estimated from their empirical distribution in the same way.
 
 This approach is fully non-parametric and captures fat tails and nonlinear dependence in historical returns. When bootstrap is enabled, repeated resampling improves robustness in small-sample settings.
+
 
 It is important to note that this is a simplified simulation framework: we do not account for interest rate risk, exchange rate risk, or volatility risk. Additionally, the Black-Scholes-Merton pricing model used for options is itself a stylized and limited approximation, especially under non-normal dynamics. While the normality assumption in Monte Carlo is a known limitation, relaxing it would lead to significantly more complex mathematical and computational challenges. Finally, we do not backtest simulation-based methods, as doing so would require a full rolling re-estimation of simulated distributions at each time step—a process that is extremely computationally intensive, and in many practical contexts, intractable.
 
