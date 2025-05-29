@@ -12,8 +12,8 @@ import pandas_datareader.data as web
 import pyvar as pv
 from pyvar.backtesting import count_violations, kupiec_test, christoffersen_test, joint_lr_test
 from pyvar.plots import (
-    plot_backtest, plot_volatility, plot_var_series,
-    plot_risk_contribution_bar, plot_risk_contribution_lines,
+    plot_backtest, plot_volatility, plot_var_vs_uvar,
+    plot_component_var_bar, plot_component_var_lines,
     plot_correlation_matrix
 )
 
@@ -71,9 +71,9 @@ def _auto_show_wrapper(fn):
 # patch plots
 plot_backtest                = _auto_show_wrapper(plot_backtest)
 plot_volatility              = _auto_show_wrapper(plot_volatility)
-plot_var_series              = _auto_show_wrapper(plot_var_series)
-plot_risk_contribution_bar   = _auto_show_wrapper(plot_risk_contribution_bar)
-plot_risk_contribution_lines = _auto_show_wrapper(plot_risk_contribution_lines)
+plot_var_vs_uvar              = _auto_show_wrapper(plot_var_vs_uvar)
+plot_component_var_bar   = _auto_show_wrapper(plot_component_var_bar)
+plot_component_var_lines = _auto_show_wrapper(plot_component_var_lines)
 plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
 
 
@@ -139,7 +139,7 @@ if __name__ == "__main__":
     # Fetch, fill, convert in one go
     raw = pv.get_raw_prices(TICKERS, start=START_DATE).ffill().bfill()
     currency_map = {t: yf.Ticker(t).fast_info.get("currency", BASE) or BASE for t in TICKERS}
-    converted_prices = pv.convert_to_base(raw, currency_mapping=currency_map, base_currency=BASE).ffill().bfill()
+    converted_prices = pv.convert_to_base_currency(raw, currency_mapping=currency_map, base_currency=BASE).ffill().bfill()
 
     # Drop tickers that have no valid data at all
     #  (e.g. AAPL failed to download)
@@ -178,7 +178,7 @@ if __name__ == "__main__":
         # 1) Aggregate all underlyings + equities in one fetch
         all_tickers = sorted(set(TICKERS) | {opt['under'] for opt in options_list})
         raw_all = pv.get_raw_prices(all_tickers, start=START_DATE).ffill().bfill()
-        converted_all = pv.convert_to_base(
+        converted_all = pv.convert_to_base_currency(
             raw_all,
             currency_mapping={t: BASE for t in all_tickers},
             base_currency=BASE
@@ -289,7 +289,7 @@ if __name__ == "__main__":
 
     # Sharpe model using SPY as benchmark
     spy_raw = pv.get_raw_prices(["SPY"], start=START_DATE)
-    spy_prices = pv.convert_to_base(spy_raw, {"SPY":"USD"}, base_currency=BASE).ffill().bfill()
+    spy_prices = pv.convert_to_base_currency(spy_raw, {"SPY":"USD"}, base_currency=BASE).ffill().bfill()
     spy_ret = spy_prices["SPY"].pct_change().dropna()
     common_idx = returns.index.intersection(spy_ret.index)
     aligned_returns = returns.loc[common_idx]
@@ -389,9 +389,9 @@ if __name__ == "__main__":
 
         additional_plots = [
             (plot_volatility,          df_garch["Volatility"],                "Volatility Estimate"),
-            (plot_var_series,          df_asset_normal,                       "Diversified vs Undiversified VaR"),
-            (plot_risk_contribution_bar,   component_var_df,                   "Average Component VaR"),
-            (plot_risk_contribution_lines, component_var_df,                   "Component VaR Over Time"),
+            (plot_var_vs_uvar,          df_asset_normal,                       "Diversified vs Undiversified VaR"),
+            (plot_component_var_bar,   component_var_df,                   "Average Component VaR"),
+            (plot_component_var_lines, component_var_df,                   "Component VaR Over Time"),
             (plot_correlation_matrix,  positions_df,                          "Return Correlation Matrix"),
         ]
         for fn, data, title in additional_plots:
