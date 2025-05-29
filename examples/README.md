@@ -22,7 +22,7 @@ It’s designed as a real-life walkthrough for new users.
 
 ## 🤖 Script for LLM Integration
 
-### pyvar_llm_report.py
+### `pyvar_llm_report.py`
 
 A practical example showing how to combine the **pyvar** package with a local LLM to:
 
@@ -72,7 +72,7 @@ rag.MODEL_NAME         = "qwen-3-4b-instruct"
 
 
 ### Quick Start
-Run `pyvar_llm_report.py`
+Run `pyvar_llm_report.py`.
 
 Enter when prompted:
 
