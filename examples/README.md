@@ -29,7 +29,7 @@ A practical example showing how to combine the **pyvar** package with a local LL
 1. Calculate **VaR** & **ES** on an equity + options portfolio  
 2. **Backtest** multiple VaR models (Kupiec, Christoffersen, joint tests)  
 3. _(Optional)_ Display interactive charts  
-4. _(Optional)_ Ask an LLM for automated interpretation and produce a PDF report
+4. _(Optional)_ Ask an LLM for **automated interpretation**  and produce a **PDF report** 
 
 ### Installation
 
