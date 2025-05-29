@@ -133,6 +133,7 @@ def build_rag_prompt(
     portfolio_value,
     base,
     confidence_level,
+    alfa = 0.05,
     k = 2):
     """
     Constructs a clear, plain-text prompt without markdown.
@@ -173,21 +174,20 @@ def build_rag_prompt(
     {summary_text}
     The VaR was computed at a {confidence_level:.0%} confidence level.
     The portfolio value is {portfolio_value:,.2f} {base}.
-    Remember that: Interpretation of p-Values
-    • Kupiec p-value: if > alfa, exception rate is consistent with model.
-    • Christoffersen p-value: if > alfa, exceptions are serially independent.
-    • Joint p-value: if > alfa, model passes both coverage and independence tests.
-    Violation Metrics
+    Remember that the model id accepted if the model model passes both coverage and independence tests.
+    
+    Violation Metrics:
     Number of Violations N, Violation Rate = N/T
 
-    — Provide a **short**, non-technical report (avoid jargon, no markdown).
-    — Don't show reasoning or calculations, only the conclusions.
-    — Limit to **4 bullets**:
-    1. Best model: name (value, violations, p-value)
-    2. Worst model: name (value, violations, p-value)
-    3. Overall performance summary (1 sentence)
-    4. Portfolio impact (1 sentence)
-    — Do NOT repeat yourself. If you finish early, stop immediately.''']
+    - Provide a short, non-technical report in no more than four bullet points.  
+    - Do NOT show calculations or p-values, only conclusions.  
+    - Stop as soon as you have four bullets:
+
+    1. **Best model**: name (VaR value, violations, decision)  
+    2. **Worst model**: name (VaR value, violations, decision)  
+    3. **Overall performance**: one summary sentence  
+    4. **Portfolio impact**: one sentence on what this means for the user  
+    - Do NOT repeat yourself. If you finish early, stop immediately.''']
     
     return "\n".join(prompt_sections)
 

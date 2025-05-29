@@ -205,7 +205,8 @@ def open_report_as_pdf(metrics,
         Paragraph("Violation Rate", hdr_style),
         Paragraph("Kupiec\np-value", hdr_style),
         Paragraph("Christoffersen\np-value", hdr_style),
-        Paragraph("Joint\np-value", hdr_style)
+        Paragraph("Joint\np-value", hdr_style),
+        Paragraph("Decision", hdr_style)        
     ]
 
     data_bt = [headers]
@@ -216,11 +217,12 @@ def open_report_as_pdf(metrics,
             f"{row['Violation Rate']:.3f}",
             f"{row['Kupiec p-value']:.3f}",
             f"{row['Christoffersen p-value']:.3f}",
-            f"{row['Joint p-value']:.3f}"
+            f"{row['Joint p-value']:.3f}",
+            row.get("Decision", "")               
         ])
 
     # narrower columns for the long names
-    col_widths = [4*cm, 2*cm, 3*cm, 2.5*cm, 3*cm, 2.5*cm]
+    col_widths = [3*cm, 2.5*cm, 3*cm, 2.5*cm, 3*cm, 2.5*cm, 3*cm]
 
     tbl_bt = Table(data_bt, colWidths=col_widths)
     tbl_bt.setStyle(TableStyle([

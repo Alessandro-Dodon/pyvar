@@ -1,7 +1,55 @@
-#================================================================
-# VaR and ES Risk Report for Equity + Options Portfolio 
-# (Calculate VaR(CONF;1), backtest it, and generate a PDF report with pdf interpretation)
-#================================================================
+"""
+VaR and ES Risk Report for Equity + Options Portfolio with LLM Interpretation
+----------------------------------------------------
+
+Compute 1-day Value at Risk (VaR) and Expected Shortfall (ES) for a mixed equity
++ options portfolio, defined by the user. Performs backtesting, runs a local LLM interpretation, and
+generates a PDF report with tables and commentary.
+
+Usage
+-----
+1. Configure your portfolio interactively at runtime.
+
+2. Ensure dependencies are installed:
+   - pandas, numpy, yfinance, pandas_datareader, pyvar
+   
+   Optional (for LLM and PDF):
+   - local LM Studio server running with the specified model
+   - reportlab 
+   - llangchain-chroma, langchain-community[gpt4all] (for LLM integration)
+   
+3. Run the script:
+   python pyvar_llm_report.py
+   
+
+Features
+--------
+- Equity data fetch & FX conversion
+- Option pricing via Black-Scholes
+- VaR & ES by:
+  * Parametric (Asset-Normal)
+  * Monte Carlo (equity-only & equity+options)
+  * Historical Simulation
+  * Factor models (Sharpe, Fama-French 3)
+  * MA/EWMA, EVT, GARCH
+- Backtesting with Kupiec, Christoffersen & Joint tests
+- Automatic Accept/Reject decision on Joint p-value
+- LLM-driven interpretation (via local LM Studio)
+- PDF report generation with:
+  * VaR/ES tables
+  * Option positions
+  * Backtest summary (including Decision column)
+  * LLM narrative
+
+Authors
+-------
+Niccolò Lecce, Alessandro Dodon, Marco Gasparetti
+
+Created
+-------
+May 2025
+"""
+
 
 import os, sys
 import pandas as pd
@@ -32,17 +80,18 @@ if project_root not in sys.path:
 CONFIDENCE_LEVEL = 0.99 # Confidence level for VaR and ES calculations
 LOOKBACK_BUSINESS_DAYS = 300 # Number of business days to include in the analysis
 
-
-# ----------------------------------------------------------
 # OPTIONAL FEATURES (set to False to skip)
-# ----------------------------------------------------------
 SHOW_PLOTS = True        # when False, skips all interactive charts
 RUN_LLM_INTERPRETATION = True  # when False, skips the LLM call & PDF
 
-# LLM endpoint & model
-LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234"
+# LLM endpoint & model (if RUN_LLM_INTERPRETATION is True)
+LMSTUDIO_ENDPOINT = "http://xxx.x.x.x:xxxx" # Local LM Studio server URL
 API_PATH          = "/v1/completions"
-MODEL_NAME        = "qwen-3-4b-instruct"
+MODEL_NAME        = "qwen-3-4b-instruct" # Installed model name
+
+
+
+
 
 
 # ----------------------------------------------------------
@@ -77,6 +126,13 @@ plot_component_var_lines = _auto_show_wrapper(plot_component_var_lines)
 plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
 
 
+
+
+
+
+
+# ----------------------------------------------------------
+# MAIN EXECUTION
 if __name__ == "__main__":
 
     CONF = CONFIDENCE_LEVEL  # Confidence level for VaR and ES calculations
@@ -525,10 +581,8 @@ if __name__ == "__main__":
 
 
     # -----------------------------------------
-    # 8) BACKTEST RESULTS: violations, rates & p-values
+    # 8) BACKTEST RESULTS: violations, rates & p-values + Decision
     # -----------------------------------------
-    
-    # Build a DataFrame directly from the summaries
     results_df = pd.DataFrame.from_dict(
         {
             name: summarize_backtest(df_bt)
@@ -544,42 +598,53 @@ if __name__ == "__main__":
         ]
     )
 
+    # Aggiungi Decision basata solo sul Joint test
+    alpha = 0.05
+    results_df["Decision"] = np.where(
+        results_df["Joint p-value"] > alpha,
+        "Accept Model",
+        "Reject Model"
+    )
+
     print("\n===== BACKTEST RESULTS =====\n")
     print(results_df.to_string(float_format=lambda x: f"{x:.3f}"))
 
-
-    
-    # -----------------------------------------
+        # -----------------------------------------
     # 9) BUILD SUMMARY TEXT FOR PROMPT LLM (ONLY for VaR)
-    # ------------------------------------------
+    # -----------------------------------------
 
-    # Precompute backtest summaries by model name
-    backtest_summaries = {
-        model: (
-            f"backtest showed {int(row['Violations'])} violations "
-            f"({row['Violation Rate']:.3f}), "
-            f"Kupiec p={row['Kupiec p-value']:.3f}, "
-            f"Christoffersen p={row['Christoffersen p-value']:.3f}, "
-            f"Joint p={row['Joint p-value']:.3f}"
-        )
+    # Estrai le informazioni di backtest per modello
+    backtest_info = {
+        model: {
+            "Decision":    row["Decision"],
+            "Violations":  int(row["Violations"]),
+            "ViolationRate": row["Violation Rate"]
+        }
         for model, row in results_df.iterrows()
     }
 
-    # Build the summary lines in one pass
+    # Costruisci le righe di summary
     summary_lines = []
-    for metric_name, value in metrics_eq.items():
+    for metric_name, var_value in metrics_eq.items():
         if not metric_name.endswith(" VaR"):
             continue
-        base_key = metric_name[:-4]  # strip " VaR"
-        # find the first backtest model whose name contains this key
-        match = next((m for m in backtest_summaries if base_key in m), None)
-        stats = backtest_summaries[match] if match else "backtest not performed"
-        summary_lines.append(
-            f"{metric_name} has a value of {value:.2f} {BASE}, {stats}."
-        )
+        base_key = metric_name[:-4]           # es. "Asset-Normal"
+        # trova il modello corrispondente
+        match = next((m for m in backtest_info if base_key in m), None)
+        if match:
+            info = backtest_info[match]
+            summary_lines.append(
+                f"{match} VaR = {var_value:.2f} {BASE}, "
+                f"violations = {info['Violations']}, "
+                f"(violation rate = {info['ViolationRate']:.3f}), "
+                f"{info['Decision']}"
+            )
+        else:
+            summary_lines.append(
+                f"{metric_name} = {var_value:.2f} {BASE}, No backtest"
+            )
 
     summary_text = "\n".join(summary_lines)
-
     print("\n===== SUMMARY TEXT =====\n" + summary_text + "\n")
 
 
