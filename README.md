@@ -85,3 +85,11 @@ pip install -e ./package
 cd examples
 jupyter notebook
 ```
+
+---
+
+## 📧 Contact
+
+Feel free to reach out with any questions or comments.
+
+Email: alessandro.dodon@usi.ch
