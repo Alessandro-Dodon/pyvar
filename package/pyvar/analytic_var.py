@@ -78,6 +78,10 @@ def asset_normal_var(position_data, confidence_level=0.99, holding_period=1):
     ------
     ValueError
         If fewer than two observations are available after cleaning.
+
+    Notes
+    -----
+    - For Undiversified VaR all positions are assumed to be long.
     """
     position_data = pd.DataFrame(position_data).dropna()
 
@@ -96,7 +100,7 @@ def asset_normal_var(position_data, confidence_level=0.99, holding_period=1):
         x = positions.reshape(-1, 1)
 
         var_diversified = abs(z_score * np.sqrt(float(x.T @ cov_matrix @ x)) * scale)
-        var_undiversified = abs(z_score * np.sum(np.sqrt(np.diag(cov_matrix)) * positions) * scale)
+        var_undiversified = abs(z_score * np.sum(np.abs(positions) * np.sqrt(np.diag(cov_matrix))) * scale)
 
         diversified.append(var_diversified)
         undiversified.append(var_undiversified)

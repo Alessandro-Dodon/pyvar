@@ -568,7 +568,7 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
     -----
     - This must be exported to PNG to preserve quality.
     - Always uses percentage returns (pct_change).
-    - Masks the upper triangle to remove redundant values.
+    - Correlation is based solely on return dynamics; long vs short positions have no effect.
     """
     position_data = pd.DataFrame(position_data).dropna()
 
