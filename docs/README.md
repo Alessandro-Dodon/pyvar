@@ -1,15 +1,16 @@
 # pyvar Documentation
 
-This folder contains supporting documents that summarize the pyvar package and its applications.
+This folder contains the supporting document that summarizes the pyvar package and its applications.
 
 ---
 
 ## 📄 report.pdf
 
 A brief overview of the project, including:
-- Project Plan / Diary
+- Project Plan/ Diary
 - Theoretical Foundations
 - Some Results Examples
+- References
 
 Useful as a quick reference or introduction to the package.
 
