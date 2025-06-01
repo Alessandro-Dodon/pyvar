@@ -8,15 +8,15 @@ This folder contains example scripts that demonstrate how to use the pyvar packa
 
 ### `pyvar_example_usage.ipynb`
 
-This is the main tutorial notebook. It:
+This is the main tutorial notebook. 
 
-- Walks through most of the core functionality in the package
-- Explains the logic behind each method with theory refreshers
-- Provides visualizations
-- Starts with single-asset risk models and ends with full portfolio analysis
-- Demonstrates two simple portfolio strategies with end-to-end risk evaluation
+It serves as a real-life walkthrough for new users and includes:
 
-It’s designed as a real-life walkthrough for new users.
+- A tour of the core functionality in the package
+- Explanations of the logic behind each method, with theory refreshers
+- Visualizations to support interpretation
+- A progression from single-asset risk models to full portfolio analysis
+- Two simple portfolio strategies, with end-to-end risk evaluation
 
 ---
 
@@ -33,17 +33,17 @@ A practical example showing how to combine the pyvar package with a local LLM to
 
 ### Installation
 
-1. **Clone the repository** and go into the `examples` folder:  
+1. Clone the repository and go into the `examples` folder:  
    ```bash
    git clone https://github.com/Alessandro-Dodon/pyvar.git
    cd pyvar
    cd examples
 
-2. **Install core dependencies**:  
+2. Install core dependencies:  
    ```bash
    pip install -r requirements.txt
 
-3. _(Optional)_ **LM Studio setup**:
+3. _(Optional)_ LM Studio setup:
    
    To download and configure your local LM Studio correctly, follow the step-by-step notebook:                 `llm/tutorial_llm.ipynb`
 
