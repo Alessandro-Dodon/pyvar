@@ -10,11 +10,11 @@ This folder contains example scripts that demonstrate how to use the pyvar packa
 
 This is the main tutorial notebook. It:
 
-- Walks through most of the **core functionality** in the package
+- Walks through most of the core functionality in the package
 - Explains the logic behind each method with theory refreshers
-- Provides **visualizations**
+- Provides visualizations
 - Starts with single-asset risk models and ends with full portfolio analysis
-- Demonstrates **two simple portfolio strategies** with end-to-end risk evaluation
+- Demonstrates two simple portfolio strategies with end-to-end risk evaluation
 
 It’s designed as a real-life walkthrough for new users.
 
@@ -24,12 +24,12 @@ It’s designed as a real-life walkthrough for new users.
 
 ### `pyvar_llm_report.py`
 
-A practical example showing how to combine the **pyvar** package with a local LLM to:
+A practical example showing how to combine the pyvar package with a local LLM to:
 
-- Calculate **VaR** & **ES** on an equity + options portfolio  
-- **Backtest** multiple VaR models (Kupiec, Christoffersen, joint tests)  
+- Calculate VaR & ES on an equity + options portfolio  
+- Backtestì multiple VaR models (Kupiec, Christoffersen, joint tests)  
 - _(Optional)_ Display interactive charts  
-- _(Optional)_ Ask an LLM for **automated interpretation**  and produce a **PDF report** 
+- _(Optional)_ Ask an LLM for automated interpretation  and produce a PDF report 
 
 ### Installation
 
@@ -43,7 +43,7 @@ A practical example showing how to combine the **pyvar** package with a local LL
    ```bash
    pip install -r requirements.txt
 
-3. **LM Studio setup** (_OPTIONAL_):
+3. _(Optional)_ **LM Studio setup**:
    
    To download and configure your local LM Studio correctly, follow the step-by-step notebook:                 `llm/tutorial_llm.ipynb`
 
@@ -70,7 +70,7 @@ API_PATH           = "/v1/completions"
 MODEL_NAME         = "qwen-3-4b-instruct"
 ```
 
-If you plan to use the LLM interpretation, make sure your **LM Studio server is running**, the **`rag.LMSTUDIO_ENDPOINT` is reachable**, and the **specified `MODEL_NAME` is loaded**.
+If you plan to use the LLM interpretation, make sure your LM Studio server is running the rag.LMSTUDIO_ENDPOINT` is reachable and the specified `MODEL_NAME` is loaded
 
 ### Quick Start
 Run `pyvar_llm_report.py`. Enter when prompted:
@@ -82,10 +82,10 @@ Run `pyvar_llm_report.py`. Enter when prompted:
   Enter all equity tickers at once, space-separated and exactly as on Yahoo Finance (e.g. _MSFT_ _ISP.MI_ _NESN.SW_), then press Enter.
 
 - **Number of shares per ticker**  
-  When prompted for each ticker, type the number of shares you hold and press **Enter** to confirm. Repeat until you’ve entered a value for every ticker.
+  When prompted for each ticker, type the number of shares you hold and press Enter to confirm. Repeat until you’ve entered a value for every ticker.
 
 
-- **Option positions** (**y** if you have options position in the portfolio, **n** if not)
+- **Option positions** (y if you have options position in the portfolio, n if not)
  - if **y**, for each option input:
    - **Underlying stock** (e.g. AAPL), click Enter
    - **Type of options**: call or put, click Enter
@@ -136,7 +136,7 @@ When the script finishes, you’ll get:
 
 ## ⚠️ Disclaimer
 
-The LLM integration is **experimental**. Do **not** rely solely on its output, always verify results with traditional methods or a qualified expert.  
+The LLM integration is experimental. Do not rely solely on its output, always verify results with traditional methods or a qualified expert.  
 
 
 
