@@ -66,6 +66,7 @@ This command:
 ## 🧑‍💻 User Guide
 
 The `examples/` folder contains a Jupyter notebook that demonstrates how to use the package on real financial data. You can use it as a tutorial or template for your own work.
+
 To explore the package and run the example locally, follow these steps:
 
 Clone the repository:
