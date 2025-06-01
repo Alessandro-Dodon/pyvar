@@ -75,10 +75,10 @@ If you plan to use the LLM interpretation, make sure your LM Studio server is ru
 ### Quick Start
 Run `pyvar_llm_report.py`. Enter when prompted:
 
-- **Base currency**
+- **Base currency**  
   Input one base currecy (e.g. _EUR_, _CHF_, _USD_...), then press Enter.
 
-- **Equity tickers**
+- **Equity tickers**  
   Enter all equity tickers at once, space-separated and exactly as on Yahoo Finance (e.g. _MSFT_ _ISP.MI_ _NESN.SW_), then press Enter.
 
 - **Number of shares per ticker**  
