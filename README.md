@@ -66,21 +66,21 @@ This command:
 ## 🧑‍💻 User Guide
 
 The `examples/` folder contains a Jupyter notebook that demonstrates how to use the package on real financial data. You can use it as a tutorial or template for your own work.
-To explore the package and examples locally:
+To explore the package and run the example locally, follow these steps:
 
+Clone the repository:
 ```bash
-# Clone the repository
 git clone https://github.com/Alessandro-Dodon/pyvar.git
 cd pyvar
+```
 
-# (Optional) create a virtual environment
-python -m venv myenv
-source myenv/bin/activate  # On Windows: myenv\Scripts\activate
-
-# Install the package in editable mode
+(Optional) Install the package in editable mode:
+```bash
 pip install -e ./package
+```
 
-# Launch the example notebooks
+(Optional) Launch the example notebook:
+```bash
 cd examples
 jupyter notebook
 ```
