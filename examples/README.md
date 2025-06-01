@@ -113,7 +113,7 @@ When the script finishes, you’ll get:
 
   </details>
 
-- _(Optional)_ **PDF Report**  
+- **_(Optional)_ PDF Report**  
   <details>
   <summary>Show details</summary>
 
