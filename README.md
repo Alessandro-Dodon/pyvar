@@ -69,18 +69,18 @@ The `examples/` folder contains a Jupyter notebook that demonstrates how to use 
 
 To explore the package and run the example locally, follow these steps:
 
-Clone the repository:
+1. Clone the repository:
 ```bash
 git clone https://github.com/Alessandro-Dodon/pyvar.git
 cd pyvar
 ```
 
-_(Optional)_ Install the package in editable mode:
+2. _(Optional)_ Install the package in editable mode:
 ```bash
 pip install -e ./package
 ```
 
-_(Optional)_ Launch the example notebook:
+3. _(Optional)_ Launch the example notebook:
 ```bash
 cd examples
 jupyter notebook
