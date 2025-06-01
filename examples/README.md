@@ -31,7 +31,7 @@ A practical example showing how to combine the pyvar package with a local LLM to
 - _(Optional)_ Display interactive charts  
 - _(Optional)_ Ask an LLM for automated interpretation  and produce a PDF report 
 
-### Installation
+### Setup
 
 1. Clone the repository and go into the `examples` folder:  
    ```bash
