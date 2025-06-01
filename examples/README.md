@@ -105,7 +105,7 @@ When the script finishes, you’ll get:
   - VaR & ES metrics  
   - Backtest summary  
 
-- **Charts (optional)**  
+- _(Optional)_ **Charts**  
   <details>
   <summary>Show details</summary>
 
@@ -113,7 +113,7 @@ When the script finishes, you’ll get:
 
   </details>
 
-- **PDF Report (optional)**  
+- _(Optional)_ **PDF Report**  
   <details>
   <summary>Show details</summary>
 
