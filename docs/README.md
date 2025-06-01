@@ -17,5 +17,5 @@ Useful as a quick reference or introduction to the package.
 
 ## 📚 For More Detail
 
-For a more in-depth discussion focused on the **risk management models** themselves, see `llm/knowledge_base.pdf`.
+For a more in-depth discussion focused on the risk management models themselves, see `llm/knowledge_base.pdf`.
 
