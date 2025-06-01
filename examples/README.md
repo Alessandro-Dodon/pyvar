@@ -27,7 +27,7 @@ It serves as a real-life walkthrough for new users and includes:
 A practical example showing how to combine the pyvar package with a local LLM to:
 
 - Calculate VaR & ES on an equity + options portfolio  
-- Backtestì multiple VaR models (Kupiec, Christoffersen, joint tests)  
+- Backtest multiple VaR models (Kupiec, Christoffersen, joint tests)  
 - _(Optional)_ Display interactive charts  
 - _(Optional)_ Ask an LLM for automated interpretation  and produce a PDF report 
 
