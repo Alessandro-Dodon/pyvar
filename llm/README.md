@@ -24,7 +24,7 @@ Since this system runs locally, a supporting knowledge base improves LLM output.
 
 ## 🖥️ LLM Backend: LM Studio
 
-These tools require **[LM Studio](https://lmstudio.ai/)**, a desktop app for running local LLMs. This is kept **separate from the main pyvar package** to simplify installation for most users.
+These tools require **[LM Studio](https://lmstudio.ai/)**, a desktop app for running local LLMs. This is kept separate from the main pyvar package to simplify installation for most users.
 
 ---
 
