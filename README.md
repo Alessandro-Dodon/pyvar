@@ -62,11 +62,6 @@ This command:
 - Works with Python 3.7 or newer
 
 
-Alternatively, install the package in editable mode (for development):
-```bash
-pip install -e ./package
-```
-
 ---
 
 ## 🧑‍💻 User Guide
@@ -81,7 +76,12 @@ git clone https://github.com/Alessandro-Dodon/pyvar.git
 cd pyvar
 ```
 
-2. _(Optional)_ Launch the example notebook:
+2. _(Optional)_ Install the package in editable mode (for development):
+```bash
+pip install -e ./package
+```
+
+3. _(Optional)_ Launch the example notebook:
 ```bash
 cd examples
 jupyter notebook
