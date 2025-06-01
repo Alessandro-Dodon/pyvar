@@ -8,9 +8,7 @@ This folder contains example scripts that demonstrate how to use the pyvar packa
 
 ### `pyvar_example_usage.ipynb`
 
-This is the main tutorial notebook. 
-
-It serves as a real-life walkthrough for new users and includes:
+This is the main tutorial notebook. It serves as a real-life walkthrough for new users and includes:
 
 - A tour of the core functionality in the package
 - Explanations of the logic behind each method, with theory refreshers
