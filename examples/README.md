@@ -131,6 +131,8 @@ When the script finishes, you’ll get:
   Ensure `rag.LMSTUDIO_ENDPOINT` is reachable and the service is running.
 
 
+---
+
 
 ## ⚠️ Disclaimer
 
