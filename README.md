@@ -75,12 +75,12 @@ git clone https://github.com/Alessandro-Dodon/pyvar.git
 cd pyvar
 ```
 
-(Optional) Install the package in editable mode:
+_(Optional)_ Install the package in editable mode:
 ```bash
 pip install -e ./package
 ```
 
-(Optional) Launch the example notebook:
+_(Optional)_ Launch the example notebook:
 ```bash
 cd examples
 jupyter notebook
