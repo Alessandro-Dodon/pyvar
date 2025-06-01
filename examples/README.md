@@ -43,7 +43,7 @@ A practical example showing how to combine the pyvar package with a local LLM to
    ```bash
    pip install -r requirements.txt
 
-3. _(Optional)_ LM Studio setup:
+3. _(Optional)_ Setup LM Studio:
    
    To download and configure your local LM Studio correctly, follow the step-by-step notebook:                 `llm/tutorial_llm.ipynb`
 
