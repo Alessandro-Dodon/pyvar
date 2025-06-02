@@ -71,7 +71,7 @@ API_PATH           = "/v1/completions"
 MODEL_NAME         = "qwen-3-4b-instruct"
 ```
 
-If you plan to use the LLM interpretation, make sure your LM Studio server is running the rag.LMSTUDIO_ENDPOINT` is reachable and the specified `MODEL_NAME` is loaded
+If you plan to use the LLM interpretation, make sure your LM Studio server is running, `the rag.LMSTUDIO_ENDPOINT` is reachable and the specified `MODEL_NAME` is loaded
 
 ### Quick Start
 Run `pyvar_llm_report.py`. Enter when prompted:
