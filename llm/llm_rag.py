@@ -216,32 +216,28 @@ def build_rag_prompt(
 
 
     prompt_sections = [
-        f'''You are a senior financial analyst.  
-    Comment on the following Value at Risk (VaR) metrics and their backtest outcomes:
+        f'''You are a financial analyst.
+
+    Answer the following questions using only the data below:
 
     {summary_text}
 
-    The VaR figures were computed at a {confidence_level:.0%} confidence level.  
-    The total portfolio value is {portfolio_value:,.2f} {base}.  
-    A model is considered acceptable only if it passes both the coverage and independence tests.
+    The VaR values were calculated at a {confidence_level:.0%} confidence level.  
+    The total portfolio value is {portfolio_value:,.2f} {base}.
 
-    Violation metrics:
-    - Number of violations
-    - Violation rate
+    Questions:
 
-    Write a short, non-technical report using exactly four bullet points:  
+    1. Which model has the highest VaR  
+    2. Which model has the lowest VaR  
+    3. Which model had the most violations  
+    4. Which models were accepted?  
+    5. Which models were rejected, and why?
 
-    1. Best model — give the name, VaR value, number of violations, and whether it was accepted or rejected.  
-    2. Worst model — same format.  
-    3. Overall performance — one clear sentence about the set of models tested.  
-    4. Portfolio impact — one sentence on what this means for the user.  
-
-    Do NOT:
-    - Include p-values, calculations, or statistics  
-    - Repeat any information or generate more than four bullets  
-    - Invent data or speculate beyond what is shown  
-
-    Keep it professional, precise, and only use the data above.'''
+    Rules:
+    - Only use the information shown above.  
+    - Do not include calculations or p-values.  
+    - Be short and clear.  
+    - Do not invent or assume anything not shown.'''
     ]
 
     return "\n".join(prompt_sections)
