@@ -1,11 +1,11 @@
 # requirements.txt
 
 # core data & finance
-pandas>=1.3
+pandas>=1.4
 numpy>=1.22,<2.0
-yfinance
+yfinance>=0.2
+requests>=2.31
 pandas_datareader
-requests
 
 # embedding & LLM support
 langchain-chroma
