@@ -190,28 +190,58 @@ def build_rag_prompt(
     metrics = combined.get("VaR & ES Metrics", {})
     met_lines = "\n".join(f"- {name}: {val:.2f} {base}" for name, val in metrics.items())
 
-    # assemble prompt
+    # # assemble prompt
+    # prompt_sections = [
+    #     f'''You are a senior financial analyst. 
+    # Comment these Value at Risk metrics:
+    # {summary_text}
+    # The VaR was computed at a {confidence_level:.0%} confidence level.
+    # The portfolio value is {portfolio_value:,.2f} {base}.
+    # Remember that the model id accepted if the model model passes both coverage and independence tests.
+    
+    # Violation Metrics:
+    # Number of Violations N, Violation Rate = N/T
+
+    # - Provide a short, non-technical report in no more than four bullet points.  
+    # - Do NOT show calculations or p-values, only conclusions.  
+    # - Stop as soon as you have four bullets:
+
+    # 1. Best model: name (VaR value, violations, decision)  
+    # 2. Worst model name (VaR value, violations, decision)  
+    # 3. Overall performance one summary sentence  
+    # 4. Portfolio impact one sentence on what this means for the user  
+    # - Do NOT repeat yourself. If you finish early, stop immediately.''']
+    
+    # return "\n".join(prompt_sections)
+
+
     prompt_sections = [
-        f'''You are a senior financial analyst. 
-    Comment these Value at Risk metrics:
+        f'''You are a senior financial analyst.  
+    Comment on the following Value at Risk (VaR) metrics and their backtest outcomes:
+
     {summary_text}
-    The VaR was computed at a {confidence_level:.0%} confidence level.
-    The portfolio value is {portfolio_value:,.2f} {base}.
-    Remember that the model id accepted if the model model passes both coverage and independence tests.
-    
-    Violation Metrics:
-    Number of Violations N, Violation Rate = N/T
 
-    - Provide a short, non-technical report in no more than four bullet points.  
-    - Do NOT show calculations or p-values, only conclusions.  
-    - Stop as soon as you have four bullets:
+    The VaR figures were computed at a {confidence_level:.0%} confidence level.  
+    The total portfolio value is {portfolio_value:,.2f} {base}.  
+    A model is considered acceptable only if it passes both the coverage and independence tests.
 
-    1. **Best model**: name (VaR value, violations, decision)  
-    2. **Worst model**: name (VaR value, violations, decision)  
-    3. **Overall performance**: one summary sentence  
-    4. **Portfolio impact**: one sentence on what this means for the user  
-    - Do NOT repeat yourself. If you finish early, stop immediately.''']
-    
+    Violation metrics:
+    - Number of violations
+    - Violation rate
+
+    Write a short, non-technical report using exactly four bullet points:  
+
+    1. Best model — give the name, VaR value, number of violations, and whether it was accepted or rejected.  
+    2. Worst model — same format.  
+    3. Overall performance — one clear sentence about the set of models tested.  
+    4. Portfolio impact — one sentence on what this means for the user.  
+
+    Do NOT:
+    - Include p-values, calculations, or statistics  
+    - Repeat any information or generate more than four bullets  
+    - Invent data or speculate beyond what is shown  
+
+    Keep it professional, precise, and only use the data above.'''
+    ]
+
     return "\n".join(prompt_sections)
-
-

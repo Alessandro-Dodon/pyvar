@@ -86,9 +86,9 @@ SHOW_PLOTS = True        # when False, skips all interactive charts
 RUN_LLM_INTERPRETATION = True  # when False, skips the LLM call & PDF
 
 # LLM endpoint & model (if RUN_LLM_INTERPRETATION is True)
-LMSTUDIO_ENDPOINT = "http://xxx.x.x.x:xxxx" # Local LM Studio server URL
+LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234" # Local LM Studio server URL
 API_PATH          = "/v1/completions"
-MODEL_NAME        = "qwen-3-4b-instruct" # Installed model name
+MODEL_NAME        = "qwen/qwen3-8b" # Installed model name
 
 
 # ----------------------------------------------------------
@@ -638,7 +638,9 @@ if __name__ == "__main__":
         rag.API_PATH          = API_PATH
         rag.MODEL_NAME        = MODEL_NAME
 
-        vector_store = rag.get_vectorstore(r"llm\knowledge_base.pdf")
+        pdf_path = os.path.join(project_root, "llm", "knowledge_base.pdf")
+        vector_store = rag.get_vectorstore(pdf_path)
+
         combined_content = {
             "VaR & ES Metrics": metrics_eq,
             "Backtest Summary": results_df.to_dict(orient="index")
