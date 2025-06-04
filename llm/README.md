@@ -40,7 +40,7 @@ Rules:
 
 ```
 
-You can replace or reword the questions to fit your analysis. For best results with local LLMs **ask focused, concrete questions**, and keep prompts short and unambiguous.
+You can replace or reword the questions to fit your analysis. For best results with local LLMs **ask focused, concrete questions**, and **keep prompts short and unambiguous**.
 
 ---
 
