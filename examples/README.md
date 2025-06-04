@@ -70,6 +70,8 @@ LMSTUDIO_ENDPOINT  = "http://<your-host>:<port>"
 API_PATH           = "/v1/completions"
 MODEL_NAME         = "qwen-3-4b-instruct"
 ```
+You can change the prompt by going in `llm/llm_rag.py` and changing the `prompt_sections` variable in the `build_rag_prompt` function
+
 
 If you plan to use the LLM interpretation, make sure your LM Studio server is running, the `rag.LMSTUDIO_ENDPOINT` is reachable and the specified `MODEL_NAME` is loaded
 
