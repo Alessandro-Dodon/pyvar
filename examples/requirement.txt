@@ -10,6 +10,8 @@ pandas_datareader
 # embedding & LLM support
 langchain-chroma
 langchain-community
+gpt4all
+pypdf
 
 # PDF generation
 reportlab
