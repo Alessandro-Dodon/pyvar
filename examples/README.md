@@ -61,12 +61,15 @@ LOOKBACK_BUSINESS_DAYS = 300
 
 # Toggle LLM interpretation & PDF report
 RUN_LLM_INTERPRETATION = True   # or False
+ANSWER_LLM_LENGHT = 500 # Length of the LLM answer in tokens
 
 # Local LLM endpoint & model
 LMSTUDIO_ENDPOINT  = "http://<your-host>:<port>"
 API_PATH           = "/v1/completions"
 MODEL_NAME         = "qwen-3-4b-instruct"
 ```
+You can change the prompt by going in `llm/llm_rag.py` and changing the `prompt_sections` variable in the `build_rag_prompt` function
+
 
 If you plan to use the LLM interpretation, make sure your LM Studio server is running, the `rag.LMSTUDIO_ENDPOINT` is reachable and the specified `MODEL_NAME` is loaded
 
