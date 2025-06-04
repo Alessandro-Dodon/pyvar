@@ -59,9 +59,6 @@ CONFIDENCE_LEVEL       = 0.99
 # Lookback period (business days)
 LOOKBACK_BUSINESS_DAYS = 300
 
-# Toggle interactive charts
-SHOW_PLOTS             = True   # or False
-
 # Toggle LLM interpretation & PDF report
 RUN_LLM_INTERPRETATION = True   # or False
 

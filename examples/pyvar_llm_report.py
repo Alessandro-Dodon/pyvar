@@ -78,9 +78,10 @@ LOOKBACK_BUSINESS_DAYS = 300 # Number of business days to include in the analysi
 
 # OPTIONAL FEATURES (set to False to skip)
 RUN_LLM_INTERPRETATION = True  # when False, skips the LLM call & PDF
+ANSWER_LLM_LENGHT = 500 # Length of the LLM answer in tokens
 
 # LLM endpoint & model (if RUN_LLM_INTERPRETATION is True)
-LMSTUDIO_ENDPOINT = "http://127.0.0.1:1234" # Local LM Studio server URL
+LMSTUDIO_ENDPOINT = "http://xxx.x.x.x:xxxx" # Local LM Studio server URL
 API_PATH          = "/v1/completions"
 MODEL_NAME        = "qwen/qwen3-8b" # Installed model name
 
@@ -592,7 +593,7 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------------
     if RUN_LLM_INTERPRETATION:
         import llm.llm_rag as rag
-        from llm.pdf_reporting import open_report_as_pdf
+        from llm.pdf_reporting import generate_pdf_report
 
         rag.LMSTUDIO_ENDPOINT = LMSTUDIO_ENDPOINT
         rag.API_PATH          = API_PATH
@@ -613,15 +614,16 @@ if __name__ == "__main__":
             confidence_level=CONFIDENCE_LEVEL,
             summary_text=summary_text
         )
-        interpretation = rag.ask_llm(prompt, max_tokens=1000, temperature=0.1)
+        interpretation = rag.ask_llm(prompt, max_tokens=ANSWER_LLM_LENGHT, temperature=0.1)
         print("===== LLM INTERPRETATION =====")
         print(interpretation)
 
-        open_report_as_pdf(
-            metrics=metrics_eq,
-            weights=weights,
-            interpretation=interpretation,
-            opt_list=options_list,
-            backtest_results=results_df
-        )
+        generate_pdf_report(
+    risk_metrics=metrics_eq,
+    portfolio_weights=weights,
+    interpretation_text=interpretation,
+    option_positions=options_list,
+    backtest_results_dataframe=results_df,
+    base_currency=BASE
+)
         print("!! PDF report generated !!")
