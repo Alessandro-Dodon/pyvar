@@ -26,7 +26,6 @@ A practical example showing how to combine the pyvar package with a local LLM to
 
 - Calculate VaR & ES on an equity + options portfolio  
 - Backtest multiple VaR models (Kupiec, Christoffersen, joint tests)  
-- _(Optional)_ Display interactive charts  
 - _(Optional)_ Ask an LLM for automated interpretation  and produce a PDF report 
 
 ### Setup
@@ -66,12 +65,9 @@ ANSWER_LLM_LENGHT = 500 # Length of the LLM answer in tokens
 # Local LLM endpoint & model
 LMSTUDIO_ENDPOINT  = "http://<your-host>:<port>"
 API_PATH           = "/v1/completions"
-MODEL_NAME         = "qwen-3-4b-instruct"
+MODEL_NAME         = "qwen-3-4b-instruct" # Installed model name
 ```
-You can change the prompt by going in `llm/llm_rag.py` and changing the `prompt_sections` variable in the `build_rag_prompt` function
-
-
-If you plan to use the LLM interpretation, make sure your LM Studio server is running, the `rag.LMSTUDIO_ENDPOINT` is reachable and the specified `MODEL_NAME` is loaded
+You can also change the prompt by going in `llm/llm_rag.py` and changing the `prompt_sections` variable in the `build_rag_prompt` function. Find more info on that in the `llm/` folder. If you plan to use the LLM interpretation, make sure your LM Studio server is running, the `rag.LMSTUDIO_ENDPOINT` is reachable and the specified `MODEL_NAME` is loaded
 
 ### Quick Start
 Run `pyvar_llm_report.py`. Enter when prompted:
@@ -105,14 +101,6 @@ When the script finishes, you’ll get:
   - Portfolio positions table  
   - VaR & ES metrics  
   - Backtest summary  
-
-- **_(Optional)_ Charts**  
-  <details>
-  <summary>Show details</summary>
-
-  If `SHOW_PLOTS = True`, interactive charts will open in your browser.
-
-  </details>
 
 - **_(Optional)_ PDF Report**  
   <details>
