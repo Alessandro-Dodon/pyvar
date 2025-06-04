@@ -79,7 +79,7 @@ LOOKBACK_BUSINESS_DAYS = 300 # Number of business days to include in the analysi
 
 # OPTIONAL FEATURES (set to False to skip)
 RUN_LLM_INTERPRETATION = True  # When False, skips the LLM call & PDF
-ANSWER_LLM_LENGHT = 800 # Length of the LLM answer in tokens
+ANSWER_LLM_LENGHT = 500 # Length of the LLM answer in tokens
 
 # LLM endpoint & model (if RUN_LLM_INTERPRETATION is True)
 LMSTUDIO_ENDPOINT = "http://<your-host>:<port>" # Local LM Studio server URL

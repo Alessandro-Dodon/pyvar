@@ -201,7 +201,7 @@ def build_rag_prompt(
 
     {summary_text}
 
-    VaR and ES Metrics:
+    VaR, ES and Backtest Results:
     {met_lines}
 
     The VaR values were calculated at a {confidence_level:.0%} confidence level.  
