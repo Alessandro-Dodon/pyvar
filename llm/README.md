@@ -35,7 +35,7 @@ Which models were accepted and why?
 Rules:
 - Only use the information shown above.
 - Do not include calculations
-- Be short and clear.
+- Be short and clear.'''
 ]
 
 ```
