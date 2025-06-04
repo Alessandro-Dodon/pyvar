@@ -53,7 +53,7 @@ Open `pyvar_llm_report.py` and adjust at the top:
 
 ```python
 # VaR & ES confidence level
-CONFIDENCE_LEVEL = 0.99 # Can set 0.95 
+CONFIDENCE_LEVEL = 0.99 
 
 # Lookback period (business days)
 LOOKBACK_BUSINESS_DAYS = 300
@@ -106,7 +106,7 @@ When the script finishes, you’ll get:
   <details>
   <summary>Show details</summary>
 
-  If `RUN_LLM_INTERPRETATION = True`, the LLM interpretation runs automatically and a PDF report is generated (e.g., in `./reports/`).
+  If `RUN_LLM_INTERPRETATION = True`, the LLM interpretation runs automatically and a PDF report is generated.
 
   </details>
   
