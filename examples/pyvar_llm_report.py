@@ -26,7 +26,6 @@ Features
 - Equity data fetch & FX conversion
 - Option pricing via Black-Scholes
 - VaR & ES by:
-  * Parametric (Asset-Normal)
   * Monte Carlo (equity-only & equity+options)
   * Historical Simulation
   * Factor models (Sharpe, Fama-French 3)
@@ -304,10 +303,6 @@ if __name__ == "__main__":
     # ------------------------------------------------------------
     returns_portfolio = returns.dot(weights)
 
-    # Asset Normal 
-    df_asset_normal = pv.asset_normal_var(positions_df, confidence_level=CONF)
-    var_asset_normal = df_asset_normal["Diversified_VaR"].iloc[-1]
-
     # Monte Carlo SImulations (equity only)
     var_mc_eq, es_mc_eq = compute_var_and_es(
         pv.monte_carlo_var,
@@ -413,7 +408,6 @@ if __name__ == "__main__":
     # Prepare the returns for backtesting
     # Map each model name to its DataFrame of VaR results
     model_data = {
-        "Asset-Normal":     df_asset_normal,
         "Sharpe-Factor":    df_sharpe_model,
         "FF3-Factor":       df_ff3,
         "GARCH(1,1)":       df_garch,
@@ -441,7 +435,6 @@ if __name__ == "__main__":
     # ------------------------------------------------------------
     # Define raw VaR and ES mappings
     var_table = {
-        "Asset-Normal":       var_asset_normal,
         "Sharpe-Factor":      var_sharpe_model,
         "FF3":                var_ff3,
         "Monte Carlo":        var_mc_eq,
