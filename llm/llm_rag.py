@@ -177,7 +177,7 @@ def build_rag_prompt(
     str
         complete prompt to send to the LLM
     """
-    # get context from KB
+    # Get context from KB
     hits = vectordb.similarity_search("VaR formulas", k=k)
     raw_context = "\n".join(doc.page_content for doc in hits)
     context_lines = [
@@ -186,35 +186,11 @@ def build_rag_prompt(
     ]
     context = "\n".join(context_lines)
 
-    # metrics list
+    # Metrics list
     metrics = combined.get("VaR & ES Metrics", {})
     met_lines = "\n".join(f"- {name}: {val:.2f} {base}" for name, val in metrics.items())
 
-    # # assemble prompt
-    # prompt_sections = [
-    #     f'''You are a senior financial analyst. 
-    # Comment these Value at Risk metrics:
-    # {summary_text}
-    # The VaR was computed at a {confidence_level:.0%} confidence level.
-    # The portfolio value is {portfolio_value:,.2f} {base}.
-    # Remember that the model id accepted if the model model passes both coverage and independence tests.
-    
-    # Violation Metrics:
-    # Number of Violations N, Violation Rate = N/T
-
-    # - Provide a short, non-technical report in no more than four bullet points.  
-    # - Do NOT show calculations or p-values, only conclusions.  
-    # - Stop as soon as you have four bullets:
-
-    # 1. Best model: name (VaR value, violations, decision)  
-    # 2. Worst model name (VaR value, violations, decision)  
-    # 3. Overall performance one summary sentence  
-    # 4. Portfolio impact one sentence on what this means for the user  
-    # - Do NOT repeat yourself. If you finish early, stop immediately.''']
-    
-    # return "\n".join(prompt_sections)
-
-
+    # Assemble prompt
     prompt_sections = [
         f'''You are a financial analyst.
 
@@ -227,13 +203,14 @@ def build_rag_prompt(
 
     Explain using non technical language:
     
-    Which model has the highest VaR, Which model has the lowest VaR, Which model had the most violations, Which models were accepted? Which models were rejected, and why?
+    - Which model has the highest VaR?
+    - Which model has the lowest VaR?
+    - Which model had the most violations?
+    - Which models were accepted and why? 
 
     Rules:
     - Only use the information shown above.  
     - Do not include calculations 
-    - Be short and clear.  
-    - Do not invent or assume anything not shown.'''
+    - Be short and clear.'''
     ]
-
     return "\n".join(prompt_sections)

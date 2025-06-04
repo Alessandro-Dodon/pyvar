@@ -49,6 +49,7 @@ Created
 May 2025
 """
 
+
 #----------------------------------------------------------
 # Packages
 #----------------------------------------------------------
@@ -77,13 +78,13 @@ CONFIDENCE_LEVEL = 0.99 # Confidence level for VaR and ES calculations
 LOOKBACK_BUSINESS_DAYS = 300 # Number of business days to include in the analysis
 
 # OPTIONAL FEATURES (set to False to skip)
-RUN_LLM_INTERPRETATION = True  # when False, skips the LLM call & PDF
+RUN_LLM_INTERPRETATION = True  # When False, skips the LLM call & PDF
 ANSWER_LLM_LENGHT = 500 # Length of the LLM answer in tokens
 
 # LLM endpoint & model (if RUN_LLM_INTERPRETATION is True)
-LMSTUDIO_ENDPOINT = "http://xxx.x.x.x:xxxx" # Local LM Studio server URL
+LMSTUDIO_ENDPOINT = "http://<your-host>:<port>" # Local LM Studio server URL
 API_PATH          = "/v1/completions"
-MODEL_NAME        = "qwen/qwen3-8b" # Installed model name
+MODEL_NAME        = "your-model-name-here" # Replace with the exact name of your installed model
 
 
 # ----------------------------------------------------------
@@ -107,7 +108,7 @@ def summarize_backtest(df):
 if __name__ == "__main__":
 
     CONF = CONFIDENCE_LEVEL  # Confidence level for VaR and ES calculations
-    days_window = LOOKBACK_BUSINESS_DAYS   #Number of business days to include in the analysis
+    days_window = LOOKBACK_BUSINESS_DAYS   # Number of business days to include in the analysis
     START_DATE = (pd.Timestamp.today() - BDay(days_window)).strftime("%Y-%m-%d")
 
     # -----------------------------------------------------------
@@ -169,8 +170,7 @@ if __name__ == "__main__":
     currency_map = {t: yf.Ticker(t).fast_info.get("currency", BASE) or BASE for t in TICKERS}
     converted_prices = pv.convert_to_base_currency(raw, currency_mapping=currency_map, base_currency=BASE).ffill().bfill()
 
-    # Drop tickers that have no valid data at all
-    #  (e.g. AAPL failed to download)
+    # Drop tickers that have no valid data at all (e.g. AAPL failed to download)
     valid_equities = raw.columns[raw.notna().any()]
     dropped = set(raw.columns) - set(valid_equities)
     if dropped:

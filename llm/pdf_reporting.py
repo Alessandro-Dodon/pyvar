@@ -1,5 +1,6 @@
 """
-pdf_reporting.py
+PDF Reporting Module
+--------------------
 
 Contains functions to generate a structured PDF report of:
  - Portfolio Weights
@@ -9,7 +10,8 @@ Contains functions to generate a structured PDF report of:
  - Backtest Results (Violations, Violation Rate %, Joint p-value)
  - LLM Interpretation Text
 
-Usage:
+Usage
+-----
     Call `generate_pdf_report(...)` with the appropriate arguments:
       - risk_metrics: dict of VaR/ES metrics
       - portfolio_weights: pandas.Series of weights (indexed by ticker, values [0,1])
@@ -19,19 +21,6 @@ Usage:
       - base_currency: str (e.g. "EUR") to append to VaR/ES values
       - output_path: str path where to save the PDF (optional; if omitted, a temp file is created)
 
-Example:
-    from pdf_reporting import generate_pdf_report
-
-    generate_pdf_report(
-        risk_metrics=metrics_eq,
-        portfolio_weights=weights,
-        interpretation_text=interpretation,
-        option_positions=options_list,
-        backtest_results_dataframe=results_df,
-        base_currency="EUR",
-        output_path="my_report.pdf"
-    )
-
 Authors
 -------
 Niccolò Lecce, Alessandro Dodon, Marco Gasparetti
@@ -39,8 +28,23 @@ Niccolò Lecce, Alessandro Dodon, Marco Gasparetti
 Created
 -------
 May 2025
+
+Contents
+--------
+- ProfessionalReport: Custom document template with header and footer.
+- build_portfolio_weights_table: Build a table for portfolio weights.
+- build_value_at_risk_table: Build a table for Value at Risk (VaR) metrics.
+- build_expected_shortfall_table: Build a table for Expected Shortfall (ES) metrics.
+- build_option_positions_table: Build a table for option positions.
+- build_backtest_results_table: Build a table for backtest results.
+- build_interpretation_paragraphs: Generate interpretation paragraphs for the report.
+- generate_pdf_report: Main function to generate the PDF report.
 """
 
+
+#----------------------------------------------------------
+# Packages
+#----------------------------------------------------------
 import os
 import sys
 import datetime
@@ -48,7 +52,6 @@ import tempfile
 import subprocess
 from io import BytesIO
 from typing import Dict, Any, List, Optional
-
 import pandas as pd
 from reportlab.lib import colors
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
@@ -79,14 +82,14 @@ COLOR_TABLE_HEADER_BACKGROUND = colors.HexColor("#EFEFEF")
 COLOR_TABLE_GRIDLINES = colors.HexColor("#CCCCCC")
 COLOR_HEADER_FOOTER_TEXT = colors.grey
 
+
 # -----------------------
-# Custom Document Template
+# Custom Template
 # -----------------------
 class ProfessionalReport(BaseDocTemplate):
     """
     Custom document template that draws a header and footer on each page.
     """
-
     def __init__(
         self,
         filename: str,
@@ -120,7 +123,7 @@ class ProfessionalReport(BaseDocTemplate):
         self.addPageTemplates([page_template])
 
     def _draw_header_and_footer(self, canvas, document):
-        # HEADER
+        # Header
         canvas.saveState()
         canvas.setFont(FONT_FAMILY_REGULAR, 9)
         canvas.setFillColor(COLOR_HEADER_FOOTER_TEXT)
@@ -132,7 +135,7 @@ class ProfessionalReport(BaseDocTemplate):
             self.leftMargin, A4[1] - 1.1 * cm, A4[0] - self.rightMargin, A4[1] - 1.1 * cm
         )
 
-        # FOOTER
+        # Footer
         footer_text = f"Page {document.page}"
         canvas.setFont(FONT_FAMILY_ITALIC, 8)
         canvas.setFillColor(COLOR_HEADER_FOOTER_TEXT)
@@ -140,9 +143,9 @@ class ProfessionalReport(BaseDocTemplate):
         canvas.restoreState()
 
 
-# -----------------------
+# ----------------------------------------
 # Helper to Build Portfolio Weights Table
-# -----------------------
+# ----------------------------------------
 def build_portfolio_weights_table(
     portfolio_weights: pd.Series, styles: Dict[str, ParagraphStyle]
 ) -> Table:
@@ -192,9 +195,9 @@ def build_portfolio_weights_table(
     return weights_table
 
 
-# -----------------------
+# --------------------------
 # Helper to Build VaR Table
-# -----------------------
+# --------------------------
 def build_value_at_risk_table(
     risk_metrics: Dict[str, float], styles: Dict[str, ParagraphStyle], base_currency: str
 ) -> Table:
@@ -254,9 +257,9 @@ def build_value_at_risk_table(
     return var_table
 
 
-# -----------------------
+# --------------------------
 # Helper to Build ES Table
-# -----------------------
+# --------------------------
 def build_expected_shortfall_table(
     risk_metrics: Dict[str, float], styles: Dict[str, ParagraphStyle], base_currency: str
 ) -> Table:
@@ -316,9 +319,9 @@ def build_expected_shortfall_table(
     return es_table
 
 
-# -----------------------
+# ---------------------------------------
 # Helper to Build Option Positions Table
-# -----------------------
+# ---------------------------------------
 def build_option_positions_table(
     option_positions: List[Dict[str, Any]],
     styles: Dict[str, ParagraphStyle]
@@ -408,9 +411,9 @@ def build_option_positions_table(
     return option_table
 
 
-# -----------------------
+# ---------------------------------------
 # Helper to Build Backtest Results Table
-# -----------------------
+# ---------------------------------------
 def build_backtest_results_table(
     backtest_results_dataframe: pd.DataFrame, styles: Dict[str, ParagraphStyle]
 ) -> Table:
@@ -499,9 +502,9 @@ def build_backtest_results_table(
     return backtest_table
 
 
-# -----------------------
+# ------------------------------------------
 # Helper to Build Interpretation Paragraphs
-# -----------------------
+# ------------------------------------------
 def build_interpretation_paragraphs(
     interpretation_text: str, styles: Dict[str, ParagraphStyle]
 ) -> List:
@@ -534,9 +537,9 @@ def build_interpretation_paragraphs(
     return flowables
 
 
-# -----------------------
+# ------------------------------------
 # Main Function to Generate the PDF
-# -----------------------
+# ------------------------------------
 def generate_pdf_report(
     risk_metrics: Dict[str, float],
     portfolio_weights: pd.Series,
