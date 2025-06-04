@@ -16,7 +16,7 @@ These scripts are designed to:
 
 ### Configuration
 
-To customize the prompt used for LLM Q&A, edit the questions inside the `build_rag_prompt()` function in `llm_rag.py`.
+To customize the prompt used for LLM interpretation in the report, edit the questions inside the `build_rag_prompt()` function in `llm_rag.py`.
 
 ```python
 # Inside build_rag_prompt(...)
