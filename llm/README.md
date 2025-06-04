@@ -14,6 +14,32 @@ These scripts are designed to:
 - Provide **automated financial reporting**
 - Allow **interactive querying of your results** using a local LLM
 
+### Configuration
+
+To customize the prompt used for LLM Q&A, edit the questions inside the `build_rag_prompt()` function in `llm_rag.py`.
+
+```python
+# Inside build_rag_prompt(...)
+prompt_sections = [
+    f'''You are a financial analyst.
+
+Answer the following questions using only the data below:
+
+...
+
+Which model has the highest VaR?
+Which model has the lowest VaR?
+Which model had the most violations?
+Which models were accepted and why?
+
+Rules:
+- Only use the information shown above.
+- Do not include calculations
+- Be short and clear.'''
+]
+
+You can replace or reword the questions to fit your analysis. For best results with local LLMs ask focused, concrete questions, and keep prompts short and unambiguous.
+
 ---
 
 ## 📚 Knowledge Base
