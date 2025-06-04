@@ -60,5 +60,5 @@ These tools require **[LM Studio](https://lmstudio.ai/)**, a desktop app for run
 
 If you want to try out the LLM functionality together with pyvar:
 
-- Check the Python script in the `examples/` folder — it shows a full pipeline from risk modeling to local LLM Q&A/reporting.
+- Check the Python script in the `examples/` folder for a complete workflow—from risk modeling to local LLM-based reporting.
 - For help setting up LM Studio, see the notebook `tutorial_llm.ipynb`.
