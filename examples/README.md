@@ -68,7 +68,9 @@ API_PATH           = "/v1/completions"
 MODEL_NAME = "your-model-name-here" # Replace with the exact name of your installed model
 
 ```
-You can also change the prompt by going in `llm/llm_rag.py` and changing the `prompt_sections` variable in the `build_rag_prompt` function. Find more info on that in the `llm/` folder. If you plan to use the LLM interpretation, make sure your LM Studio server is running, the `rag.LMSTUDIO_ENDPOINT` is reachable and the specified `MODEL_NAME` is loaded
+You can also change the prompt by going in `llm/llm_rag.py` and changing the `prompt_sections` variable in the `build_rag_prompt` function. Find more info on that in the `llm/` folder.
+
+If you plan to use the LLM interpretation, make sure your LM Studio server is running, the `rag.LMSTUDIO_ENDPOINT` is reachable and the specified `MODEL_NAME` is loaded
 
 ### Quick Start
 Run `pyvar_llm_report.py`. Enter when prompted:
