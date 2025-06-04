@@ -154,7 +154,6 @@ def build_rag_prompt(
     portfolio_value,
     base,
     confidence_level,
-    alfa = 0.05,
     k = 2):
     """
     Main
@@ -194,9 +193,16 @@ def build_rag_prompt(
     prompt_sections = [
         f'''You are a financial analyst.
 
+    Use the following background knowledge:
+
+    {context}
+
     Answer the following questions using only the data below:
 
     {summary_text}
+
+    VaR and ES Metrics:
+    {met_lines}
 
     The VaR values were calculated at a {confidence_level:.0%} confidence level.  
     The total portfolio value is {portfolio_value:,.2f} {base}.
