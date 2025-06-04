@@ -53,7 +53,7 @@ Open `pyvar_llm_report.py` and adjust at the top:
 
 ```python
 # VaR & ES confidence level
-CONFIDENCE_LEVEL = 0.99
+CONFIDENCE_LEVEL = 0.99 # Can set 0.95 
 
 # Lookback period (business days)
 LOOKBACK_BUSINESS_DAYS = 300
