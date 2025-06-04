@@ -59,7 +59,7 @@ CONFIDENCE_LEVEL       = 0.99
 LOOKBACK_BUSINESS_DAYS = 300
 
 # Toggle LLM interpretation & PDF report
-RUN_LLM_INTERPRETATION = True   # or False
+RUN_LLM_INTERPRETATION = True # or False
 ANSWER_LLM_LENGHT = 500 # Length of the LLM answer in tokens
 
 # Local LLM endpoint & model
