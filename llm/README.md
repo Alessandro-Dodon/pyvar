@@ -27,10 +27,10 @@ Answer the following questions using only the data below:
 
 ...
 
-Which model has the highest VaR?
-Which model has the lowest VaR?
-Which model had the most violations?
-Which models were accepted and why?
+- Which model has the highest VaR?
+- Which model has the lowest VaR?
+- Which model had the most violations?
+- Which models were accepted and why?
 
 Rules:
 - Only use the information shown above.
