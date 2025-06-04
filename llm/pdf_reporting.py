@@ -676,7 +676,7 @@ def generate_pdf_report(
     # Section: Value at Risk (VaR) Metrics
     # --------------------------------------------------
     report_flowables.append(
-        Paragraph("Value at Risk (VaR) Metrics", paragraph_styles["SectionHeader"])
+        Paragraph("Value at Risk - Equity Portfolio", paragraph_styles["SectionHeader"])
     )
     report_flowables.append(Spacer(1, 0.5 * cm))
     report_flowables.append(
@@ -688,7 +688,7 @@ def generate_pdf_report(
     # Section: Expected Shortfall (ES) Metrics
     # --------------------------------------------------
     report_flowables.append(
-        Paragraph("Expected Shortfall (ES) Metrics", paragraph_styles["SectionHeader"])
+        Paragraph("Expected Shortfall - Equity Portfolio", paragraph_styles["SectionHeader"])
     )
     report_flowables.append(Spacer(1, 0.5 * cm))
     report_flowables.append(
@@ -713,7 +713,7 @@ def generate_pdf_report(
     # Section: Backtest Results (Violations, Violation Rate %, Joint p-value)
     # --------------------------------------------------
     report_flowables.append(
-        Paragraph("Backtest Results", paragraph_styles["SectionHeader"])
+        Paragraph("Backtest Results - Equity Portfolio", paragraph_styles["SectionHeader"])
     )
     report_flowables.append(Spacer(1, 0.5 * cm))
     report_flowables.append(
@@ -727,7 +727,7 @@ def generate_pdf_report(
     # Section: LLM Interpretation
     # --------------------------------------------------
     report_flowables.append(
-        Paragraph("LLM Interpretation", paragraph_styles["SectionHeader"])
+        Paragraph("LLM Interpretation - Equity Portfolio", paragraph_styles["SectionHeader"])
     )
     report_flowables.append(Spacer(1, 0.5 * cm))
     report_flowables.extend(

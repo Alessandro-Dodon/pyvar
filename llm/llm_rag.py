@@ -185,10 +185,6 @@ def build_rag_prompt(
     ]
     context = "\n".join(context_lines)
 
-    # Metrics list
-    metrics = combined.get("VaR & ES Metrics", {})
-    met_lines = "\n".join(f"- {name}: {val:.2f} {base}" for name, val in metrics.items())
-
     # Assemble prompt
     prompt_sections = [
         f'''You are a financial analyst.
@@ -200,9 +196,6 @@ def build_rag_prompt(
     Answer the following questions using only the data below:
 
     {summary_text}
-
-    VaR, ES and Backtest Results:
-    {met_lines}
 
     The VaR values were calculated at a {confidence_level:.0%} confidence level.  
     The total portfolio value is {portfolio_value:,.2f} {base}.
