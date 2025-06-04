@@ -35,8 +35,9 @@ Which models were accepted and why?
 Rules:
 - Only use the information shown above.
 - Do not include calculations
-- Be short and clear.'''
+- Be short and clear.
 ]
+'''
 
 You can replace or reword the questions to fit your analysis. For best results with local LLMs ask focused, concrete questions, and keep prompts short and unambiguous.
 
