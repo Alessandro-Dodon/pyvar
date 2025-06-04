@@ -60,11 +60,6 @@ from pandas.tseries.offsets import BDay
 import pandas_datareader.data as web
 import pyvar as pv
 from pyvar.backtesting import count_violations, kupiec_test, christoffersen_test, joint_lr_test
-from pyvar.plots import (
-    plot_backtest, plot_volatility, plot_var_vs_uvar,
-    plot_component_var_bar, plot_component_var_lines,
-    plot_correlation_matrix
-)
 
 
 # ----------------------------------------------------------
@@ -82,7 +77,6 @@ CONFIDENCE_LEVEL = 0.99 # Confidence level for VaR and ES calculations
 LOOKBACK_BUSINESS_DAYS = 300 # Number of business days to include in the analysis
 
 # OPTIONAL FEATURES (set to False to skip)
-SHOW_PLOTS = True        # when False, skips all interactive charts
 RUN_LLM_INTERPRETATION = True  # when False, skips the LLM call & PDF
 
 # LLM endpoint & model (if RUN_LLM_INTERPRETATION is True)
@@ -104,23 +98,6 @@ def summarize_backtest(df):
     ch  = christoffersen_test(df)
     jn  = joint_lr_test(kup["LR_uc"], ch["LR_c"])
     return violations, rate, kup["p_value"], ch["p_value"], jn["p_value"]
-
-def _auto_show_wrapper(fn):
-    def inner(*args, interactive=True, title=None, **kwargs):
-        fig = fn(*args, interactive=interactive, **kwargs)
-        if fig is not None and interactive:
-            if title: fig.update_layout(title=title)
-            fig.show()
-        return fig
-    return inner
-
-# patch plots
-plot_backtest                = _auto_show_wrapper(plot_backtest)
-plot_volatility              = _auto_show_wrapper(plot_volatility)
-plot_var_vs_uvar              = _auto_show_wrapper(plot_var_vs_uvar)
-plot_component_var_bar   = _auto_show_wrapper(plot_component_var_bar)
-plot_component_var_lines = _auto_show_wrapper(plot_component_var_lines)
-plot_correlation_matrix      = _auto_show_wrapper(plot_correlation_matrix)
 
 
 # ----------------------------------------------------------
@@ -457,26 +434,9 @@ if __name__ == "__main__":
         backtest_data[name] = df_bt
 
     
-    # ------------------------------------------------------------
-    # 6) PLOT DATA  (only if SHOW_PLOTS = True)
-    # ------------------------------------------------------------
-    if SHOW_PLOTS:
-        for model_name, df_bt in backtest_data.items():
-            plot_backtest(df_bt, interactive=True, title=f"Backtest {model_name}")
-
-        additional_plots = [
-            (plot_volatility,          df_garch["Volatility"],                "Volatility Estimate"),
-            (plot_var_vs_uvar,          df_asset_normal,                       "Diversified vs Undiversified VaR"),
-            (plot_component_var_bar,   component_var_df,                   "Average Component VaR"),
-            (plot_component_var_lines, component_var_df,                   "Component VaR Over Time"),
-            (plot_correlation_matrix,  positions_df,                          "Return Correlation Matrix"),
-        ]
-        for fn, data, title in additional_plots:
-            fn(data, interactive=True, title=title)
-
 
     # ------------------------------------------------------------
-    # 7) SYNTHESIS – EQUITY VaR & ES
+    # 6) SYNTHESIS – EQUITY VaR & ES
     # ------------------------------------------------------------
     # Define raw VaR and ES mappings
     var_table = {
@@ -512,7 +472,7 @@ if __name__ == "__main__":
         for name, value in es_table.items()
     })
 
-    # 7B) === SYNTHESIS PRINTOUTS ===
+    # 6B) === SYNTHESIS PRINTOUTS ===
 
     # Equity metrics DataFrame
     df_metrics = (
@@ -525,7 +485,7 @@ if __name__ == "__main__":
 
     # Print VaR and ES tables
     for metric_type in ['VaR', 'ES']:
-        title = f"\n===== SYNTHESIS – EQUITY {metric_type} =====\n"
+        title = f"\n===== SYNTHESIS - EQUITY {metric_type} =====\n"
         print(title)
         df_sub = df_metrics[df_metrics['Type'] == metric_type] \
                     .sort_values('Value', ascending=False)
@@ -549,7 +509,7 @@ if __name__ == "__main__":
             .assign(Pct_of_Port=lambda df: df['Value'] / total_value)
             .sort_values('Value', ascending=False)
         )
-        print("\n===== SYNTHESIS – EQUITY + OPTIONS =====\n")
+        print("\n===== SYNTHESIS - EQUITY + OPTIONS =====\n")
         print(
             df_opt[['Value','Pct_of_Port']]
             .to_string(
@@ -559,7 +519,7 @@ if __name__ == "__main__":
 
 
     # ------------------------------------------------------------
-    # 8) BACKTEST RESULTS: violations, rates & p-values + Decision
+    # 7) BACKTEST RESULTS: violations, rates & p-values + Decision
     # ------------------------------------------------------------
     results_df = pd.DataFrame.from_dict(
         {
@@ -589,7 +549,7 @@ if __name__ == "__main__":
 
 
     # ------------------------------------------------------------
-    # 9) BUILD SUMMARY TEXT FOR PROMPT LLM (ONLY for VaR)
+    # 8) BUILD SUMMARY TEXT FOR PROMPT LLM (ONLY for VaR)
     # ------------------------------------------------------------
     # Backtest info for LLM
     backtest_info = {
@@ -628,7 +588,7 @@ if __name__ == "__main__":
 
 
     # ---------------------------------------------------------------------------
-    # 10) LLM INTERPRETATION & PDF REPORT (only if RUN_LLM_INTERPRETATION = True)
+    # 9) LLM INTERPRETATION & PDF REPORT (only if RUN_LLM_INTERPRETATION = True)
     # ---------------------------------------------------------------------------
     if RUN_LLM_INTERPRETATION:
         import llm.llm_rag as rag

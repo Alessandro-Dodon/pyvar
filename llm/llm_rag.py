@@ -225,8 +225,8 @@ def build_rag_prompt(
     The VaR values were calculated at a {confidence_level:.0%} confidence level.  
     The total portfolio value is {portfolio_value:,.2f} {base}.
 
-    Questions:
-
+  Explain using non technical language:
+    
     1. Which model has the highest VaR  
     2. Which model has the lowest VaR  
     3. Which model had the most violations  
@@ -235,7 +235,7 @@ def build_rag_prompt(
 
     Rules:
     - Only use the information shown above.  
-    - Do not include calculations or p-values.  
+    - Do not include calculations 
     - Be short and clear.  
     - Do not invent or assume anything not shown.'''
     ]
