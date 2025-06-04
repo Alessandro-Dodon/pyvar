@@ -64,6 +64,7 @@ SHOW_PLOTS             = True   # or False
 
 # Toggle LLM interpretation & PDF report
 RUN_LLM_INTERPRETATION = True   # or False
+ANSWER_LLM_LENGHT = 500 # Length of the LLM answer in tokens
 
 # Local LLM endpoint & model
 LMSTUDIO_ENDPOINT  = "http://<your-host>:<port>"
