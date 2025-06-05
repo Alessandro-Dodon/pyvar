@@ -63,9 +63,9 @@ RUN_LLM_INTERPRETATION = True # or False
 ANSWER_LLM_LENGHT = 500 # Length of the LLM answer in tokens
 
 # Local LLM endpoint & model
-LMSTUDIO_ENDPOINT  = "http://<your-host>:<port>"
+LMSTUDIO_ENDPOINT  = "http://<your-host>:<port>" # Local LM Studio server URL
 API_PATH           = "/v1/completions"
-MODEL_NAME = "your-model-name-here" # Replace with the exact name of your installed model
+MODEL_NAME = "your-model-name-here" # Model's API identifier
 
 ```
 You can also change the prompt by going in `llm/llm_rag.py` and changing the `prompt_sections` variable in the `build_rag_prompt` function. Find more info on that in the `llm/` folder.
