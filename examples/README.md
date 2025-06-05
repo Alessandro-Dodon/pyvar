@@ -26,7 +26,7 @@ A practical example showing how to combine the pyvar package with a local LLM to
 
 - Calculate VaR & ES on an equity + options portfolio  
 - Backtest multiple VaR models (Kupiec, Christoffersen, joint tests)  
-- _(Optional)_ Ask an LLM for automated interpretation  and produce a PDF report 
+- _(Optional)_ Ask an LLM for automated interpretation  and produce a simplified PDF report 
 
 ### Setup
 
@@ -109,7 +109,7 @@ When the script finishes, you’ll get:
   <details>
   <summary>Show details</summary>
 
-  If `RUN_LLM_INTERPRETATION = True`, the LLM interpretation runs automatically and a PDF report is generated.
+  If `RUN_LLM_INTERPRETATION = True`, the LLM interpretation runs automatically and a simple PDF report is generated.
 
   </details>
   
