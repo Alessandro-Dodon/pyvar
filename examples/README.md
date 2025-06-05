@@ -102,8 +102,9 @@ When the script finishes, you’ll get:
 
 - **Console**:  
   - Portfolio positions table  
-  - VaR & ES metrics  
-  - Backtest summary  
+  - Portfolio VaR & ES   
+  - Backtest results
+  - Summary text
 
 - **_(Optional)_ PDF Report**  
   <details>
