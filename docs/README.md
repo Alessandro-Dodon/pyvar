@@ -9,7 +9,7 @@ This folder contains the supporting document that summarizes the pyvar package a
 A brief overview of the project, including:
 - Project Plan/ Diary
 - Theoretical Foundations
-- Some Results Examples
+- Examples Results
 - References
 
 Useful as a quick reference or introduction to the package.
