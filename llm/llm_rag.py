@@ -11,17 +11,8 @@ This module serves as the core of the LLM-driven interpretation step in the
 risk management pipeline. It allows you to embed domain knowledge from PDFs,
 formulate clear prompts, and retrieve analysis from your local LLM.
 
-Usage
------
-1. Install dependencies:
-   pip install requests langchain-chroma langchain-community[gpt4all] 
-
-2. Configure your LM Studio endpoint and model at the top of this file.
-
-3. Call:
-   - `get_vectorstore(pdf_paths, persist_dir)` to load or build the knowledge base.
-   - `build_rag_prompt(...)` to assemble your prompt.
-   - `ask_llm(prompt, max_tokens, temperature)` to get the model's response.
+This script is used by pyvar_llm_report.py, which can be found 
+in the examples directory.
 
 Authors
 -------

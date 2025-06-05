@@ -1,6 +1,6 @@
 """
-VaR and ES Risk Report for Equity + Options Portfolio with LLM Interpretation
------------------------------------------------------------------------------
+VaR and ES Risk Report with LLM Interpretation
+----------------------------------------------
 
 Compute 1-day Value at Risk (VaR) and Expected Shortfall (ES) for a mixed equity
 + options portfolio, defined by the user. Performs backtesting, runs a local LLM 
@@ -10,16 +10,11 @@ Usage
 -----
 1. Configure your portfolio interactively at runtime.
 
-2. Ensure dependencies are installed:
-   - pandas, numpy, yfinance, pandas_datareader, pyvar
+2. Ensure dependencies are installed.
+
+3. If RUN_LLM_INTERPRETATION is True, set up LM Studio server and load the model
    
-   Optional (for LLM and PDF):
-   - local LM Studio server running with the specified model
-   - reportlab 
-   - llangchain-chroma, langchain-community[gpt4all] (for LLM integration)
-   
-3. Run the script:
-   python pyvar_llm_report.py
+4. Run the script.
    
 Features
 --------
@@ -27,17 +22,18 @@ Features
 - Option pricing via Black-Scholes
 - VaR & ES by:
   * Monte Carlo (equity-only & equity+options)
-  * Historical Simulation
+  * Historical Simulation (equity-only & equity+options)
   * Factor models (Sharpe, Fama-French 3)
-  * MA/EWMA, EVT, GARCH
+  * Volatility models (MA, EWMA, GARCH)
+  * EVT
 - Backtesting with Kupiec, Christoffersen & Joint tests
 - Automatic Accept/Reject decision on Joint p-value
 - LLM-driven interpretation (via local LM Studio)
 - PDF report generation with:
   * VaR/ES tables
   * Option positions
-  * Backtest summary (including Decision column)
-  * LLM narrative
+  * Backtest summary 
+  * LLM interpretation
 
 Authors
 -------

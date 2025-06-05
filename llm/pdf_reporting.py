@@ -10,16 +10,8 @@ Contains functions to generate a structured PDF report of:
  - Backtest Results (Violations, Violation Rate %, Joint p-value)
  - LLM Interpretation Text
 
-Usage
------
-    Call `generate_pdf_report(...)` with the appropriate arguments:
-      - risk_metrics: dict of VaR/ES metrics
-      - portfolio_weights: pandas.Series of weights (indexed by ticker, values [0,1])
-      - interpretation_text: str with LLM paragraphs separated by double newlines
-      - option_positions: list of dicts for option positions (or None)
-      - backtest_results_dataframe: pandas.DataFrame with columns ["Violations", "Violation Rate", "Joint p-value"]
-      - base_currency: str (e.g. "EUR") to append to VaR/ES values
-      - output_path: str path where to save the PDF (optional; if omitted, a temp file is created)
+This script is used by pyvar_llm_report.py, which can be found 
+in the examples directory. 
 
 Authors
 -------
