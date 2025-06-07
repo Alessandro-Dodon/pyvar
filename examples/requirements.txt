@@ -17,5 +17,4 @@ pypdf
 reportlab
 
 # pyvar package
-git+https://github.com/Alessandro-Dodon/pyvar.git
-
+git+https://github.com/Alessandro-Dodon/pyvar.git#subdirectory=package
