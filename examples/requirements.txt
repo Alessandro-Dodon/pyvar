@@ -8,6 +8,7 @@ requests>=2.31
 pandas_datareader
 
 # embedding & LLM support
+langchain
 langchain-chroma
 langchain-community
 gpt4all
