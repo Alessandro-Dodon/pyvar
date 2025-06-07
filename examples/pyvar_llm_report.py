@@ -12,7 +12,7 @@ Usage
 
 2. Ensure dependencies are installed.
 
-3. If RUN_LLM_INTERPRETATION is True, set up LM Studio server and load the model
+3. If RUN_LLM_INTERPRETATION is True, set up LM Studio server and load the model.
    
 4. Run the script.
    
