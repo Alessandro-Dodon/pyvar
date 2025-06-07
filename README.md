@@ -31,7 +31,7 @@ Risk management is central to finance, yet many practitioners still rely on inef
 ```plaintext
 pyvar/
 ├── package/           ← installable Python package (contains `pyvar/`)
-├── examples/          ← Jupyter notebooks demonstrating usage, and a practical example to calculate your portfolio risk
+├── examples/          ← Jupyter notebook demonstrating usage, and a practical example to calculate your portfolio risk
 ├── docs/              ← theory, documentation, explanation
 ├── llm/               ← experimental natural language extensions
 ├── README.md          ← this file
