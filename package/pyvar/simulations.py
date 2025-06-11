@@ -162,6 +162,7 @@ def monte_carlo_var(price_data, shares, options,
     var = -np.percentile(profit_and_loss, alpha * 100)
     return var, profit_and_loss
 
+
 # ----------------------------------------------------------
 # Multiday Monte Carlo VaR (Equity-only)
 # ----------------------------------------------------------
