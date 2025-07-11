@@ -11,7 +11,7 @@ Each notebook showcases a different method or class of risk models, progressing 
 ### `basic_var.ipynb`  
 A gentle introduction covering the most common Value-at-Risk methods:  
 - Parametric (Normal, Cornish-Fisher)  
-- Non-parametric (Historical)  
+- Non-parametric (Historical, Hybrid)  
 - Comparative visualization and commentary  
 
 ---
@@ -26,25 +26,26 @@ Demonstrates portfolio volatility estimation using various volatility models:
 
 ### `evt.ipynb`  
 Applies Extreme Value Theory (EVT) in two distinct use cases:  
-- Modeling left-tail behavior in simulated profit and loss  
 - Assessing extreme risks from empirical returns  
+- Modeling left-tail behavior in simulated profit and loss  
 
 ---
 
 ### `analytic_var.ipynb`  
 Focuses on analytic VaR estimation for simple portfolios:  
-- Portfolio-level parametric VaR  
-- Variance-covariance methods  
-- Portfolio weights, correlations, and marginal risk contributions  
-- An end-to-end view of multi-asset portfolio risk modeling  
+- Asset Normal VaR  
+- Undiversified VaR  
+- Component VaR  
+- Relative Component VaR  
+- Incremental VaR  
 
 ---
 
 ### `correlation_models.ipynb`  
 Explores time-varying correlation structures between assets:  
-- Moving average and EWMA covariance estimators  
-- Rolling PCA for dimension reduction  
-- Ledoit-Wolf shrinkage for improved covariance estimation  
+- Moving Average and EWMA covariance estimators  
+- Rolling PCA for denoising the variance-covariance matrix  
+- Ledoit-Wolf shrinkage for robust covariance estimation  
 
 ---
 
@@ -52,7 +53,6 @@ Explores time-varying correlation structures between assets:
 Implements factor-based risk modeling:  
 - Single-factor and multi-factor models  
 - Optional combination with GARCH-based volatility modeling  
-- Use of economic and statistical factors for portfolio VaR  
 
 ---
 
@@ -60,7 +60,6 @@ Implements factor-based risk modeling:
 Introduces basic Value-at-Risk models for options portfolios:  
 - Delta-normal VaR  
 - Limitations of parametric assumptions  
-- Examples combining options with equity holdings  
 
 ---
 
@@ -68,7 +67,6 @@ Introduces basic Value-at-Risk models for options portfolios:
 Uses simulation-based methods to model risk under different assumptions:  
 - Parametric and non-parametric simulations  
 - Applications to both equity-only and equity + options portfolios  
-- Visualization of P&L distributions and tail events  
 
 ---
 
