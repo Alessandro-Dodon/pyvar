@@ -52,14 +52,15 @@ Explores time-varying correlation structures between assets:
 ### `factor_models.ipynb`  
 Implements factor-based risk modeling:  
 - Single-factor and multi-factor models  
-- Optional combination with GARCH-based volatility modeling  
+- Combination with GARCH-based volatility modeling  
 
 ---
 
 ### `options.ipynb`  
 Introduces basic Value-at-Risk models for options portfolios:  
-- Delta-normal VaR  
-- Limitations of parametric assumptions  
+- Black-Scholes pricing fundamentals
+- Delta-normal VaR for individual options and simple portfolios
+- Limitations of those simplified methods   
 
 ---
 
@@ -67,6 +68,7 @@ Introduces basic Value-at-Risk models for options portfolios:
 Uses simulation-based methods to model risk under different assumptions:  
 - Parametric and non-parametric simulations  
 - Applications to both equity-only and equity + options portfolios  
+- Multiday simulations for VaR forecasting
 
 ---
 
