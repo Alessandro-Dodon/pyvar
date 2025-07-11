@@ -76,10 +76,12 @@ Uses simulation-based methods to model risk under different assumptions:
 
 Open any notebook in this folder to explore a specific method. Each one is designed to be self-contained and includes:
 
-- Code explanations and comments  
 - Theory refreshers where relevant  
-- Visual output and backtesting where applicable  
+- Code explanations and comments  
+- Visual outputs and backtesting where applicable  
 - Ready-to-use examples on real or simulated data
+
+The parameters are easy to adjust, making it simple to experiment or build on the notebooks for your own work.
 
 ---
 
