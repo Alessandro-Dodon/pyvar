@@ -23,6 +23,8 @@ Contents
 - fit_evt_parameters: Tail fitting using POT and GPD
 - evt_var: EVT-based Value-at-Risk estimation
 - evt_es: EVT-based Expected Shortfall estimation
+- evt_var_simulations: EVT-based VaR from simulated P&L
+- evt_es_simulations: EVT-based ES from simulated P&L
 """
 
 
@@ -123,6 +125,9 @@ def evt_var(returns, confidence_level=0.99, threshold_percentile=97.5, wealth=No
     -----
     - Horizon is implicitely defined by the input data. For weekly or monthly VaR, provide weekly or monthly data.
     """
+    if wealth is not None and wealth <= 0:
+        raise ValueError("wealth must be strictly positive if provided")
+    
     params = fit_evt_parameters(returns, threshold_percentile)
     xi = params["xi"]
     beta = params["beta"]
@@ -189,6 +194,9 @@ def evt_es(result_data, threshold_percentile=97.5, wealth=None):
     -----
     - Horizon is implicitely defined by the input data. For weekly or monthly ES, provide weekly or monthly data.
     """
+    if wealth is not None and wealth <= 0:
+        raise ValueError("wealth must be strictly positive if provided")
+    
     if "Returns" not in result_data or "VaR" not in result_data:
         raise KeyError("Input DataFrame must contain 'Returns' and 'VaR' columns from evt_var().")
 
@@ -208,3 +216,94 @@ def evt_es(result_data, threshold_percentile=97.5, wealth=None):
         result_data["ES_monetary"] = result_data["ES"] * wealth
 
     return result_data
+
+
+#----------------------------------------------------------
+# EVT Value-at-Risk (VaR) from Simulations
+#----------------------------------------------------------
+def evt_var_simulations(
+    profit_and_loss,
+    confidence_level=0.999,
+    threshold_percentile=97.5
+) -> float:
+    """
+    Estimate Value-at-Risk (VaR) using EVT on simulated profit and loss data.
+
+    Applies the Peaks Over Threshold (POT) method and fits a Generalized Pareto 
+    Distribution (GPD) to the negative P&L values (i.e., losses). Suitable for 
+    simulated or historical profit and loss figures expressed in monetary terms.
+
+    Parameters
+    ----------
+    profit_and_loss : array-like
+        Simulated profit and loss values in monetary units.
+    confidence_level : float, optional
+        Confidence level for VaR (e.g., 0.999 for extreme quantiles). Default is 0.999.
+    threshold_percentile : float, optional
+        Percentile threshold for defining the tail (e.g., 97.5). Default is 97.5.
+
+    Returns
+    -------
+    var_evt : float
+        EVT-based Value-at-Risk (monetary loss) at the specified confidence level.
+
+    Notes
+    -----
+    - Input should be in monetary units.
+    """
+    losses = -pd.Series(profit_and_loss)
+
+    params = fit_evt_parameters(losses, threshold_percentile)
+    xi = params["xi"]
+    beta = params["beta"]
+    u = params["threshold_u"]
+    n = params["num_exceedances"]
+    N = params["total_observations"]
+
+    var_evt = u + (beta / xi) * ((N / n * (1 - confidence_level)) ** (-xi) - 1)
+    return var_evt
+
+
+#----------------------------------------------------------
+# EVT Expected Shortfall (ES) from Simulations
+#----------------------------------------------------------
+def evt_es_simulations(
+    profit_and_loss,
+    var_evt_simulations: float,
+    threshold_percentile=97.5
+) -> float:
+    """
+    Estimate Expected Shortfall (ES) using EVT on simulated profit and loss data.
+
+    Computes the ES conditional on the previously estimated EVT-based VaR,
+    using a GPD fitted to the tail of simulated losses (i.e., negative P&L values).
+
+    Parameters
+    ----------
+    profit_and_loss : array-like
+        Simulated profit and loss values in monetary units.
+    var_evt_simulations : float
+        EVT-based VaR previously computed (must be in the same units).
+    threshold_percentile : float, optional
+        Percentile threshold to define the tail (e.g., 97.5). Default is 97.5.
+
+    Returns
+    -------
+    es_evt : float
+        EVT-based Expected Shortfall (monetary loss) conditional on the given VaR.
+
+    Notes
+    -----
+    - Input and VaR must be in the same monetary units.
+    """
+    losses = -pd.Series(profit_and_loss)
+
+    params = fit_evt_parameters(losses, threshold_percentile)
+    xi = params["xi"]
+    beta = params["beta"]
+    u = params["threshold_u"]
+
+    es_evt = (var_evt_simulations + (beta - xi * u)) / (1 - xi)
+    return es_evt
+
+

@@ -138,6 +138,9 @@ def forecast_garch_var(returns, steps_ahead=10, confidence_level=0.99, cumulativ
     -----
     - Returns are scaled by 100 before fitting to improve numerical stability.
     """
+    if wealth is not None and wealth <= 0:
+        raise ValueError("wealth must be strictly positive if provided")
+    
     returns_scaled = returns * 100
 
     model = arch_model(returns_scaled, vol="GARCH", p=1, q=1, dist="normal")
@@ -207,6 +210,9 @@ def garch_var(returns, confidence_level=0.99, p=1, q=1, model="GARCH", distribut
     -----
     - Returns are scaled by 100 before fitting to improve numerical stability.
     """
+    if wealth is not None and wealth <= 0:
+        raise ValueError("wealth must be strictly positive if provided")
+    
     # Validate model and distribution
     model = model.upper()
     distribution = distribution.lower()
@@ -307,6 +313,9 @@ def arch_var(returns, confidence_level=0.99, p=1, wealth=None):
     -----
     - Returns are scaled by 100 before fitting to improve numerical stability.
     """
+    if wealth is not None and wealth <= 0:
+        raise ValueError("wealth must be strictly positive if provided")
+    
     returns_scaled = returns * 100
 
     model = arch_model(returns_scaled, vol="ARCH", p=p)
@@ -338,7 +347,7 @@ def arch_var(returns, confidence_level=0.99, p=1, wealth=None):
 #----------------------------------------------------------
 # EWMA VaR
 #----------------------------------------------------------
-def ewma_var(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
+def ewma_var(returns, confidence_level=0.99, lambda_decay=0.94, wealth=None):
     """
     Main
     ----
@@ -354,7 +363,7 @@ def ewma_var(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
         Daily return series in decimal format (e.g., 0.01 = 1%).
     confidence_level : float, optional
         Confidence level for VaR (e.g., 0.99). Default is 0.99.
-    decay_factor : float, optional
+    lambda_decay : float, optional
         EWMA smoothing parameter (e.g., 0.94). Default is 0.94.
     wealth : float, optional
         Portfolio value in monetary units. If provided, VaR is also returned in currency.
@@ -372,8 +381,14 @@ def ewma_var(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
     next_day_var : float
         One-step-ahead VaR forecast (decimal loss or monetary loss if wealth is set).
     """
+    if not 0 < lambda_decay < 1:
+        raise ValueError("lambda_decay must be between 0 and 1") 
+    
+    if wealth is not None and wealth <= 0:
+        raise ValueError("wealth must be strictly positive if provided")
+    
     squared = returns ** 2
-    ewma_var = squared.ewm(alpha=1 - decay_factor).mean()
+    ewma_var = squared.ewm(alpha=1 - lambda_decay).mean()
     volatility = np.sqrt(ewma_var)
 
     innovations = returns / volatility
@@ -392,7 +407,7 @@ def ewma_var(returns, confidence_level=0.99, decay_factor=0.94, wealth=None):
     last_return = returns.iloc[-1]
     last_vol = volatility.iloc[-1]
     last_var = last_vol ** 2
-    next_var = decay_factor * last_var + (1 - decay_factor) * last_return**2
+    next_var = lambda_decay * last_var + (1 - lambda_decay) * last_return**2
     next_day_vol = np.sqrt(next_var)
     next_day_var = abs(quantile * next_day_vol)
 
@@ -444,6 +459,9 @@ def ma_var(returns, confidence_level=0.99, window=20, wealth=None):
     -----
     - A very short window may lead to unstable VaR estimates.
     """
+    if wealth is not None and wealth <= 0:
+        raise ValueError("wealth must be strictly positive if provided")
+    
     volatility = returns.rolling(window=window).std()
     innovations = returns / volatility
     quantile = np.percentile(innovations.dropna(), 100 * (1 - confidence_level))
@@ -508,6 +526,9 @@ def volatility_es(result_data, confidence_level, wealth=None):
     ValueError
         If the required columns 'Innovations' or 'Volatility' are missing from the input.
     """
+    if wealth is not None and wealth <= 0:
+        raise ValueError("wealth must be strictly positive if provided")
+    
     if "Innovations" not in result_data.columns or "Volatility" not in result_data.columns:
         raise ValueError("Data must contain 'Innovations' and 'Volatility' columns.")
 

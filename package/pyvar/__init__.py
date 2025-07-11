@@ -33,6 +33,16 @@ Version
 0.1
 """
 
+from .utils import (
+    fit_garch_model,
+    load_ff3_factors,
+    format_money,
+    format_scientific,
+    get_asset_color_map,
+    display_high_dpi_inline
+)
+
+
 from .create_portfolio import (
     get_raw_prices,
     convert_to_base_currency,
@@ -45,13 +55,18 @@ from .basic_var import (
     historical_var,
     historical_es,
     parametric_var,
-    parametric_es
+    parametric_es,
+    hybrid_var,
+    hybrid_es,
+    cornish_fisher_var
 )
 
 from .evt import (
     fit_evt_parameters,
     evt_var,
-    evt_es
+    evt_es,
+    evt_var_simulations,
+    evt_es_simulations
 )
 
 from .volatility import (
@@ -79,6 +94,8 @@ from .analytic_var import (
 from .time_varying_correlations import (
     ma_correlation_var,
     ewma_correlation_var,
+    pca_correlation_var,
+    lw_correlation_var,
     correlation_es
 )
 
@@ -88,11 +105,23 @@ from .factor_models import (
     factor_models_es
 )
 
+from .options import (
+    black_scholes_pricing,
+    black_scholes_delta,
+    single_option_var,
+    options_portfolio_var
+)
+
 from .simulations import (
-    black_scholes,
-    monte_carlo_var,
-    multiday_monte_carlo_var,
+    monte_carlo_simulation_var,
+    multiday_monte_carlo_simulation_var,
     historical_simulation_var,
+    weighted_historical_simulation_var,
+    filtered_historical_simulation_var,
+    multiday_garch_simulation_var_univariate,
+    multiday_gmm_simulation_var_univariate,
+    gmm_monte_carlo_simulation_var,
+    multiday_gmm_monte_carlo_simulation_var,
     simulation_es
 )
 
@@ -104,10 +133,8 @@ from .backtesting import (
 )
 
 from .plots import (
-    display_high_dpi_inline,
     plot_backtest,
     plot_volatility,
-    get_asset_color_map,
     plot_var_vs_uvar,
     plot_component_var_bar,
     plot_component_var_lines,

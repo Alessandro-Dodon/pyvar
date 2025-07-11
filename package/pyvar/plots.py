@@ -30,8 +30,6 @@ Contents
 - plot_correlation_matrix: Heatmap of asset return correlations
 - plot_simulated_distribution: Histogram + KDE of simulated P&L with VaR/ES (static only)
 - plot_simulated_paths: Simulated portfolio value trajectories (static only)
-- get_asset_color_map: Generate consistent color assignment for assets
-- display_high_dpi_inline: Utility for displaying PNG images inline
 """
 
 
@@ -41,43 +39,13 @@ Contents
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
-import itertools
-import kaleido  
-from IPython.display import display, HTML
+from IPython.display import display
 from plotly.io import to_image
 from io import BytesIO
-import base64
 import matplotlib.pyplot as plt
 import seaborn as sns
-
-
-#----------------------------------------------------------
-# Display helper 
-#----------------------------------------------------------
-def display_high_dpi_inline(png_bytes, width):
-    """
-    Main
-    ----
-    Display a high-resolution PNG image inline in a notebook.
-    Encodes the image in base64 and renders it with a specified width.
-
-    This is a support function.
-
-    Parameters
-    ----------
-    png_bytes : bytes
-        PNG image in byte format.
-    width : int
-        Width in pixels for display.
-
-    Returns
-    -------
-    IPython.display.HTML
-        HTML image element for inline display.
-    """
-    encoded = base64.b64encode(png_bytes).decode("utf-8")
-    return HTML(f'<img src="data:image/png;base64,{encoded}" style="width:{width}px;"/>')
+from matplotlib.ticker import FuncFormatter
+from .utils import format_money, format_scientific, get_asset_color_map, display_high_dpi_inline
 
 
 #----------------------------------------------------------
@@ -170,7 +138,12 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
         y=100 * data["Returns"][violations],
         mode="markers",
         name="VaR Violation",
-        marker=dict(color="red", symbol="circle-open", size=8),
+        marker=dict(
+        color="rgba(255, 100, 100, 0.4)",     # Fill: red with medium alpha
+        symbol="circle",
+        size=8,
+        line=dict(color="red", width=1)  # Red border
+    ),
         hovertemplate="Date: %{x}<br>Return: %{y:.2f}%"
     ))
 
@@ -184,7 +157,7 @@ def plot_backtest(data, subset=None, interactive=True, output_path=None):
             xref="x", yref="y"
         )
 
-        # Layout
+    # Layout
     fig.update_layout(
         title=title,
         yaxis_title="Returns (%)",
@@ -289,32 +262,6 @@ def plot_volatility(volatility_series, subset=None, interactive=True, output_pat
         png_bytes = to_image(fig, format="png", width=width, height=height, scale=scale)
         display(display_high_dpi_inline(png_bytes, width))
 
-
-#----------------------------------------------------------
-# Asset Color Map (for portfolio visualization)
-#----------------------------------------------------------
-def get_asset_color_map(assets):
-    """
-    Main
-    ----
-    Generate consistent colors for asset-level visualizations.
-    Assigns a unique color to each asset using Plotly's qualitative palette, 
-    cycling through it as needed. Useful for consistent coloring in portfolio plots.
-    This is a support function.
-
-    Parameters
-    ----------
-    assets : list-like
-        List of asset names (strings).
-
-    Returns
-    -------
-    dict
-        Dictionary mapping each asset to a color string.
-    """
-    base_colors = px.colors.qualitative.Plotly
-    color_cycle = itertools.cycle(base_colors)
-    return {asset: next(color_cycle) for asset in assets}
 
 
 #----------------------------------------------------------
@@ -634,8 +581,9 @@ def plot_correlation_matrix(position_data, interactive=True, output_path=None):
         display(display_high_dpi_inline(png_bytes, width))
 
 
+
 # ----------------------------------------------------------
-# Simulated P&L Distribution Plot with KDE (Static Only)
+# Simulated Distribution Plot (Static Only)
 # ----------------------------------------------------------
 def plot_simulated_distribution(profit_and_loss, var, es, confidence_level=0.99, output_path=None):
     """
@@ -664,21 +612,32 @@ def plot_simulated_distribution(profit_and_loss, var, es, confidence_level=0.99,
     """
     plt.figure(figsize=(10, 5))
 
+    # Main plot: histogram + KDE
     sns.histplot(profit_and_loss, bins=80, kde=True, stat="density",
                  color="lightblue", edgecolor="black", linewidth=0.5)
 
+    # Add VaR and ES lines
     plt.axvline(-var, color="black", linestyle="-", linewidth=1.5,
                 label=f"VaR ({int(confidence_level * 100)}%)")
     plt.axvline(-es, color="red", linestyle="--", linewidth=1.5,
                 label=f"ES ({int(confidence_level * 100)}%)")
 
-    plt.title("Simulated Portfolio P&L Distribution", loc="left", fontsize=13, fontweight="medium")
-    plt.legend(loc="upper left", frameon=True, edgecolor="black")
+    # Titles and labels
+    plt.title("Simulated P&L Distribution", loc="left", fontsize=13, fontweight="medium")
     plt.xlabel("Profit / Loss")
     plt.ylabel("Density")
-    plt.legend()
+
+    # Axis formatters
+    ax = plt.gca()
+    ax.xaxis.set_major_formatter(FuncFormatter(format_money))
+    ax.yaxis.set_major_formatter(FuncFormatter(format_scientific))
+
+    plt.xticks(rotation=0)
+    plt.yticks(rotation=0)
+    plt.legend(loc="best", frameon=True, edgecolor="black")
     plt.tight_layout()
 
+    # Output handling
     if output_path:
         plt.savefig(output_path, dpi=300, format="pdf")
         plt.close()
@@ -691,13 +650,13 @@ def plot_simulated_distribution(profit_and_loss, var, es, confidence_level=0.99,
 
 
 # ----------------------------------------------------------
-# Simulated Portfolio Path Plot (Static Only)
+# Simulated Paths Plot (Static Only)
 # ----------------------------------------------------------
-def plot_simulated_paths(portfolio_paths, output_path=None):
+def plot_simulated_paths(simulated_paths, output_path=None):
     """
     Main
     ----
-    Plot simulated portfolio value trajectories over time.
+    Plot simulated asset or portfolio value trajectories over time.
 
     Displays individual paths generated from a Monte Carlo simulation of
     portfolio values. Useful for assessing the dispersion and range of
@@ -713,18 +672,29 @@ def plot_simulated_paths(portfolio_paths, output_path=None):
     output_path : str, optional
         File path to export PDF. If None, shows the plot inline.
     """
-    num_days, num_paths = portfolio_paths.shape
+    # Ensure shape (T × N)
+    if simulated_paths.shape[0] > simulated_paths.shape[1]:
+        simulated_paths = simulated_paths.T
+
+    num_days, num_paths = simulated_paths.shape
     sample_paths = min(num_paths, 2500)
     x_axis = np.arange(num_days)
 
     plt.figure(figsize=(10, 5))
+
     for i in range(sample_paths):
-        plt.plot(x_axis, portfolio_paths[:, i], alpha=0.4)
+        plt.plot(x_axis, simulated_paths[:, i], alpha=0.4)
 
     plt.xlim(0, num_days - 1)
-    plt.title(f"Simulated Portfolio Value Trajectories over {num_days - 1} Days", loc="left", fontsize=13, fontweight="medium")
+    plt.title(f"Simulated Paths over {num_days - 1} Days", loc="left", fontsize=13, fontweight="medium")
     plt.xlabel("Days")
-    plt.ylabel("Portfolio Value")
+    plt.ylabel("Value")
+
+    ax = plt.gca()
+    ax.yaxis.set_major_formatter(FuncFormatter(format_money))
+
+    plt.xticks(fontsize=10)
+    plt.yticks(fontsize=10)
     plt.tight_layout()
 
     if output_path:

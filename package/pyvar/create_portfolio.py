@@ -27,7 +27,6 @@ May 2025
 
 Contents
 --------
-- validate_matrix: Run basic stability checks on matrices (e.g., prices, returns, positions)
 - get_raw_prices: Download adjusted closing prices using yfinance
 - convert_to_base: Convert raw prices to a common base currency
 - create_portfolio: Convert prices into monetary exposures using share quantities
@@ -40,59 +39,7 @@ Contents
 # ----------------------------------------------------------
 import yfinance as yf
 import pandas as pd
-import numpy as np
-
-
-#----------------------------------------------------------
-# Checks for Financial Matrices (Shared Function)
-#----------------------------------------------------------
-def validate_matrix(matrix: pd.DataFrame, context: str = ""):
-    """
-    Main
-    ----
-    Perform basic structural and statistical checks on any matrix 
-    used in financial modeling (e.g., prices, positions, returns).
-
-    If you don't download the data using our functions, like using 
-    your own csv file, you can use this function to check the data
-    immediately. We don't recommend however for our basic applications
-    to use portfolios with overall negative values (complete shorts).
-    Also, notice that a near zero value of portfolio (perfect hedge)
-    may be a problem in some other functions. 
-
-    Parameters
-    ----------
-    matrix : pd.DataFrame
-        Time-indexed matrix with assets as columns.
-    context : str, optional
-        Context label for warnings (e.g., 'raw prices', 'portfolio').
-
-    Warns
-    -----
-    - If NaNs are present.
-    - If sample size is less than number of columns.
-    - If any column has near-zero variance.
-    - If the covariance matrix is not positive semi-definite.
-    """
-    label = f"[{context}]" if context else ""
-
-    if matrix.isnull().any().any():
-        print(f"[warning] {label} NaNs detected — clean the data before analysis.")
-
-    n_observations, n_assets = matrix.shape 
-    if n_observations < n_assets:
-        print(f"[warning] {label} Fewer rows ({n_observations}) than columns ({n_assets}) — covariance may be unstable.")
-
-    variances = matrix.var()
-    near_zero = variances < 1e-10
-    if near_zero.any():
-        bad_assets = matrix.columns[near_zero].tolist()
-        print(f"[warning] {label} Near-zero variance in: {bad_assets} — may cause instability.")
-
-    cov = matrix.cov().values
-    eigenvalues = np.linalg.eigvalsh(cov)
-    if (eigenvalues < -1e-8).any():
-        print(f"[warning] {label} Covariance matrix not PSD — negative eigenvalues detected.")
+from .utils import validate_matrix
 
 
 #----------------------------------------------------------

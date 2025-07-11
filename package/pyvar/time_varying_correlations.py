@@ -6,9 +6,9 @@ Implements portfolio-level Value-at-Risk (VaR) and Expected Shortfall (ES)
 using time-varying correlation models. Supports both parametric (normal quantile) 
 and semi-empirical (empirical quantile from standardized residuals) approaches.
 
-Monetary positions evolve under a buy-and-hold strategy. Risk is estimated using 
-either a rolling sample covariance (Moving Average) or an exponentially weighted 
-covariance matrix (EWMA).
+The methods adopted are based on MA, EWMA, rolling PCA and LW shrinkage.
+
+Monetary positions evolve under a buy-and-hold strategy. 
 
 Expected Shortfall is computed via the es_correlation function, which automatically 
 selects between parametric and empirical estimation based on model output.
@@ -26,6 +26,8 @@ May 2025
 
 - ma_correlation_var: Portfolio VaR using a rolling covariance matrix (MA).
 - ewma_correlation_var: Portfolio VaR using an EWMA covariance matrix.
+- pca_correlation_var: Portfolio VaR using PCA-filtered covariance matrix.
+- lw_correlation_var: Portfolio VaR using Ledoit-Wolf shrinkage covariance matrix.
 - es_correlation: Expected Shortfall estimator that adapts to the presence of empirical innovations.
 """
 
@@ -35,6 +37,7 @@ May 2025
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
+from sklearn.covariance import LedoitWolf
 
 
 #----------------------------------------------------------
@@ -257,6 +260,228 @@ def ewma_correlation_var(
 
 
 #----------------------------------------------------------
+# PCA Correlation VaR (Parametric or Empirical)
+#----------------------------------------------------------
+def pca_correlation_var(
+    x_matrix: pd.DataFrame,
+    confidence_level: float = 0.99,
+    window_size: int = 60,
+    n_components: int = 3,
+    distribution: str = "normal",
+) -> pd.DataFrame:
+    """
+    Main
+    ----
+    Estimate portfolio Value-at-Risk (VaR) using a rolling PCA-filtered covariance matrix.
+
+    This function supports both parametric and semi-empirical approaches:
+    - In "normal" mode, VaR is computed using the standard normal quantile.
+    - In "empirical" mode, the quantile is estimated from standardized innovations.
+
+    PCA is applied to the rolling return covariance matrix, retaining only the top
+    principal components for a low-rank approximation.
+
+    Parameters
+    ----------
+    x_matrix : pd.DataFrame
+        Monetary positions per asset over time (T × N).
+    confidence_level : float, optional
+        Confidence level for VaR (e.g., 0.99). Default is 0.99.
+    window_size : int, optional
+        Rolling window size for PCA. Default is 60.
+    n_components : int, optional
+        Number of principal components to retain. Default is 3.
+    distribution : str, optional
+        Type of quantile used: "normal" or "empirical". Default is "normal".
+
+    Returns
+    -------
+    result_data : pd.DataFrame
+        DataFrame with:
+        - 'Returns': Portfolio returns
+        - 'Volatility': Conditional volatility
+        - 'VaR': Relative VaR (decimal)
+        - 'VaR Monetary': Absolute VaR in monetary units
+        - 'VaR Violation': Breach indicator
+        - 'Innovations': Standardized residuals (if empirical mode)
+
+    Raises
+    ------
+    ValueError
+        If weights are invalid in empirical mode.
+    """
+    returns = x_matrix.pct_change().dropna()
+    portfolio_value_series = x_matrix.sum(axis=1)
+
+    weights = x_matrix.div(portfolio_value_series, axis=0)
+    portfolio_returns = (weights * returns).sum(axis=1)
+
+    if distribution == "empirical":
+        min_weight = 0.02
+        if (weights.abs().min(axis=1) < min_weight).any():
+            raise ValueError("Some asset weights are too small — check portfolio composition.")
+        if (weights < -1.0).any().any():
+            raise ValueError("Some asset weights exceed 100% short — check portfolio composition.")
+        if not np.allclose(weights.sum(axis=1), 1.0):
+            raise ValueError("Weights do not sum to 1 on all dates.")
+
+    volatilities = []
+    z_scores = []
+    valid_index = []
+
+    for t in range(window_size - 1, len(returns)):
+        date = returns.index[t]
+        window_returns = returns.iloc[t - window_size + 1 : t + 1]
+
+        # Compute covariance matrix
+        cov_matrix = window_returns.cov().values
+
+        # Eigen decomposition
+        eigenvals, eigenvecs = np.linalg.eigh(cov_matrix)
+        sorted_indices = np.argsort(eigenvals)[::-1]
+        eigenvals = eigenvals[sorted_indices][:n_components]
+        eigenvecs = eigenvecs[:, sorted_indices][:, :n_components]
+
+        # Reconstruct PCA-filtered covariance matrix
+        filtered_cov = eigenvecs @ np.diag(eigenvals) @ eigenvecs.T
+
+        w_t = weights.loc[date].values.reshape(-1, 1)
+        r_t = portfolio_returns.loc[date]
+
+        portfolio_variance = (w_t.T @ filtered_cov @ w_t).item()
+        portfolio_volatility = np.sqrt(portfolio_variance)
+
+        volatilities.append(portfolio_volatility)
+        valid_index.append(date)
+
+        if distribution == "empirical":
+            z_scores.append(r_t / portfolio_volatility)
+
+    result_data = pd.DataFrame({
+        "Returns": portfolio_returns.loc[valid_index],
+        "Volatility": volatilities
+    }, index=valid_index)
+
+    if distribution == "empirical":
+        z_scores_series = pd.Series(z_scores, index=valid_index)
+        z_quantile = np.quantile(z_scores_series, 1 - confidence_level)
+        result_data["Innovations"] = z_scores_series
+    else:
+        z_quantile = norm.ppf(1 - confidence_level)
+
+    result_data["VaR"] = -z_quantile * result_data["Volatility"]
+    result_data["VaR Monetary"] = result_data["VaR"] * portfolio_value_series.loc[valid_index]
+    result_data["VaR Violation"] = result_data["Returns"] * portfolio_value_series.loc[valid_index] < -result_data["VaR Monetary"]
+
+    return result_data
+
+
+#----------------------------------------------------------
+# Ledoit-Wolf Correlation VaR (Parametric or Empirical)
+#----------------------------------------------------------
+def lw_correlation_var(
+    x_matrix: pd.DataFrame,
+    confidence_level: float = 0.99,
+    window_size: int = 60,
+    distribution: str = "normal",
+) -> pd.DataFrame:
+    """
+    Main
+    ----
+    Estimate portfolio Value-at-Risk (VaR) using a Ledoit-Wolf shrinkage covariance matrix
+    applied in a rolling window.
+
+    This function supports both parametric and semi-empirical approaches:
+    - In "normal" mode, VaR is computed using the standard normal quantile.
+    - In "empirical" mode, the quantile is estimated from standardized innovations.
+
+    Parameters
+    ----------
+    x_matrix : pd.DataFrame
+        Monetary positions per asset over time (T × N).
+    confidence_level : float, optional
+        Confidence level for VaR (e.g., 0.99). Default is 0.99.
+    window_size : int, optional
+        Rolling window size for shrinkage estimation. Default is 60.
+    distribution : str, optional
+        Type of quantile used: "normal" or "empirical". Default is "normal".
+
+    Returns
+    -------
+    result_data : pd.DataFrame
+        DataFrame with:
+        - 'Returns': Portfolio returns
+        - 'Volatility': Conditional volatility
+        - 'VaR': Relative VaR (decimal)
+        - 'VaR Monetary': Absolute VaR in monetary units
+        - 'VaR Violation': Breach indicator
+        - 'Innovations': Standardized residuals (if empirical mode)
+
+    Raises
+    ------
+    ValueError
+        If weights are invalid in empirical mode.
+    """
+    returns = x_matrix.pct_change().dropna()
+    portfolio_value_series = x_matrix.sum(axis=1)
+
+    weights = x_matrix.div(portfolio_value_series, axis=0)
+    portfolio_returns = (weights * returns).sum(axis=1)
+
+    if distribution == "empirical":
+        min_weight = 0.02
+        if (weights.abs().min(axis=1) < min_weight).any():
+            raise ValueError("Some asset weights are too small — check portfolio composition.")
+        if (weights < -1.0).any().any():
+            raise ValueError("Some asset weights exceed 100% short — check portfolio composition.")
+        if not np.allclose(weights.sum(axis=1), 1.0):
+            raise ValueError("Weights do not sum to 1 on all dates.")
+
+    volatilities = []
+    z_scores = []
+    valid_index = []
+
+    lw_model = LedoitWolf()
+
+    for t in range(window_size - 1, len(returns)):
+        date = returns.index[t]
+        window_returns = returns.iloc[t - window_size + 1 : t + 1]
+
+        lw_model.fit(window_returns)
+        shrink_cov = lw_model.covariance_
+
+        w_t = weights.loc[date].values.reshape(-1, 1)
+        r_t = portfolio_returns.loc[date]
+
+        portfolio_variance = (w_t.T @ shrink_cov @ w_t).item()
+        portfolio_volatility = np.sqrt(portfolio_variance)
+
+        volatilities.append(portfolio_volatility)
+        valid_index.append(date)
+
+        if distribution == "empirical":
+            z_scores.append(r_t / portfolio_volatility)
+
+    result_data = pd.DataFrame({
+        "Returns": portfolio_returns.loc[valid_index],
+        "Volatility": volatilities
+    }, index=valid_index)
+
+    if distribution == "empirical":
+        z_scores_series = pd.Series(z_scores, index=valid_index)
+        z_quantile = np.quantile(z_scores_series, 1 - confidence_level)
+        result_data["Innovations"] = z_scores_series
+    else:
+        z_quantile = norm.ppf(1 - confidence_level)
+
+    result_data["VaR"] = -z_quantile * result_data["Volatility"]
+    result_data["VaR Monetary"] = result_data["VaR"] * portfolio_value_series.loc[valid_index]
+    result_data["VaR Violation"] = result_data["Returns"] * portfolio_value_series.loc[valid_index] < -result_data["VaR Monetary"]
+
+    return result_data
+
+
+#----------------------------------------------------------
 # Expected Shortfall for Correlation Models (General)
 #----------------------------------------------------------
 def correlation_es(result_data, confidence_level=0.99):
@@ -318,5 +543,3 @@ def correlation_es(result_data, confidence_level=0.99):
     result_data["ES Monetary"] = result_data["ES"] * portfolio_value
 
     return result_data
-
-
