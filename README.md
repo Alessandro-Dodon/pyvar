@@ -5,7 +5,7 @@ Simple. Fast. Visual. Intuitive.
 
 ---
 
-## 📘 Introduction
+## 📖 Introduction
 
 Risk management is central to finance, yet many practitioners still rely on inefficient tools like spreadsheets. As programming becomes essential in financial workflows, there is a growing need for accessible, efficient solutions to compute Value-at-Risk (VaR) and other risk metrics such as Expected Shortfall (ES).
 
