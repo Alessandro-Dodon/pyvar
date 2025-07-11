@@ -76,7 +76,7 @@ Open any notebook in this folder to explore a specific method. Each one is desig
 
 - Code explanations and comments  
 - Theory refreshers where relevant  
-- Visual output and backtesting  
+- Visual output and backtesting where applicable  
 - Ready-to-use examples on real or simulated data
 
 ---
