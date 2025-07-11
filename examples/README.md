@@ -1,146 +1,86 @@
 # pyvar Examples
 
-This folder contains example scripts that demonstrate how to use the pyvar package in practice.
+This folder contains Jupyter notebooks that demonstrate how to use the `pyvar` package in practice.
+
+Each notebook showcases a different method or class of risk models, progressing from basic concepts to advanced applications.
 
 ---
 
-## 📘 Jupyter Notebook
+## 📘 Example Notebooks
 
-### `pyvar_example_usage.ipynb`
-
-This is the main tutorial notebook. It serves as a real-life walkthrough for new users and includes:
-
-- A tour of the core functionality in the package
-- Explanations of the logic behind each method, with theory refreshers
-- Visualizations to support interpretation
-- A progression from single-asset risk models to full portfolio analysis
-- Two simple portfolio strategies, with end-to-end risk evaluation
+### `basic_var.ipynb`  
+A gentle introduction covering the most common Value-at-Risk methods:  
+- Parametric (Normal, Cornish-Fisher)  
+- Non-parametric (Historical)  
+- Comparative visualization and commentary  
 
 ---
 
-## 🤖 Script for LLM Integration
-
-### `pyvar_llm_report.py`
-
-A practical example showing how to combine the pyvar package with a local LLM to:
-
-- Calculate VaR & ES on an equity + options portfolio  
-- Backtest multiple VaR models (Kupiec, Christoffersen, joint tests)  
-- _(Optional)_ Use an LLM to automatically interpret results and generate a clear, simplified PDF report
-
-### Setup
-
-1. Clone the repository and go into the `examples` folder:  
-   ```bash
-   git clone https://github.com/Alessandro-Dodon/pyvar.git
-   cd pyvar
-   cd examples
-
-2. Install core dependencies:  
-   ```bash
-   pip install -r requirements.txt
-
-3. _(Optional)_ Setup LM Studio:
-   <details>
-   <summary>Show details</summary>
-  
-   To download and configure your local LM Studio correctly, follow the step-by-step notebook:                 `llm/tutorial_llm.ipynb`
-   
-   </details>
-
-### Configuration
-Open `pyvar_llm_report.py` and adjust at the top:
-
-```python
-# VaR & ES confidence level
-CONFIDENCE_LEVEL = 0.99 
-
-# Lookback period (business days)
-LOOKBACK_BUSINESS_DAYS = 300
-
-# Toggle LLM interpretation & PDF report
-RUN_LLM_INTERPRETATION = True # or False
-ANSWER_LLM_LENGHT = 500 # Length of the LLM answer in tokens
-
-# Local LLM endpoint & model
-LMSTUDIO_ENDPOINT  = "http://<your-host>:<port>" # Local LM Studio server URL
-API_PATH           = "/v1/completions"
-MODEL_NAME = "your-model-name-here" # Model's API identifier
-
-```
-You can also change the prompt by going in `llm/llm_rag.py` and changing the `prompt_sections` variable in the `build_rag_prompt` function. Find more info on that in the `llm/` folder.
-
-If you plan to use the LLM interpretation, make sure your LM Studio server is running, the `rag.LMSTUDIO_ENDPOINT` is reachable and the specified `MODEL_NAME` is loaded
-
-### Quick Start
-Run `pyvar_llm_report.py`. Enter when prompted:
-
-- **Base currency**  
-  Input one base currecy (e.g. _EUR_, _CHF_, _USD_...), then press Enter.
-
-- **Equity tickers**  
-  Enter all equity tickers at once, space-separated and exactly as on Yahoo Finance (e.g. _MSFT_ _ISP.MI_ _NESN.SW_), then press Enter.
-
-- **Number of shares per ticker**  
-  When prompted for each ticker, type the number of shares you hold and press Enter to confirm. Repeat until you’ve entered a value for every ticker.
-
-
-- **Option positions** (y if you have options position in the portfolio, n if not)
- - if **y**, for each option input:
-   - **Underlying stock** (e.g. AAPL), click Enter
-   - **Type of options**: call or put, click Enter
-   - **Number of contracts**, click Enter
-   - **Multiplier** (number of stock x contract, default is 100), click Enter
-   - **Strike price**, click Enter
-   - **Time to maturity** (in years), click Enter
-- To add another option repeat the steps above or click enter to launch the analysis
-  
-
-### Output
-
-When the script finishes, you’ll get:
-
-- **Console**:  
-  - Portfolio positions table  
-  - Portfolio VaR & ES   
-  - Backtest results
-  - Summary text
-
-- **_(Optional)_ PDF Report**  
-  <details>
-  <summary>Show details</summary>
-
-  If `RUN_LLM_INTERPRETATION = True`, the LLM interpretation runs automatically and a simple PDF report is generated.
-
-  </details>
-  
-### Troubleshooting
-
-- **Missing data / NaN**  
-  Tickers without valid price history are dropped automatically (check console warnings).
-
-- **Error “At least two time steps are required”**  
-  Increase `LOOKBACK_BUSINESS_DAYS` or verify data availability.
-
-- **LLM connection issues**  
-  Ensure `rag.LMSTUDIO_ENDPOINT` is reachable and the service is running.
-
+### `volatility_models.ipynb`  
+Demonstrates portfolio volatility estimation using various volatility models:  
+- Simple moving average  
+- Exponentially weighted moving average (EWMA)  
+- GARCH-family models (GARCH, GJR-GARCH, with different distributions)  
 
 ---
 
-
-## ⚠️ Disclaimer
-
-The LLM integration is experimental. Do not rely solely on its output, always verify results with traditional methods or a qualified expert.  
-
-
+### `evt.ipynb`  
+Applies Extreme Value Theory (EVT) in two distinct use cases:  
+- Modeling left-tail behavior in simulated profit and loss  
+- Assessing extreme risks from empirical returns  
 
 ---
 
-Feel free to run or adapt these examples to suit your own analysis!
+### `analytic_var.ipynb`  
+Focuses on analytic VaR estimation for simple portfolios:  
+- Portfolio-level parametric VaR  
+- Variance-covariance methods  
+- Portfolio weights, correlations, and marginal risk contributions  
+- An end-to-end view of multi-asset portfolio risk modeling  
 
+---
 
+### `correlation_models.ipynb`  
+Explores time-varying correlation structures between assets:  
+- Moving average and EWMA covariance estimators  
+- Rolling PCA for dimension reduction  
+- Ledoit-Wolf shrinkage for improved covariance estimation  
 
+---
 
+### `factor_models.ipynb`  
+Implements factor-based risk modeling:  
+- Single-factor and multi-factor models  
+- Optional combination with GARCH-based volatility modeling  
+- Use of economic and statistical factors for portfolio VaR  
 
+---
 
+### `options.ipynb`  
+Introduces basic Value-at-Risk models for options portfolios:  
+- Delta-normal VaR  
+- Limitations of parametric assumptions  
+- Examples combining options with equity holdings  
+
+---
+
+### `simulations.ipynb`  
+Uses simulation-based methods to model risk under different assumptions:  
+- Parametric and non-parametric simulations  
+- Applications to both equity-only and equity + options portfolios  
+- Visualization of P&L distributions and tail events  
+
+---
+
+## 💡 How to Use
+
+Open any notebook in this folder to explore a specific method. Each one is designed to be self-contained and includes:
+
+- Code explanations and comments  
+- Theory refreshers where relevant  
+- Visual output and backtesting  
+- Ready-to-use examples on real or simulated data
+
+---
+
+Feel free to adapt these notebooks to suit your own analysis or build on them to develop more advanced workflows.

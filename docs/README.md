@@ -1,22 +1,9 @@
 # pyvar Documentation
 
-This folder contains the supporting document that summarizes the pyvar package and its applications.
+This folder contains the supporting document that summarizes the `pyvar` package and its applications.
 
 ---
 
 ## 📄 report.pdf
 
-A brief overview of the project, including:
-- Project Plan/ Diary
-- Theoretical Foundations
-- Examples Results
-- References
-
-Useful as a quick reference or introduction to the package.
-
----
-
-## 📚 For More Detail
-
-For a more in-depth discussion focused on the risk management models themselves, see `llm/knowledge_base.pdf`.
-
+This PDF provides a concise overview of the project, covering its theoretical foundations and key references. It serves as a helpful introduction or quick reference for users exploring the package.
