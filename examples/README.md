@@ -36,7 +36,6 @@ Focuses on analytic VaR estimation for simple portfolios:
 - Asset Normal VaR  
 - Undiversified VaR  
 - Component VaR  
-- Relative Component VaR  
 - Incremental VaR  
 
 ---
