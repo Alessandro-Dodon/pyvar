@@ -10,4 +10,6 @@ This PDF provides a concise overview of the project, covering its theoretical fo
 
 ---
 
+## 📘 Hands-On Notebooks
+
 For a more applied perspective, visit the `examples/` folder and open the notebook of interest. The notebooks provide hands-on implementations of the models, with theory refreshers, practical guidance, result interpretation, and advice on real-world usage.
