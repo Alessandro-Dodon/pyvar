@@ -47,19 +47,16 @@ from arch import arch_model
 from .options import black_scholes_pricing
 
 
-#----------------------------------------------------------
-# Multiday Garch Simulation VaR (Univariate, Equity-only)
+# ----------------------------------------------------------
+# Multiday GARCH Simulation VaR (Univariate, Equity-only)
 # ----------------------------------------------------------
 def multiday_garch_simulation_var_univariate(price_series, forecast_days=22, 
                    n_samples=1000, confidence_level=0.99, 
                    wealth=100_000, distribution="normal", seed=1):
     """
-    Main
-    ----
     Multiday GARCH(1,1) simulation-based Value-at-Risk (VaR) for equity portfolios.
-
     Simulates forward price paths using a univariate GARCH(1,1) process on log-returns
-    to estimate the profit-and-loss (P&L) distribution over a multi-day horizon. 
+    to estimate the profit-and-loss (P&L) distribution over a multi-day horizon.
     Supports normal and t-distributed residuals.
 
     Parameters
@@ -87,11 +84,6 @@ def multiday_garch_simulation_var_univariate(price_series, forecast_days=22,
         Simulated P&L distribution (length = n_samples).
     price_paths : np.ndarray
         Simulated price paths (n_samples × (forecast_days + 1)).
-
-    Notes
-    -----
-    - GARCH model fitted to historical log-returns .
-    - The t-distribution is standardized to have unit variance.
     """
     if wealth is not None and wealth <= 0:
         raise ValueError("wealth must be strictly positive if provided")
@@ -99,7 +91,7 @@ def multiday_garch_simulation_var_univariate(price_series, forecast_days=22,
     if seed is not None:
         np.random.seed(seed)
 
-    # Use log-returns in percent units
+    # Use log-returns in percent units for stability
     return_series = np.log(price_series / price_series.shift(1)).dropna() * 100
 
     model = arch_model(return_series, vol='Garch', p=1, q=1, dist=distribution)
@@ -111,8 +103,8 @@ def multiday_garch_simulation_var_univariate(price_series, forecast_days=22,
     mu = 0.0
     df = model_fit.params["nu"] if distribution == "t" else None
 
-    last_vol = model_fit.conditional_volatility.iloc[-1].item()
-    last_ret = return_series.iloc[-1].item()
+    last_vol_percent = model_fit.conditional_volatility.iloc[-1].item()
+    last_ret_percent = return_series.iloc[-1].item()
 
     price_paths = np.empty((n_samples, forecast_days + 1))
     profit_and_loss = np.empty(n_samples)
@@ -120,20 +112,27 @@ def multiday_garch_simulation_var_univariate(price_series, forecast_days=22,
     for i in range(n_samples):
         path = np.empty(forecast_days + 1)
         price = wealth
-        volatility = last_vol
-        ret = last_ret
+        volatility_percent = last_vol_percent
+        ret_percent = last_ret_percent
         path[0] = price
 
         for t in range(1, forecast_days + 1):
-            volatility = np.sqrt(omega + alpha * ret**2 + beta * volatility**2)
+            volatility_percent = np.sqrt(
+                omega + alpha * ret_percent**2 + beta * volatility_percent**2
+            )
+
             if distribution == "t":
                 shock = np.random.standard_t(df)
                 shock /= np.sqrt(df / (df - 2))
             else:
                 shock = np.random.normal()
-            ret_scaled = mu + volatility * shock
-            ret = ret_scaled / 100  # convert percent back to decimal
-            price *= np.exp(ret)
+
+            # Generate return in percent units, then convert to decimal
+            ret_percent = mu + volatility_percent * shock
+            ret_decimal = ret_percent / 100
+
+            # Apply return to price
+            price *= np.exp(ret_decimal)
             path[t] = price
 
         price_paths[i] = path
@@ -746,7 +745,7 @@ def filtered_historical_simulation_var(
 
 
 # ----------------------------------------------------------
-# Multiday GMM Simulation VaR (Multivariate, Equity-only)
+# GMM Simulation VaR (Multivariate, Equity-only)
 # ----------------------------------------------------------
 def gmm_monte_carlo_simulation_var(
     price_data,
