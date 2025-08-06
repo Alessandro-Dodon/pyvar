@@ -11,7 +11,7 @@ Risk management is central to finance, yet many practitioners still rely on inef
 
 **pyvar** is a Python package that automates the full VaR estimation pipeline—from portfolio creation to risk metrics, visualization and backtesting.
 
-> Designed for equity portfolios and simple models, pyvar prioritizes **speed**, **clarity**, and **ease of use**—ideal for professionals, students, and retail investors seeking modern tools for intuitive **market risk** modeling.
+> Designed for equity and options portfolios, pyvar prioritizes **speed**, **clarity**, and **ease of use**—ideal for professionals, students, and retail investors seeking modern tools for intuitive **market risk** modeling.
 
 ---
 
