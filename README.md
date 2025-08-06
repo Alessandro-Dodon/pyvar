@@ -7,11 +7,11 @@ Simple. Fast. Visual. Intuitive.
 
 ## 📖 Introduction
 
-Risk management is central to finance, yet many practitioners still rely on inefficient tools like spreadsheets. As programming becomes essential in financial workflows, there is a growing need for accessible, efficient solutions to compute Value-at-Risk (VaR) and other risk metrics such as Expected Shortfall (ES).
+Risk management is central to finance, yet many practitioners still rely on inefficient tools like spreadsheets. As programming becomes essential in financial workflows, there is a growing need for accessible, efficient solutions to compute market risk metrics such as Value-at-Risk (VaR) and Expected Shortfall (ES).
 
 **pyvar** is a Python package that automates the full VaR estimation pipeline—from portfolio creation to risk metrics, visualization and backtesting.
 
-> Designed for equity portfolios and simple models, pyvar prioritizes **speed**, **clarity**, and **ease of use**—ideal for professionals, students, and retail investors seeking modern tools for intuitive financial risk modeling.
+> Designed for equity portfolios and simple models, pyvar prioritizes **speed**, **clarity**, and **ease of use**—ideal for professionals, students, and retail investors seeking modern tools for intuitive **market risk** modeling.
 
 ---
 
